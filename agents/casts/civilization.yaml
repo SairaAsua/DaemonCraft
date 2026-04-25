@@ -9,29 +9,29 @@ soul_file: ../SOUL-civilization.md
 agents:
   - name: Marcus
     template: marcus
-    port: 3001
+    port: 3006
     model: kimi/kimi-k2.6
   - name: Sarah
     template: sarah
-    port: 3002
+    port: 3007
     model: kimi/kimi-k2.6
   - name: Jin
     template: jin
-    port: 3003
+    port: 3008
     model: kimi/kimi-k2.6
   - name: Dave
     template: dave
-    port: 3004
+    port: 3009
     model: kimi/kimi-k2.6
   - name: Lisa
     template: lisa
-    port: 3005
+    port: 3010
     model: kimi/kimi-k2.6
   - name: Tommy
     template: tommy
-    port: 3006
+    port: 3011
     model: kimi/kimi-k2.6
   - name: Elena
     template: elena
-    port: 3007
+    port: 3012
     model: kimi/kimi-k2.6

@@ -487,13 +487,13 @@ async function createBot() {
       try {
         photoCamera = new Camera(bot);
         photoCamera.resize(854, 480);
-        photoCamera.samplesPerPixel = 16;
+        photoCamera.samplesPerPixel = 8;        // default 8 (was 16)
         photoCamera.renderDistance = 48;
         photoCamera.maxBounces = 2;
         photoCamera.fov = 90;
         photoScanReady = false;
-        // Start background scan — don't await, it blocks for minutes
-        photoScanPromise = photoCamera.scan(64, 32, 64).then(() => {
+        log('[Photo] Starting initial world scan...');
+        photoScanPromise = photoCamera.scan(48, 24, 48).then(() => {
           photoScanReady = true;
           log(`[Photo] Camera scan complete — screenshots ready`);
         }).catch(err => {
@@ -2525,7 +2525,7 @@ const ACTIONS = {
 
     // Update camera settings from request
     photoCamera.resize(Math.min(width, 1920), Math.min(height, 1080));
-    photoCamera.samplesPerPixel = Math.min(samples, 64);
+    photoCamera.samplesPerPixel = Math.min(samples || 8, 64);
     photoCamera.fov = fov;
 
     // Position camera at bot eyes, looking where bot looks

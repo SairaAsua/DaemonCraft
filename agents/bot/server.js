@@ -332,10 +332,14 @@ async function createBot() {
     reconnectTimeout = null;
   }
   if (bot) {
+    // Remove listeners before quit() so the old bot's 'end' handler
+    // doesn't schedule a competing reconnect timeout
+    bot.removeAllListeners('end');
+    bot.removeAllListeners('error');
     try { bot.quit(); } catch {}
     bot = null;
     botReady = false;
-    await sleep(1000);
+    await sleep(2000); // longer delay for server to clean up session
   }
 
   return new Promise((resolve, reject) => {
@@ -487,7 +491,17 @@ async function createBot() {
         reconnectTimeout = setTimeout(() => {
           reconnectTimeout = null;
           log('Attempting reconnect...');
-          createBot().catch(e => log(`Reconnect failed: ${e.message}`));
+          createBot().catch(e => {
+            log(`Reconnect failed: ${e.message}`);
+            // If createBot() rejects (e.g. timeout), ensure we still retry
+            if (!reconnectTimeout && !botReady) {
+              const fallbackDelay = Math.min(10000 * Math.pow(2, reconnectAttempts), 60000);
+              reconnectTimeout = setTimeout(() => {
+                reconnectTimeout = null;
+                createBot().catch(err => log(`Fallback reconnect failed: ${err.message}`));
+              }, fallbackDelay);
+            }
+          });
         }, delay);
       });
 

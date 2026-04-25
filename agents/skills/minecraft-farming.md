@@ -6,7 +6,7 @@ triggers:
   - grow food minecraft
   - minecraft food
   - breed animals
-version: 3.0.0
+version: 3.1.0
 ---
 
 # Minecraft Farming
@@ -14,14 +14,14 @@ version: 3.0.0
 ## Commands
 
 ```
-mc_mine(action="collect", block="CROP") N        # harvest crops
-mc_build(action="place") SEEDS X Y Z     # plant seeds
-mc_craft(action="craft", item="ITEM")             # craft farming tools
-mc_craft(action="smelt", input="RAW_FOOD")         # cook food in furnace
-mc_combat(action="attack", target="ANIMAL")          # kill for meat
-mc_mine(action="find_blocks", block="BLOCK")      # find farmland, water, crops
-mc_build(action="interact") X Y Z         # use hoe on dirt
-mc_build(action="use")                    # use held item (bone meal, etc)
+mc_manage(action="bg_collect", block="CROP", count=N)     # harvest crops
+mc_build(action="place", block="SEEDS", x=X, y=Y, z=Z)    # plant seeds
+mc_craft(action="craft", item="ITEM")                      # craft farming tools
+mc_manage(action="smelt", item="RAW_FOOD")                 # cook food in furnace
+mc_combat(action="attack", target="ANIMAL")                # kill for meat
+mc_perceive(type="nearby")                                  # find farmland, water, crops
+mc_build(action="place", block="hoe", x=X, y=Y, z=Z)      # use hoe on dirt (via interact)
+mc_build(action="place", block="bonemeal", x=X, y=Y, z=Z) # bone meal crops
 ```
 
 ## Quick Food (Early Game)
@@ -30,21 +30,21 @@ Fastest way to not starve:
 
 1. Kill animals: `mc_combat(action="attack", target="cow")`, `mc_combat(action="attack", target="pig")`, `mc_combat(action="attack", target="chicken")`
 2. `mc_mine(action="pickup")` — collect raw meat
-3. `mc_craft(action="smelt", input="raw_beef")` (or raw_porkchop, raw_chicken)
+3. `mc_manage(action="smelt", item="raw_beef")` (or raw_porkchop, raw_chicken)
 4. Cooked steak = 8 food points (best common food)
 
 ## Crop Farming
 
 ### Setup
 1. Craft hoe: `mc_craft(action="craft", item="stone_hoe")`
-2. Find water or `mc_build(action="place") water_bucket X Y Z`
-3. Till dirt near water: equip hoe, `mc_build(action="interact") X Y Z` on dirt blocks
+2. Find water or place water bucket near dirt
+3. Till dirt near water: equip hoe, interact on dirt blocks
 4. Get seeds: break grass with hand → wheat seeds
-5. Plant: `mc_build(action="place") wheat_seeds X Y Z` on farmland
+5. Plant: `mc_build(action="place", block="wheat_seeds", x=X, y=Y, z=Z)` on farmland
 
 ### Harvest
 - Wheat grows in ~20 minutes. Fully grown = golden color.
-- `mc_mine(action="collect", block="wheat") N` — harvest mature wheat
+- `mc_manage(action="bg_collect", block="wheat", count=N)` — harvest mature wheat
 - `mc_craft(action="craft", item="bread")` — 3 wheat → 1 bread (6 food points)
 
 ### Best Crops

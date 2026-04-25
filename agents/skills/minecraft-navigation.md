@@ -7,7 +7,7 @@ triggers:
   - minecraft explore
   - find village
   - find cave
-version: 3.0.0
+version: 3.1.0
 ---
 
 # Minecraft Navigation
@@ -15,14 +15,13 @@ version: 3.0.0
 ## Commands
 
 ```
-mc_move(action="goto") X Y Z            # pathfind to exact position
-mc_move(action="goto_near") X Y Z [r]   # pathfind near position (default range: 2)
-mc_move(action="follow", player="PLAYER")          # follow a player continuously
-mc_move(action="stop")                   # stop movement
-mc_perceive(type="status")                 # check position, biome, dimension
-mc_mine(action="find_blocks", block="BLOCK")      # find block types nearby
-mc_perceive(type="nearby") [radius]        # scan surroundings (default: 32)
-mc_perceive(type="look")_at X Y Z          # look at position
+mc_manage(action="bg_goto", x=X, y=Y, z=Z)     # pathfind to exact position
+mc_move(action="follow", player="PLAYER")       # follow a player continuously
+mc_move(action="stop")                           # stop movement
+mc_perceive(type="status")                        # check position, biome, dimension
+mc_perceive(type="nearby")                        # scan surroundings
+mc_perceive(type="map")                           # ASCII top-down map
+mc_perceive(type="map", radius=24)               # wider view (24-block radius)
 ```
 
 ## Coordinate System
@@ -52,7 +51,7 @@ Ancient Debris: Y = 8 to 119     (best at Y = 15, Nether only)
 Structures don't have search commands, but strategies:
 
 - **Village**: explore plains, savanna, desert, taiga biomes
-- **Cave/Ravine**: `mc_mine(action="find_blocks", block="air")` near Y=40-60, or just explore
+- **Cave/Ravine**: `mc_perceive(type="nearby")` near Y=40-60, or just explore
 - **Stronghold**: throw eye of ender, follow direction
 - **Nether Fortress**: explore nether, tend to be along Z axis
 - **Ocean Monument**: find ocean biome, look for dark structure
@@ -68,20 +67,20 @@ Walk in expanding squares to cover area:
 5. Continue expanding
 
 ### Strip Mining (for ores)
-1. `mc_move(action="goto") X -59 Z` — go to diamond level
+1. `mc_manage(action="bg_goto", x=X, y=-59, z=Z)` — go to diamond level
 2. Dig straight tunnel (2 high, 1 wide)
 3. Branch tunnels every 3 blocks left and right
-4. `mc_mine(action="find_blocks", block="diamond_ore")` periodically to check
+4. `mc_perceive(type="nearby")` periodically to check for ores
 
 ### Cave Exploration
-1. `mc_mine(action="find_blocks", block="cave_air")` or look for openings
+1. `mc_perceive(type="nearby")` or look for openings
 2. Bring torches (lots)
 3. Place torches on RIGHT wall (so you can find way out: follow torches on LEFT)
 4. `mc_perceive(type="status")` frequently — watch for mobs
 
 ## Saving Locations
 
-When you find something important, save coordinates to memory:
+When you find something important, save coordinates:
 - Base location
 - Mine entrance
 - Village location
@@ -89,4 +88,6 @@ When you find something important, save coordinates to memory:
 - Mob spawner
 - Good farming spot
 
-Use hermes memory tool: save coordinates for future sessions.
+Use: `mc_manage(action="mark", name="NAME")`
+List: `mc_manage(action="marks")`
+Return: `mc_manage(action="go_mark", name="NAME")`

@@ -210,6 +210,15 @@ def setup_agent_profile(
     new_lines.append(f"MC_API_URL=http://localhost:{port}")
     env_path.write_text("\n".join(new_lines) + "\n")
 
+    # Install behavior skills
+    skills_src = SCRIPT_DIR / "skills"
+    skills_dst = profile_dir / "skills" / "minecraft"
+    if skills_src.exists() and any(skills_src.iterdir()):
+        skills_dst.mkdir(parents=True, exist_ok=True)
+        for skill_file in skills_src.glob("*.md"):
+            shutil.copy2(skill_file, skills_dst / skill_file.name)
+        log(f"Installed behavior skills for {name}", cast_name)
+
     return profile_dir
 
 

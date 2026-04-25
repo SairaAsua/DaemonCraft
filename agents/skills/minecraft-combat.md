@@ -6,7 +6,7 @@ triggers:
   - fight mobs
   - minecraft attack
   - kill mobs
-version: 3.0.0
+version: 3.1.0
 ---
 
 # Minecraft Combat
@@ -14,13 +14,13 @@ version: 3.0.0
 ## Commands
 
 ```
-mc_combat(action="attack") [target]     # attack nearest hostile or specific mob type
-mc_combat(action="eat")                 # eat food to heal
-mc_combat(action="equip", item="stone_sword")   # equip weapon
-mc_perceive(type="status")              # check health + nearby threats
-mc_mine(action="find_entities") TYPE  # find specific mob type nearby
-mc_move(action="goto") X Y Z          # flee to safe location
-mc_move(action="stop")                # stop current action
+mc_combat(action="attack", target="TARGET")     # attack nearest hostile or specific mob type
+mc_combat(action="eat")                          # eat food to heal
+mc_combat(action="equip", item="ITEM", slot="hand")  # equip weapon
+mc_perceive(type="status")                        # check health + nearby threats
+mc_perceive(type="nearby")                        # find specific mob type nearby
+mc_manage(action="bg_goto", x=X, y=Y, z=Z)      # flee to safe location
+mc_move(action="stop")                           # stop current action
 ```
 
 ## Combat Priority
@@ -34,11 +34,11 @@ Before ANY action, check health:
 
 Equip best weapon before fighting:
 ```
-mc_combat(action="equip", item="netherite_sword")   # best
-mc_combat(action="equip", item="diamond_sword")     # great
-mc_combat(action="equip", item="iron_sword")        # good
-mc_combat(action="equip", item="stone_sword")       # okay
-mc_combat(action="equip", item="wooden_sword")      # emergency
+mc_combat(action="equip", item="netherite_sword", slot="hand")   # best
+mc_combat(action="equip", item="diamond_sword", slot="hand")     # great
+mc_combat(action="equip", item="iron_sword", slot="hand")        # good
+mc_combat(action="equip", item="stone_sword", slot="hand")       # okay
+mc_combat(action="equip", item="wooden_sword", slot="hand")      # emergency
 ```
 
 ## Mob Strategies
@@ -56,7 +56,7 @@ mc_combat(action="equip", item="wooden_sword")      # emergency
 ### Creeper
 - Explodes when close. **NEVER** let it get within 3 blocks.
 - Sprint attack → retreat → sprint attack
-- `mc_combat(action="attack", target="creeper")` then `mc_move(action="goto")` away quickly
+- `mc_combat(action="attack", target="creeper")` then `mc_manage(action="bg_goto", ...)` away quickly
 - Kill with bow if possible
 
 ### Spider

@@ -7,7 +7,7 @@ triggers:
   - minecraft construction
   - build shelter
   - log cabin
-version: 4.0.0
+version: 4.1.0
 ---
 
 # Minecraft Building — With Taste
@@ -15,15 +15,14 @@ version: 4.0.0
 ## Commands
 
 ```
-mc_build(action="place") BLOCK X Y Z    # place block at position
-mc_mine(action="dig") X Y Z            # remove block at position
-mc_mine(action="collect", block="BLOCK") N       # gather building materials
-mc_craft(action="craft", item="ITEM") [N]        # craft building blocks
-mc_perceive(type="status")                # check position + inventory
-mc_mine(action="find_blocks", block="BLOCK")     # find material sources
-mc_build(action="interact") X Y Z        # open doors, chests, etc
-mc_move(action="goto_near") X Y Z       # get close to build site
-mc_perceive(type="nearby")                # see what's around you
+mc_build(action="place", block="BLOCK", x=X, y=Y, z=Z)     # place block at position
+mc_mine(action="dig", x=X, y=Y, z=Z)                       # remove block at position
+mc_manage(action="bg_collect", block="BLOCK", count=N)      # gather building materials
+mc_craft(action="craft", item="ITEM")                       # craft building blocks
+mc_perceive(type="status")                                   # check position + inventory
+mc_perceive(type="nearby")                                   # see what's around you
+mc_build(action="fill", block="BLOCK", x1=X1, y1=Y1, z1=Z1, x2=X2, y2=Y2, z2=Z2)  # fill area
+mc_manage(action="bg_goto", x=X, y=Y, z=Z)                  # get close to build site
 ```
 
 ## Before You Build ANYTHING
@@ -32,7 +31,7 @@ mc_perceive(type="nearby")                # see what's around you
 2. **ASK the player** where they want it if they didn't specify
 3. **Survey the terrain** — `mc_perceive(type="status")` + `mc_perceive(type="nearby")` to find flat ground
 4. **Plan it out** — tell the player your plan in chat before placing blocks
-5. **Clear the area** — `mc_mine(action="dig")` to remove trees, tall grass, uneven ground
+5. **Clear the area** — `mc_mine(action="dig", ...)` to remove trees, tall grass, uneven ground
 6. **Level the ground** — fill holes, remove bumps to make a flat foundation
 
 ## Golden Rules
@@ -75,7 +74,7 @@ Build order:
 ```
 Rustic cabin:   oak_log frame + spruce_planks walls + cobblestone base + stone_brick chimney
 Medieval:       stone_bricks + dark_oak_planks + cobblestone + oak fences
-Modern:         quartz + glass + concrete + stone slabs  
+Modern:         quartz + glass + concrete + stone slabs
 Cozy cottage:   birch_planks + stripped_birch_log + flowering_azalea + lanterns
 Desert:         sandstone + smooth_sandstone + red_sandstone accents
 ```
@@ -84,7 +83,7 @@ Desert:         sandstone + smooth_sandstone + red_sandstone accents
 
 ```
 A-frame:     stairs ascending from both sides meeting at peak
-Flat+border: slab roof with stair border overhang  
+Flat+border: slab roof with stair border overhang
 Hip roof:    stairs on all 4 sides converging
 Overhang:    extend roof 1 block past walls using stairs/slabs
 ```
@@ -113,14 +112,14 @@ Example — 7x5 floor at Y=64 starting at X=100, Z=200:
 ```
 for x in 100..106:
   for z in 200..204:
-    mc_build(action="place") oak_planks X 64 Z
+    mc_build(action="place", block="oak_planks", x=X, y=64, z=Z)
 ```
-(In practice, run each mc_build(action="place") individually)
+(In practice, run each place individually)
 
 ## Emergency Shelter (first night)
 
 If night is coming and there's no time for a proper build:
-1. `mc_mine(action="collect", block="cobblestone", count=24)` 
+1. `mc_manage(action="bg_collect", block="cobblestone", count=24)`
 2. Dig into a hillside or place 3x3x3 box
 3. Seal yourself in, place torch
 4. Wait for dawn

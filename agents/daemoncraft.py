@@ -277,23 +277,27 @@ def start_agent(
     cast_name: str,
     agent_name: str,
     port: int,
+    interval: int = 30,
 ) -> int:
-    """Start the Hermes agent. Returns PID."""
+    """Start the Hermes agent using the native persistent loop. Returns PID."""
     profile_name = agent_name.lower().replace(" ", "-")
     lf = log_file(cast_name, agent_name, "agent")
     out = open(lf, "a")
+
+    # Use the Hermes venv Python so imports work
+    hermes_venv_python = str(Path.home() / ".hermes" / "hermes-agent" / "venv" / "bin" / "python")
+    agent_loop_script = str(SCRIPT_DIR / "agent_loop.py")
 
     env = {
         **os.environ,
         "MC_API_URL": f"http://localhost:{port}",
         # Enable send_message tool by telling Hermes we're on a messaging platform.
-        # The actual Telegram credentials come from ~/.hermes/.env (TELEGRAM_BOT_TOKEN, etc.)
         "HERMES_SESSION_PLATFORM": "telegram",
     }
 
-    log(f"Starting Hermes agent for {agent_name}...", cast_name)
+    log(f"Starting persistent agent for {agent_name}...", cast_name)
     proc = subprocess.Popen(
-        ["hermes", "-p", profile_name, "chat", "-q", "Begin.", "--yolo", "--quiet"],
+        [hermes_venv_python, agent_loop_script, "--profile", profile_name, "--prompt", "Begin.", "--interval", str(interval)],
         env=env,
         stdout=out,
         stderr=subprocess.STDOUT,

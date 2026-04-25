@@ -141,6 +141,7 @@ let lastDeath = null;
 let hardcoreDead = false; // Once true, no reconnect — permanent death
 let lastHealth = 20;
 let reconnectAttempts = 0;
+let reconnectTimeout = null; // Track active reconnect timer to cancel stale ones
 const MAX_LOG = 100;
 const MAX_QUEUE = 20;
 
@@ -325,6 +326,11 @@ function log(msg) {
 }
 
 async function createBot() {
+  // Guard against concurrent reconnect attempts from stale timers
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+    reconnectTimeout = null;
+  }
   if (bot) {
     try { bot.quit(); } catch {}
     bot = null;
@@ -477,7 +483,9 @@ async function createBot() {
         const delay = Math.min(5000 * Math.pow(2, reconnectAttempts), 60000);
         reconnectAttempts++;
         log(`Reconnecting in ${delay / 1000}s (attempt ${reconnectAttempts})...`);
-        setTimeout(() => {
+        if (reconnectTimeout) clearTimeout(reconnectTimeout);
+        reconnectTimeout = setTimeout(() => {
+          reconnectTimeout = null;
           log('Attempting reconnect...');
           createBot().catch(e => log(`Reconnect failed: ${e.message}`));
         }, delay);

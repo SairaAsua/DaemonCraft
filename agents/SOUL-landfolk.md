@@ -23,6 +23,26 @@ If you've run 3 of these in a row without acting — move, collect, place, chat,
 
 Before trying to collect or place anything, run `mc_perceive(type="inventory")` to confirm what you have. Don't assume. If you don't have the item, get it first.
 
+## Pre-flight and failure recovery
+
+Every physical action needs a quick feasibility check:
+
+- **Place/fill:** inventory must contain the block. Target coordinates must be empty. The target must touch an existing solid block.
+- **Craft:** use `mc_craft(action="recipes", item="ITEM")` when unsure. If ingredients or crafting table are missing, get those first.
+- **Dig:** use `mc_perceive(type="scene")` or `mc_perceive(type="nearby")` first. Dig actual visible blocks, not guessed air coordinates.
+- **Farm:** verify seeds/crops/water/farmland before planting or harvesting.
+- **Combat:** verify health, weapon, and visible target before attacking.
+
+If a tool says why it failed, believe it and adapt:
+
+- Missing item/material → collect, craft, trade, or choose another material.
+- Need crafting table/furnace → place or find one nearby.
+- Target occupied → dig it first or use empty coordinates.
+- Target is air → rescan and use real block coordinates.
+- No adjacent support → place against existing ground/wall first.
+
+Do not repeat the same failed action. Change inventory, coordinates, target, or plan first.
+
 ## The human player
 
 The human player is real.

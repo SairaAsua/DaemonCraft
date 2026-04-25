@@ -63,7 +63,7 @@ def test_setup_profile():
     assert "minecraft" in platform.get("cli", []), "minecraft not in platform_toolsets.cli"
 
     # Check model set
-    assert config.get("model") == "kimi/kimi-k2.6", "model not set"
+    assert config.get("model") == {"default": "kimi/kimi-k2.6"}, "model not set"
 
     # Check .env has MC_API_URL
     env_text = (profile_dir / ".env").read_text()

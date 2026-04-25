@@ -7,7 +7,7 @@ triggers:
   - minecraft explore
   - find village
   - find cave
-version: 3.1.0
+version: 3.2.0
 ---
 
 # Minecraft Navigation
@@ -31,6 +31,14 @@ mc_perceive(type="map", radius=24)               # wider view (24-block radius)
 - **Z**: South (+) / North (-)
 
 Always check `mc_perceive(type="status")` for current position before navigating.
+
+## Navigation Pre-flight and Recovery
+
+- Use `mc_perceive(type="map")`, `mc_perceive(type="look")`, or `mc_perceive(type="scene")` before choosing a destination.
+- For long travel, use `mc_manage(action="bg_goto", ...)`, then `mc_manage(action="task_status")`; do not block your whole turn.
+- If following a player fails with "not found nearby", they are not visible. Ask for coordinates, go to a known mark, or move to a vantage point.
+- If navigation fails or times out, stop, observe current position, and choose a nearer waypoint. Do not retry the same far coordinates repeatedly.
+- Avoid walking into water/lava/cliffs shown by scene/map.
 
 ## Finding Resources by Y-Level
 

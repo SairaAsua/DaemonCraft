@@ -7,7 +7,7 @@ triggers:
   - minecraft construction
   - build shelter
   - log cabin
-version: 4.1.0
+version: 4.2.0
 ---
 
 # Minecraft Building — With Taste
@@ -30,9 +30,22 @@ mc_manage(action="bg_goto", x=X, y=Y, z=Z)                  # get close to build
 1. **CHECK MEMORY** for building lessons the player taught you
 2. **ASK the player** where they want it if they didn't specify
 3. **Survey the terrain** — `mc_perceive(type="status")` + `mc_perceive(type="nearby")` to find flat ground
-4. **Plan it out** — tell the player your plan in chat before placing blocks
-5. **Clear the area** — `mc_mine(action="dig", ...)` to remove trees, tall grass, uneven ground
-6. **Level the ground** — fill holes, remove bumps to make a flat foundation
+4. **Check inventory** — count the exact materials you already have before placing or filling
+5. **Plan it out** — tell the player your plan in chat before placing blocks
+6. **Clear the area** — `mc_mine(action="dig", ...)` to remove trees, tall grass, uneven ground
+7. **Level the ground** — fill holes, remove bumps to make a flat foundation
+
+## Building Pre-flight Checks
+
+Before every `place` or `fill`:
+
+1. Run `mc_perceive(type="inventory")` and confirm you have enough of the block.
+2. For `fill`, calculate rough area first. If the tool says "only have N" or "Need N more", collect/craft more before retrying.
+3. Target coordinates must be empty. If the tool says "target space is occupied", dig that block first or choose different coords.
+4. A placed block must touch an existing solid block. If the tool says "no solid adjacent block", place against the ground/wall or create a support block first.
+5. After any failed build action, change one of: material, inventory, coordinates, or support. Never repeat the exact same failed call.
+
+Use tool errors as scene-graph feedback: they tell you what the world/inventory state actually is.
 
 ## Golden Rules
 

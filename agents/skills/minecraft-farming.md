@@ -6,7 +6,7 @@ triggers:
   - grow food minecraft
   - minecraft food
   - breed animals
-version: 3.1.0
+version: 3.2.0
 ---
 
 # Minecraft Farming
@@ -23,6 +23,16 @@ mc_perceive(type="nearby")                                  # find farmland, wat
 mc_build(action="place", block="hoe", x=X, y=Y, z=Z)      # use hoe on dirt (via interact)
 mc_build(action="place", block="bonemeal", x=X, y=Y, z=Z) # bone meal crops
 ```
+
+## Farming Pre-flight Checks
+
+Before farming actions:
+
+- Before planting: check `mc_perceive(type="inventory")` for seeds/crops, and `mc_perceive(type="nearby")` or `mc_perceive(type="scene")` for farmland/water.
+- Before crafting bread/tools/fences: run `mc_craft(action="recipes", item="ITEM")` if unsure, then confirm ingredients in inventory.
+- Before smelting food: confirm raw food + furnace nearby + fuel. If the tool reports missing input/fuel/furnace, get that exact missing thing first.
+- Before attacking animals: check health and visible animals. If no animal is visible, move/search; do not spam attack.
+- If planting/placing says target is occupied or lacks support, choose real farmland/empty coords.
 
 ## Quick Food (Early Game)
 

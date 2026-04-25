@@ -10,28 +10,28 @@ agents:
   - name: Marcus
     template: marcus
     port: 3006
-    model: kimi/kimi-k2.6
+    model: MiniMax-M2.7
   - name: Sarah
     template: sarah
     port: 3007
-    model: kimi/kimi-k2.6
+    model: MiniMax-M2.7
   - name: Jin
     template: jin
     port: 3008
-    model: kimi/kimi-k2.6
+    model: MiniMax-M2.7
   - name: Dave
     template: dave
     port: 3009
-    model: kimi/kimi-k2.6
+    model: MiniMax-M2.7
   - name: Lisa
     template: lisa
     port: 3010
-    model: kimi/kimi-k2.6
+    model: MiniMax-M2.7
   - name: Tommy
     template: tommy
     port: 3011
-    model: kimi/kimi-k2.6
+    model: MiniMax-M2.7
   - name: Elena
     template: elena
     port: 3012
-    model: kimi/kimi-k2.6
+    model: MiniMax-M2.7

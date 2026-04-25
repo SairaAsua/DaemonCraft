@@ -10,20 +10,20 @@ agents:
   - name: Stevie
     template: landfolk/steve
     port: 3001
-    model: kimi/kimi-k2.6
+    model: MiniMax-M2.7
   - name: Moss
     template: landfolk/moss
     port: 3002
-    model: kimi/kimi-k2.6
+    model: MiniMax-M2.7
   - name: Reed
     template: landfolk/reed
     port: 3003
-    model: kimi/kimi-k2.6
+    model: MiniMax-M2.7
   - name: Flint
     template: landfolk/flint
     port: 3004
-    model: kimi/kimi-k2.6
+    model: MiniMax-M2.7
   - name: Ember
     template: landfolk/ember
     port: 3005
-    model: kimi/kimi-k2.6
+    model: MiniMax-M2.7

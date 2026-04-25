@@ -6,7 +6,7 @@ triggers:
   - what should I do next
   - survival progression
   - phase advancement
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Minecraft Goal & Phase System
@@ -88,6 +88,14 @@ mc_perceive(type="nearby")      → what resources are around me?
 ```
 
 **Pick the NEXT uncompleted item on your checklist and do it.**
+
+**But do not skip pre-flight.** Before acting on a checklist item, verify the exact blocker:
+- Need to craft? Check recipe + inventory.
+- Need to place? Check inventory + empty supported coordinates.
+- Need to mine? Check visible/nearby real blocks.
+- Need to fight? Check health + weapon + visible target.
+
+If a tool fails, update your immediate subgoal from the error. Example: "craft stone_pickaxe failed: missing sticks" means the next goal is **make sticks**, not "try stone_pickaxe again".
 
 **After completing an item, update memory:**
 ```

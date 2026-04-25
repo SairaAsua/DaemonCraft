@@ -77,6 +77,12 @@ import {
   summarizeVisibleBlocks,
   summarizeSceneText,
 } from './lib/perception.js';
+import {
+  inventoryHint,
+  itemCounts,
+  recipeDiagnostics,
+  recipeIngredientCounts,
+} from './lib/action_feedback.js';
 import { Camera } from 'mine-photo';
 
 // Screenshot directory
@@ -546,6 +552,17 @@ async function createBot() {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function fmt(v) { return typeof v === 'number' ? Math.round(v * 10) / 10 : v; }
+
+// List visible entities by type with distances
+function nearbyEntitiesHint(bot, filterFn) {
+  const visible = Object.values(bot.entities)
+    .filter(e => e !== bot.entity && e.position && bot.entity.position.distanceTo(e.position) < 32)
+    .filter(filterFn || (() => true))
+    .sort((a, c) => bot.entity.position.distanceTo(a.position) - bot.entity.position.distanceTo(c.position))
+    .slice(0, 5);
+  if (visible.length === 0) return 'No entities visible within 32 blocks.';
+  return visible.map(e => `${e.name || e.username || 'unknown'}(${fmt(bot.entity.position.distanceTo(e.position))}m)`).join(', ');
+}
 
 function posObj(pos) {
   const p = pos || bot?.entity?.position;
@@ -1391,7 +1408,10 @@ const ACTIONS = {
         (e.name || '').toLowerCase() === player.toLowerCase()
       )
     );
-    if (!entity) throw new Error(`Player/entity "${player}" not found nearby.`);
+    if (!entity) {
+      const hint = nearbyEntitiesHint(b);
+      throw new Error(`Player/entity "${player}" not found nearby. Visible nearby: ${hint}. Move closer, wait for them, or ask for coordinates.`);
+    }
     b.pathfinder.setGoal(new goals.GoalFollow(entity, 2), true);
     return { result: `Following ${player}. Use /action/stop to stop.` };
   },
@@ -1428,9 +1448,10 @@ const ACTIONS = {
         });
 
     if (found.length === 0) {
+      const pos = posObj();
       throw new Error(fairPlayMode
-        ? `Can't see any ${block} right now. Turn, move, or use mc scene/mc look before collecting.`
-        : `No ${block} found within 64 blocks.`);
+        ? `Can't see any ${block} from ${pos.x}, ${pos.y}, ${pos.z}. Turn around, move closer to likely sources, or use mc_perceive(type="nearby") / mc_scene to inspect before collecting.`
+        : `No ${block} found within 64 blocks of ${pos.x}, ${pos.y}, ${pos.z}. Move to a better area or search for a different resource.`);
     }
 
     // Filter out blocks directly under the bot (never dig straight down!)
@@ -1443,7 +1464,7 @@ const ACTIONS = {
       return true;
     });
 
-    if (safe.length === 0) throw new Error(`No safely reachable ${block} found.`);
+    if (safe.length === 0) throw new Error(`Found ${found.length} ${block}, but none are safe to mine (likely directly below the bot). Move to the side, then collect again.`);
 
     let collected = 0;
     for (const pos of safe.slice(0, batchSize)) {
@@ -1479,6 +1500,11 @@ const ACTIONS = {
 
     // Report what we actually have now
     const invCount = b.inventory.items().filter(i => i.name === block).reduce((s, i) => s + i.count, 0);
+    if (collected === 0) {
+      const nearest = safe[0];
+      const nearestText = nearest ? ` Nearest candidate was at ${nearest.x},${nearest.y},${nearest.z}.` : '';
+      return { result: `Could not mine any ${block}. I found candidates but pathing/digging failed.${nearestText} Try moving closer, looking at the block, or choosing a different resource.` };
+    }
     const remaining = count - collected;
     const msg = remaining > 0
       ? `Mined ${collected} ${block} (${remaining} more needed). Have ${invCount} ${block} in inventory.`
@@ -1489,7 +1515,10 @@ const ACTIONS = {
   async dig({ x, y, z }) {
     const b = ensureBot();
     const target = b.blockAt(new Vec3(x, y, z));
-    if (!target || target.name === 'air') throw new Error(`No block at ${x}, ${y}, ${z}`);
+    if (!target || target.name === 'air' || target.name === 'cave_air') {
+      const actual = target ? target.name : 'nothing (out of world)';
+      throw new Error(`No mineable block at ${x}, ${y}, ${z} — it's ${actual}. Check coordinates or use mc_perceive(type="nearby") to scan.`);
+    }
     await b.tool.equipForBlock(target);
     if (b.entity.position.distanceTo(target.position) > 4.5) {
       await b.pathfinder.goto(new goals.GoalNear(x, y, z, 3));
@@ -1615,23 +1644,41 @@ const ACTIONS = {
       maxDistance: 4,
     });
 
-    // Try all recipe sources: without table, with table, all recipes
+    // First ask Mineflayer for currently craftable recipes. recipesAll is only
+    // used for diagnostics, never as a craft target, because it includes recipes
+    // whose ingredients are missing.
     let recipes = b.recipesFor(itemType.id, null, 1, null);
     if ((!recipes || recipes.length === 0) && table) {
       recipes = b.recipesFor(itemType.id, null, 1, table);
     }
-    // Fallback: try getting all recipes regardless
+
     if (!recipes || recipes.length === 0) {
-      recipes = b.recipesAll(itemType.id, null, 1);
-    }
-    if (!recipes || recipes.length === 0) {
-      throw new Error(`Can't craft ${item}. ${table ? 'Missing ingredients.' : 'Need a crafting table nearby (place one within 4 blocks).'} Use /action/recipes to check.`);
+      let allRecipes = [];
+      try { allRecipes = b.recipesAll(itemType.id, null, 1) || []; } catch {}
+      if (allRecipes.length === 0) {
+        throw new Error(`Can't craft ${item}: no known crafting recipe. Check spelling or use mc_craft(action="recipes", item="${item}").`);
+      }
+      const available = itemCounts(b.inventory.items());
+      const diagnostics = allRecipes
+        .slice(0, 3)
+        .map(r => recipeDiagnostics(r, mcData, available, count, Boolean(table)))
+        .join(' OR ');
+      throw new Error(`Can't craft ${item} x${count}: ${diagnostics}. ${inventoryHint(b.inventory.items())} Collect missing materials first or place a crafting_table within 4 blocks.`);
     }
 
     const recipe = recipes[0];
     const craftTable = (recipe.requiresTable !== false) ? table : null;
+    if (recipe.requiresTable !== false && !craftTable) {
+      throw new Error(`Can't craft ${item}: recipe needs a crafting_table nearby. Place one within 4 blocks first.`);
+    }
 
-    await b.craft(recipe, count, craftTable || undefined);
+    try {
+      await b.craft(recipe, count, craftTable || undefined);
+    } catch (err) {
+      const available = itemCounts(b.inventory.items());
+      const diagnostic = recipeDiagnostics(recipe, mcData, available, count, Boolean(table));
+      throw new Error(`Failed to craft ${item} x${count}: ${err.message}. ${diagnostic}. ${inventoryHint(b.inventory.items())}`);
+    }
     const resultCount = count * (recipe.result?.count || 1);
     return { result: `Crafted ${item} x${resultCount}` };
   },
@@ -1660,14 +1707,8 @@ const ACTIONS = {
     }
 
     const formatted = recipes.slice(0, 3).map(r => {
-      const ingredients = {};
-      const slots = r.inShape ? r.inShape.flat() : r.ingredients?.flat() || [];
-      slots.filter(id => id && id !== -1).forEach(id => {
-        const name = mcData.items[id]?.name || `id:${id}`;
-        ingredients[name] = (ingredients[name] || 0) + 1;
-      });
       return {
-        ingredients,
+        ingredients: recipeIngredientCounts(r, mcData, 1),
         needsTable: r.requiresTable !== false,
         makes: r.result?.count || 1,
       };
@@ -1682,11 +1723,11 @@ const ACTIONS = {
       matching: block => block.name === 'furnace' || block.name === 'lit_furnace',
       maxDistance: 4,
     });
-    if (!furnaceBlock) throw new Error('No furnace within 4 blocks. Place one first.');
+    if (!furnaceBlock) throw new Error('No furnace within 4 blocks. Craft and place a furnace nearby before smelting.');
 
     const furnace = await b.openFurnace(furnaceBlock);
     const inputItem = b.inventory.items().find(i => i.name === input);
-    if (!inputItem) { furnace.close(); throw new Error(`No ${input} in inventory.`); }
+    if (!inputItem) { furnace.close(); throw new Error(`No ${input} in inventory. ${inventoryHint(b.inventory.items())} Collect or pick up ${input} first.`); }
 
     await furnace.putInput(inputItem.type, null, Math.min(count, inputItem.count));
 
@@ -1695,7 +1736,7 @@ const ACTIONS = {
       const fuelItem = fuel
         ? b.inventory.items().find(i => i.name === fuel)
         : b.inventory.items().find(i => fuelNames.includes(i.name));
-      if (!fuelItem) { furnace.close(); throw new Error('No fuel. Need coal, planks, or logs.'); }
+      if (!fuelItem) { furnace.close(); throw new Error(`No fuel available. Need coal, charcoal, planks, logs, or sticks. ${inventoryHint(b.inventory.items())}`); }
       await furnace.putFuel(fuelItem.type, null, Math.min(8, fuelItem.count));
     }
 
@@ -1723,7 +1764,10 @@ const ACTIONS = {
     } else {
       entity = visible.find(e => hostiles.includes((e.name || '').toLowerCase()));
     }
-    if (!entity) throw new Error(`No ${target || 'hostile mob'} found nearby.`);
+    if (!entity) {
+      const hint = nearbyEntitiesHint(b);
+      throw new Error(`No ${target || 'hostile mob'} found nearby. ${hint} Try specifying a different target or explore further.`);
+    }
 
     // Approach and attack
     if (entity.position.distanceTo(b.entity.position) > 3) {
@@ -1736,7 +1780,7 @@ const ACTIONS = {
   async eat() {
     const b = ensureBot();
     const foods = b.inventory.items().filter(i => mcData.foodsByName?.[i.name]);
-    if (foods.length === 0) throw new Error('No food in inventory.');
+    if (foods.length === 0) throw new Error(`No food in inventory. ${inventoryHint(b.inventory.items())} Find animals/crops or ask another agent for food.`);
     foods.sort((a, c) => (mcData.foodsByName[c.name]?.foodPoints || 0) - (mcData.foodsByName[a.name]?.foodPoints || 0));
     await b.equip(foods[0], 'hand');
     await b.consume();
@@ -1748,8 +1792,7 @@ const ACTIONS = {
     const b = ensureBot();
     const invItem = b.inventory.items().find(i => i.name === item);
     if (!invItem) {
-      const available = b.inventory.items().map(i => i.name);
-      throw new Error(`No ${item} in inventory. Have: ${[...new Set(available)].join(', ')}`);
+      throw new Error(`No ${item} in inventory. ${inventoryHint(b.inventory.items())}`);
     }
     await b.equip(invItem, slot);
     return { result: `Equipped ${item} to ${slot}` };
@@ -1758,7 +1801,7 @@ const ACTIONS = {
   async toss({ item, count }) {
     const b = ensureBot();
     const invItem = b.inventory.items().find(i => i.name === item);
-    if (!invItem) throw new Error(`No ${item} in inventory.`);
+    if (!invItem) throw new Error(`No ${item} in inventory. ${inventoryHint(b.inventory.items())}`);
     if (count && count > 0 && count < invItem.count) {
       await b.toss(invItem.type, null, count);
     } else {
@@ -1771,10 +1814,18 @@ const ACTIONS = {
   async place({ block: blockName, x, y, z }) {
     const b = ensureBot();
     const item = b.inventory.items().find(i => i.name === blockName);
-    if (!item) throw new Error(`No ${blockName} in inventory.`);
+    if (!item) {
+      const hint = inventoryHint(b.inventory.items());
+      throw new Error(`No ${blockName} in inventory. ${hint} Collect, craft, or pick up ${blockName} first.`);
+    }
+
+    const targetPos = new Vec3(x, y, z);
+    const existing = b.blockAt(targetPos);
+    if (existing && existing.name !== 'air' && existing.name !== 'cave_air') {
+      throw new Error(`Can't place ${blockName} at ${x}, ${y}, ${z}: target space is occupied by ${existing.name}. Dig that block first or choose an empty adjacent space.`);
+    }
 
     await b.equip(item, 'hand');
-    const targetPos = new Vec3(x, y, z);
 
     // Approach if far
     if (b.entity.position.distanceTo(targetPos) > 4.5) {
@@ -1790,7 +1841,7 @@ const ACTIONS = {
         return { result: `Placed ${blockName} at ${x}, ${y}, ${z}` };
       }
     }
-    throw new Error(`No solid block adjacent to ${x}, ${y}, ${z} to place against.`);
+    throw new Error(`Can't place ${blockName} at ${x}, ${y}, ${z}: no solid adjacent block to place against. Choose an empty space next to/above an existing block, or place a support block first.`);
   },
 
   async place_fill({ block: blockName, x1, y1, z1, x2, y2, z2, hollow = false }) {
@@ -1816,38 +1867,63 @@ const ACTIONS = {
     }
 
     const offsets = [[0, -1, 0], [0, 1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]];
-    let placed = 0;
-    for (const pos of positions) {
-      // Skip if block already there
+    const openPositions = positions.filter(pos => {
       const existing = b.blockAt(new Vec3(pos.x, pos.y, pos.z));
-      if (existing && existing.name !== 'air' && existing.name !== 'cave_air') continue;
+      return !existing || existing.name === 'air' || existing.name === 'cave_air';
+    });
+    if (openPositions.length === 0) {
+      return { result: `No ${blockName} placed: target area is already occupied.` };
+    }
+    const have = itemCounts(b.inventory.items())[blockName] || 0;
+    if (have === 0) {
+      throw new Error(`Can't fill with ${blockName}: none in inventory. ${inventoryHint(b.inventory.items())} Collect, craft, or pick up ${blockName} first.`);
+    }
+    if (have < openPositions.length) {
+      throw new Error(`Can't fill ${openPositions.length} open spaces with ${blockName}: only have ${have}. Need ${openPositions.length - have} more, or reduce the fill area.`);
+    }
 
+    let placed = 0;
+    let noSupport = 0;
+    let failed = 0;
+    for (const pos of openPositions) {
       const item = b.inventory.items().find(i => i.name === blockName);
-      if (!item) throw new Error(`Out of ${blockName} (placed ${placed}/${positions.length})`);
+      if (!item) throw new Error(`Out of ${blockName} after placing ${placed}/${openPositions.length}. ${inventoryHint(b.inventory.items())}`);
       await b.equip(item, 'hand');
 
       if (b.entity.position.distanceTo(new Vec3(pos.x, pos.y, pos.z)) > 4.5) {
         try { await b.pathfinder.goto(new goals.GoalNear(pos.x, pos.y, pos.z, 3)); } catch {}
       }
 
+      let hadSupport = false;
       for (const [dx, dy, dz] of offsets) {
         const ref = b.blockAt(new Vec3(pos.x + dx, pos.y + dy, pos.z + dz));
         if (ref && ref.name !== 'air' && ref.name !== 'cave_air') {
+          hadSupport = true;
           try {
             await b.placeBlock(ref, new Vec3(-dx, -dy, -dz));
             placed++;
-          } catch {}
+          } catch {
+            failed++;
+          }
           break;
         }
       }
+      if (!hadSupport) noSupport++;
     }
-    return { result: `Placed ${placed}/${positions.length} ${blockName} blocks (${hollow ? 'hollow' : 'solid'})` };
+    const details = [];
+    if (noSupport) details.push(`${noSupport} skipped: no adjacent support block`);
+    if (failed) details.push(`${failed} failed during placement`);
+    const suffix = details.length ? ` (${details.join('; ')})` : '';
+    return { result: `Placed ${placed}/${openPositions.length} ${blockName} blocks (${hollow ? 'hollow' : 'solid'})${suffix}` };
   },
 
   async interact({ x, y, z }) {
     const b = ensureBot();
     const block = b.blockAt(new Vec3(x, y, z));
-    if (!block) throw new Error(`No block at ${x}, ${y}, ${z}`);
+    if (!block || block.name === 'air' || block.name === 'cave_air') {
+      const actual = block ? block.name : 'nothing (out of world)';
+      throw new Error(`Can't interact at ${x}, ${y}, ${z}: target is ${actual}. Use coordinates of an interactable block like chest, door, furnace, bed, or farmland.`);
+    }
     if (b.entity.position.distanceTo(block.position) > 4.5) {
       await b.pathfinder.goto(new goals.GoalNear(x, y, z, 2));
     }
@@ -2364,11 +2440,11 @@ const ACTIONS = {
       matching: block => block.name === 'furnace' || block.name === 'lit_furnace' || block.name === 'blast_furnace' || block.name === 'smoker',
       maxDistance: 4,
     });
-    if (!furnaceBlock) throw new Error('No furnace within 4 blocks. Place one first.');
+    if (!furnaceBlock) throw new Error('No furnace within 4 blocks. Craft and place a furnace nearby before smelting.');
 
     const furnace = await b.openFurnace(furnaceBlock);
     const inputItem = b.inventory.items().find(i => i.name === input);
-    if (!inputItem) { furnace.close(); throw new Error(`No ${input} in inventory.`); }
+    if (!inputItem) { furnace.close(); throw new Error(`No ${input} in inventory. ${inventoryHint(b.inventory.items())} Collect or pick up ${input} first.`); }
 
     const qty = Math.min(count, inputItem.count, 64);
     await furnace.putInput(inputItem.type, null, qty);
@@ -2378,7 +2454,7 @@ const ACTIONS = {
       const fuelItem = fuel
         ? b.inventory.items().find(i => i.name === fuel)
         : b.inventory.items().find(i => fuelNames.includes(i.name));
-      if (!fuelItem) { furnace.close(); throw new Error('No fuel available.'); }
+      if (!fuelItem) { furnace.close(); throw new Error(`No fuel available. Need coal, charcoal, planks, logs, or sticks. ${inventoryHint(b.inventory.items())}`); }
       // Coal smelts 8 items, planks smelt 1.5, coal_block smelts 80
       const fuelPer = fuelItem.name === 'coal_block' ? 80 : fuelItem.name.includes('coal') || fuelItem.name === 'charcoal' ? 8 : fuelItem.name === 'blaze_rod' ? 12 : fuelItem.name === 'lava_bucket' ? 100 : 1.5;
       const fuelNeeded = Math.ceil(qty / fuelPer);

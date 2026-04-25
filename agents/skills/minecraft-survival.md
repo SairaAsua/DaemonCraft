@@ -7,7 +7,7 @@ triggers:
   - beat the ender dragon
   - survive in minecraft
   - minecraft agent
-version: 3.1.0
+version: 3.2.0
 ---
 
 # Minecraft Survival — Master Skill
@@ -45,8 +45,21 @@ OBSERVE → THINK → ACT → OBSERVE → THINK → ACT → ...forever
 
 1. **OBSERVE**: Run `mc_perceive(type="status")`
 2. **THINK**: Check priorities below. What phase am I in? What do I need next?
-3. **ACT**: Run ONE mc command
-4. **REPEAT**: Back to step 1. ALWAYS. After EVERY action.
+3. **PRE-FLIGHT**: Is the action possible with current inventory, coordinates, health, and visible world?
+4. **ACT**: Run ONE mc command
+5. **LEARN**: Read the result/error. If it failed, fix the stated cause before retrying.
+6. **REPEAT**: Back to step 1. ALWAYS. After EVERY action.
+
+## Universal Pre-flight Rules
+
+- Place/fill only blocks you actually have. Check inventory first.
+- Craft only when you have ingredients and required crafting table. Use `mc_craft(action="recipes", item="ITEM")` when unsure.
+- Dig only blocks that actually exist. If a coordinate is air, rescan and choose a real block.
+- Smelt only with raw input, furnace nearby, and fuel available.
+- Attack only visible targets, with enough health and a real weapon.
+- Navigate in short waypoints if pathing fails.
+
+If a tool says why it failed, do not argue with it. Change the missing ingredient, item, coordinate, target, support block, or plan before trying again.
 
 ## Priority System (check in order)
 

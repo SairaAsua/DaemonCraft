@@ -6,7 +6,7 @@ triggers:
   - fight mobs
   - minecraft attack
   - kill mobs
-version: 3.1.0
+version: 3.2.0
 ---
 
 # Minecraft Combat
@@ -29,6 +29,18 @@ Before ANY action, check health:
 - Health ≤ 6: **RUN.** `mc_combat(action="eat")` then flee. Do not fight.
 - Health ≤ 10: Fight only if you have good weapon + armor
 - Health > 14: Fight freely
+
+## Combat Pre-flight Checks
+
+Before attacking:
+
+1. Run `mc_perceive(type="status")` or `mc_perceive(type="nearby")` to confirm the target is visible.
+2. Check health and food. If hurt or hungry, eat/flee first.
+3. Check inventory for a weapon. If the equip tool says "No ITEM in inventory", choose a weapon you actually have or craft one.
+4. If attack says "No target found", do not retry. Move/look/search or choose a different visible target.
+5. If there are multiple hostiles or a creeper is close, flee and regroup.
+
+Tool errors are tactical information, not proof that combat is broken.
 
 ## Weapon Selection
 

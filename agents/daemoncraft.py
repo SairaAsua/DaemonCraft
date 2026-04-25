@@ -198,7 +198,10 @@ def setup_agent_profile(
 
     # Set model if specified
     if model:
-        config["model"] = model
+        if isinstance(config.get("model"), dict):
+            config["model"]["default"] = model
+        else:
+            config["model"] = {"default": model}
 
     config_path.write_text(yaml.dump(config, default_flow_style=False, sort_keys=False))
 
@@ -411,11 +414,73 @@ def cmd_restart(cast_name: str, cast: dict, mc_host: str, mc_port: int):
     cmd_start(cast_name, cast, mc_host, mc_port)
 
 
-# ── Main ─────────────────────────────────────────────────────────────────────
+def cmd_daemon(cast_name: str, cast: dict, mc_host: str, mc_port: int):
+    """Run a supervisor loop that keeps all agents alive."""
+    agents = cast.get("agents", [])
+    soul_file = None
+    if "soul_file" in cast:
+        soul_file = AGENTS_DIR / cast["soul_file"]
+        if not soul_file.exists():
+            soul_file = Path(cast["soul_file"]).resolve()
+
+    log(f"Daemon mode for '{cast_name}' started. Press Ctrl+C to stop.", cast_name)
+    running = True
+
+    def handle_sigint(signum, frame):
+        nonlocal running
+        running = False
+        log(f"Shutting down daemon for '{cast_name}'...", cast_name)
+
+    signal.signal(signal.SIGINT, handle_sigint)
+    signal.signal(signal.SIGTERM, handle_sigint)
+
+    while running:
+        for agent in agents:
+            if not running:
+                break
+            name = agent["name"]
+            port = agent["port"]
+
+            bot_pid = read_pid(cast_name, name, "bot")
+            agent_pid = read_pid(cast_name, name, "agent")
+            bot_alive = bot_pid and is_alive(bot_pid)
+            agent_alive = agent_pid and is_alive(agent_pid)
+
+            if not bot_alive:
+                if bot_pid:
+                    remove_pid(cast_name, name, "bot")
+                log(f"Bot {name} down, restarting...", cast_name)
+                try:
+                    profile_dir = setup_agent_profile(cast_name, agent, soul_file)
+                    workspace_dir = str(profile_dir / "workspace")
+                    start_bot(cast_name, name, port, mc_host, mc_port, workspace_dir)
+                except SystemExit:
+                    pass
+
+            if not agent_alive:
+                if agent_pid:
+                    remove_pid(cast_name, name, "agent")
+                log(f"Agent {name} down, restarting...", cast_name)
+                try:
+                    start_agent(cast_name, name, port)
+                except SystemExit:
+                    pass
+                time.sleep(5)
+
+        # Sleep 60s in 1s increments for responsive shutdown
+        for _ in range(60):
+            if not running:
+                break
+            time.sleep(1)
+
+    log(f"Daemon for '{cast_name}' stopped.", cast_name)
+
+
+# ── Commands ─────────────────────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description="DaemonCraft — Minecraft Agent Cast Launcher")
-    parser.add_argument("cmd", choices=["start", "stop", "status", "logs", "restart"],
+    parser.add_argument("cmd", choices=["start", "stop", "status", "logs", "restart", "daemon"],
                         help="Command to execute")
     parser.add_argument("cast", help="Cast name (e.g., companion, civilization, landfolk)")
     parser.add_argument("--mc-host", default=DEFAULT_MC_HOST, help="Minecraft server host")
@@ -443,6 +508,8 @@ def main():
         cmd_logs(args.cast, args.agent, args.kind, args.follow)
     elif args.cmd == "restart":
         cmd_restart(args.cast, cast, args.mc_host, args.mc_port)
+    elif args.cmd == "daemon":
+        cmd_daemon(args.cast, cast, args.mc_host, args.mc_port)
 
 
 if __name__ == "__main__":

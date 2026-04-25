@@ -8,22 +8,22 @@ soul_file: ../SOUL-landfolk.md
 
 agents:
   - name: Stevie
-    template: steve
+    template: landfolk/steve
     port: 3001
     model: kimi/kimi-k2.6
   - name: Moss
-    template: moss
+    template: landfolk/moss
     port: 3002
     model: kimi/kimi-k2.6
   - name: Reed
-    template: reed
+    template: landfolk/reed
     port: 3003
     model: kimi/kimi-k2.6
   - name: Flint
-    template: flint
+    template: landfolk/flint
     port: 3004
     model: kimi/kimi-k2.6
   - name: Ember
-    template: ember
+    template: landfolk/ember
     port: 3005
     model: kimi/kimi-k2.6

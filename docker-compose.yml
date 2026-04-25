@@ -100,38 +100,6 @@ services:
       "
 
   # ---------------------------------------------------------------------------
-  # Daemon Bot — Mineflayer AI Agent
-  # ---------------------------------------------------------------------------
-  bot:
-    build:
-      context: ./agents/bot
-      dockerfile: Dockerfile
-    container_name: daemoncraft-bot
-    restart: unless-stopped
-    depends_on:
-      minecraft:
-        condition: service_healthy
-    environment:
-      MC_HOST: 172.17.0.1
-      MC_PORT: 25565
-      MC_USERNAME: Steve
-      MC_AUTH: offline
-      API_PORT: 3000
-      API_HOST: 0.0.0.0
-      AUTO_RECONNECT: "true"
-      LOG_LEVEL: info
-      DAEMON_NAME: DaemonBot
-      DAEMON_ROLE: explorer
-      AGENT_BRIDGE_URL: http://bridge:5000
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./agents/bot:/app
-      - /app/node_modules
-    networks:
-      - daemoncraft
-
-  # ---------------------------------------------------------------------------
   # Agent Bridge — Python Control Plane
   # ---------------------------------------------------------------------------
   bridge:
@@ -144,7 +112,7 @@ services:
       FLASK_HOST: 0.0.0.0
       FLASK_PORT: 5000
       FLASK_DEBUG: "false"
-      BOT_REGISTRY: "DaemonBot=http://bot:3000"
+      BOT_REGISTRY: ""
       TRIGGER_TIMEOUT: "30"
       LOG_LEVEL: INFO
     ports:
@@ -154,7 +122,7 @@ services:
     networks:
       - daemoncraft
     depends_on:
-      - bot
+      - minecraft
 
   # ---------------------------------------------------------------------------
   # Redis — Message Bus for Future Swarm

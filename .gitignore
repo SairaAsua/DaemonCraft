@@ -27,6 +27,7 @@ agent-bridge/.env
 agent-bridge/*.pyc
 agents/**/__pycache__/
 agents/**/*.pyc
+**/__pycache__/
 
 # IDE
 .idea/

@@ -2554,7 +2554,7 @@ const ACTIONS = {
     const pos = b.entity.position;
     const yaw = b.entity.yaw;
     const pitch = b.entity.pitch;
-    photoCamera.position = [pos.x, pos.y + b.entity.height * 0.85, pos.z];
+    photoCamera.position = pos.offset(0, b.entity.height * 0.85, 0);
     // Forward vector from yaw/pitch
     const dx = -Math.sin(yaw) * Math.cos(pitch);
     const dy = -Math.sin(pitch);

@@ -1,0 +1,55 @@
+# Server runtime data
+server/data/
+server/geyser/*.jar
+server/geyser/logs/
+server/world/
+server/world_nether/
+server/world_the_end/
+server/logs/
+server/crash-reports/
+server/*.log
+server/eula.txt
+
+# Docker volumes
+docker/data/
+
+# Node.js
+bots/node_modules/
+bots/package-lock.json
+bots/.env
+agents/bot/node_modules/
+agents/bot/package-lock.json
+
+# Python
+agent-bridge/__pycache__/
+agent-bridge/.venv/
+agent-bridge/.env
+agent-bridge/*.pyc
+agents/**/__pycache__/
+agents/**/*.pyc
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Agent context / planning (local-only)
+.lattice/
+hermes_conversation_*.json
+.hermes/
+
+# Session logs
+*.log
+sessions/
+logs/
+
+# Project memory / planning docs (live in wiki)
+MEMORY.md
+PROJECT.md
+EPIC-*.md
+docs/

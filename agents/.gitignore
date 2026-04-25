@@ -1,0 +1,13 @@
+# Dependencies
+bot/node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+
+# Runtime
+bot/tmp/
+bot/cache/

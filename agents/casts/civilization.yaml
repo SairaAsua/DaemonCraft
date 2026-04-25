@@ -1,0 +1,37 @@
+# DaemonCraft Civilization Mode Cast
+# Multiple agents with distinct personalities competing for dominance
+
+name: civilization
+description: 7 characters with unique personalities in a hardcore survival world
+mode: civilization
+soul_file: ../SOUL-civilization.md
+
+agents:
+  - name: Marcus
+    template: marcus
+    port: 3001
+    model: kimi/kimi-k2.6
+  - name: Sarah
+    template: sarah
+    port: 3002
+    model: kimi/kimi-k2.6
+  - name: Jin
+    template: jin
+    port: 3003
+    model: kimi/kimi-k2.6
+  - name: Dave
+    template: dave
+    port: 3004
+    model: kimi/kimi-k2.6
+  - name: Lisa
+    template: lisa
+    port: 3005
+    model: kimi/kimi-k2.6
+  - name: Tommy
+    template: tommy
+    port: 3006
+    model: kimi/kimi-k2.6
+  - name: Elena
+    template: elena
+    port: 3007
+    model: kimi/kimi-k2.6

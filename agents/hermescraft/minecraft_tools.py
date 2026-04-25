@@ -1,0 +1,902 @@
+#!/usr/bin/env python3
+
+"""
+HermesCraft — Embodied Hermes agents for Minecraft
+
+Copyright (c) 2026 bigph00t
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
+"""
+HermesCraft Minecraft Tools — Consolidated Toolset
+
+Native Hermes toolset that wraps the Mineflayer bot HTTP API.
+
+Instead of 77 individual mc_* tools (which bloat context window and cause
+decision paralysis), this consolidated set exposes 8 high-level tools.
+Each tool uses an 'action' or 'type' parameter to route to the correct
+bot API endpoint.
+
+Environment:
+    MC_API_URL  - Bot server URL (default: http://localhost:3001)
+"""
+
+import json
+import os
+import urllib.request
+import urllib.error
+from typing import Any, Dict, Optional
+
+from tools.registry import registry, tool_error
+
+
+MC_API_URL = os.getenv("MC_API_URL", "http://localhost:3001")
+
+
+def _api_get(path: str, timeout: int = 15) -> dict:
+    url = f"{MC_API_URL}{path}"
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.URLError as e:
+        return {"ok": False, "error": f"Bot server not responding at {MC_API_URL}: {e}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def _api_post(path: str, data: Optional[dict] = None, timeout: int = 300) -> dict:
+    url = f"{MC_API_URL}{path}"
+    payload = json.dumps(data or {}).encode("utf-8")
+    req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.URLError as e:
+        return {"ok": False, "error": f"Bot server not responding at {MC_API_URL}: {e}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def _fmt(resp: dict) -> str:
+    if not resp.get("ok", True):
+        return f"Error: {resp.get('error', 'Unknown error')}"
+    parts = []
+    if "result" in resp:
+        parts.append(f"Result: {resp['result']}")
+    if "task_id" in resp:
+        parts.append(f"Task {resp['task_id']} started ({resp.get('status', 'running')})")
+    if "task" in resp and isinstance(resp.get("task"), dict):
+        t = resp["task"]
+        parts.append(f"Task: {t.get('action')} | status: {t.get('status')} | elapsed: {t.get('elapsed_s', '?')}s")
+        if t.get("error"):
+            parts.append(f"Task error: {t['error']}")
+    state = resp.get("state")
+    if state:
+        for k, v in state.items():
+            if k not in ("new_chat", "task"):
+                parts.append(f"{k}: {v}")
+    data = resp.get("data")
+    if data and isinstance(data, dict):
+        if "summary" in data:
+            parts.append(data["summary"])
+        elif "messages" in data:
+            for m in data["messages"][-10:]:
+                w = " [whisper]" if m.get("whisper") else ""
+                parts.append(f"<{m['from']}> {m['message']}{w}")
+        elif "map" in data:
+            parts.append(data["map"])
+            parts.append(f"Center: {data.get('center', '?')}  Scale: {data.get('scale', '?')}")
+        else:
+            for k, v in list(data.items())[:15]:
+                parts.append(f"{k}: {v}")
+    if "locations" in resp:
+        for loc in resp["locations"][:10]:
+            parts.append(f"  ({loc.get('x', '?')}, {loc.get('y', '?')}, {loc.get('z', '?')}) — {loc.get('distance', '?')}m")
+    return "\n".join(parts) if parts else json.dumps(resp, indent=2)
+
+
+def check_minecraft_available() -> bool:
+    try:
+        _api_get("/health", timeout=3)
+        return True
+    except Exception:
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 1. mc_perceive — Observation and state gathering
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_PERCEIVE_GET_ENDPOINTS = {
+    "status": "/status",
+    "inventory": "/inventory",
+    "nearby": "/nearby",
+    "look": "/look",
+    "scene": "/scene",
+    "map": "/map",
+    "read_chat": "/chat",
+    "overhear": "/overhear",
+    "sounds": "/sounds",
+    "stats": "/stats",
+    "health": "/health",
+    "deaths": "/deaths",
+    "commands": "/commands",
+    "furnaces": "/furnaces",
+    "task_status": "/task",
+    "social": "/social",
+}
+
+_PERCEIVE_POST_ENDPOINTS = {
+    "team_status": "/action/team_status",
+    "report": "/action/report",
+    "fair_play": "/action/set_fair_play",
+}
+
+
+def _handle_mc_perceive(args: dict, **kwargs) -> str:
+    """Observe the Minecraft world: status, inventory, surroundings, chat, etc."""
+    ptype = args.get("type", "status")
+
+    if ptype in _PERCEIVE_GET_ENDPOINTS:
+        path = _PERCEIVE_GET_ENDPOINTS[ptype]
+        if ptype == "nearby":
+            path += f'?radius={args.get("radius", 32)}'
+        elif ptype == "scene":
+            path += f'?range={args.get("range", 16)}'
+        elif ptype == "map":
+            path += f'?radius={args.get("radius", 16)}'
+        elif ptype in ("read_chat", "overhear"):
+            path += f'?count={args.get("count", 20)}'
+        return _fmt(_api_get(path))
+
+    if ptype in _PERCEIVE_POST_ENDPOINTS:
+        endpoint = _PERCEIVE_POST_ENDPOINTS[ptype]
+        payload = {}
+        if ptype == "report":
+            if "message" not in args:
+                return "Error: message is required for report"
+            payload["message"] = args["message"]
+        elif ptype == "fair_play":
+            payload["enabled"] = args.get("enabled", True)
+        return _fmt(_api_post(endpoint, payload))
+
+    return f"Error: unknown perceive type '{ptype}'"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 2. mc_move — Navigation and locomotion
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _handle_mc_move(args: dict, **kwargs) -> str:
+    """Move the bot: goto coordinates, follow a player, stop, etc."""
+    action = args.get("action", "stop")
+    payload: Dict[str, Any] = {}
+
+    if action == "goto":
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for goto"
+        payload = {"x": args["x"], "y": args["y"], "z": args["z"]}
+        return _fmt(_api_post("/action/goto", payload))
+
+    if action == "goto_near":
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for goto_near"
+        payload = {"x": args["x"], "y": args["y"], "z": args["z"], "range": args.get("range", 2)}
+        return _fmt(_api_post("/action/goto_near", payload))
+
+    if action == "follow":
+        if "player" not in args:
+            return "Error: player is required for follow"
+        return _fmt(_api_post("/action/follow", {"player": args["player"]}))
+
+    if action == "stop":
+        return _fmt(_api_post("/action/stop"))
+
+    if action == "deathpoint":
+        return _fmt(_api_post("/action/deathpoint"))
+
+    return f"Error: unknown move action '{action}'"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 3. mc_mine — Resource gathering and block interaction
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _handle_mc_mine(args: dict, **kwargs) -> str:
+    """Mine, dig, collect, and find resources in the world."""
+    action = args.get("action", "pickup")
+    payload: Dict[str, Any] = {}
+
+    if action == "collect":
+        if "block" not in args:
+            return "Error: block is required for collect"
+        payload = {"block": args["block"], "count": args.get("count", 1)}
+        return _fmt(_api_post("/action/collect", payload))
+
+    if action == "dig":
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for dig"
+        payload = {"x": args["x"], "y": args["y"], "z": args["z"]}
+        return _fmt(_api_post("/action/dig", payload))
+
+    if action == "pickup":
+        return _fmt(_api_post("/action/pickup"))
+
+    if action == "find_blocks":
+        if "block" not in args:
+            return "Error: block is required for find_blocks"
+        payload = {"block": args["block"], "radius": args.get("radius", 32), "count": args.get("count", 10)}
+        return _fmt(_api_post("/action/find_blocks", payload))
+
+    if action == "find_entities":
+        payload = {"radius": args.get("radius", 32)}
+        if args.get("type"):
+            payload["type"] = args["type"]
+        return _fmt(_api_post("/action/find_entities", payload))
+
+    return f"Error: unknown mine action '{action}'"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 4. mc_build — Construction, placement, and block interaction
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _handle_mc_build(args: dict, **kwargs) -> str:
+    """Build, place blocks, fill areas, interact with blocks, and utility actions."""
+    action = args.get("action", "use")
+    payload: Dict[str, Any] = {}
+
+    if action == "place":
+        if "block" not in args:
+            return "Error: block is required for place"
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for place"
+        payload = {"block": args["block"], "x": args["x"], "y": args["y"], "z": args["z"]}
+        return _fmt(_api_post("/action/place", payload))
+
+    if action == "fill":
+        if "block" not in args:
+            return "Error: block is required for fill"
+        for coord in ("x1", "y1", "z1", "x2", "y2", "z2"):
+            if coord not in args:
+                return f"Error: {coord} is required for fill"
+        payload = {
+            "block": args["block"],
+            "x1": args["x1"], "y1": args["y1"], "z1": args["z1"],
+            "x2": args["x2"], "y2": args["y2"], "z2": args["z2"],
+            "hollow": args.get("hollow", False),
+        }
+        return _fmt(_api_post("/action/place_fill", payload))
+
+    if action == "interact":
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for interact"
+        payload = {"x": args["x"], "y": args["y"], "z": args["z"]}
+        return _fmt(_api_post("/action/interact", payload))
+
+    if action == "close":
+        return _fmt(_api_post("/action/close_screen"))
+
+    if action == "use":
+        return _fmt(_api_post("/action/use"))
+
+    if action == "toss":
+        if "item" not in args:
+            return "Error: item is required for toss"
+        payload = {"item": args["item"]}
+        if args.get("count") is not None:
+            payload["count"] = args["count"]
+        return _fmt(_api_post("/action/toss", payload))
+
+    if action == "sleep":
+        return _fmt(_api_post("/action/sleep_bed"))
+
+    if action == "wait":
+        payload = {"seconds": args.get("seconds", 5)}
+        return _fmt(_api_post("/action/wait", payload))
+
+    if action == "connect":
+        return _fmt(_api_post("/connect"))
+
+    return f"Error: unknown build action '{action}'"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 5. mc_craft — Crafting, smelting, and recipes
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _handle_mc_craft(args: dict, **kwargs) -> str:
+    """Craft items, look up recipes, and manage furnaces."""
+    action = args.get("action", "craft")
+    payload: Dict[str, Any] = {}
+
+    if action == "craft":
+        if "item" not in args:
+            return "Error: item is required for craft"
+        payload = {"item": args["item"], "count": args.get("count", 1)}
+        return _fmt(_api_post("/action/craft", payload))
+
+    if action == "recipes":
+        if "item" not in args:
+            return "Error: item is required for recipes"
+        payload = {"item": args["item"]}
+        return _fmt(_api_post("/action/recipes", payload))
+
+    if action == "smelt":
+        if "input" not in args:
+            return "Error: input is required for smelt"
+        payload = {"input": args["input"], "count": args.get("count", 1)}
+        if args.get("fuel"):
+            payload["fuel"] = args["fuel"]
+        return _fmt(_api_post("/action/smelt", payload))
+
+    if action == "smelt_start":
+        if "input" not in args:
+            return "Error: input is required for smelt_start"
+        payload = {"input": args["input"], "count": args.get("count", 1)}
+        if args.get("fuel"):
+            payload["fuel"] = args["fuel"]
+        return _fmt(_api_post("/action/smelt_start", payload))
+
+    if action in ("furnace_check", "furnace_take"):
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for {action}"
+        payload = {"x": args["x"], "y": args["y"], "z": args["z"]}
+        endpoint = "/action/furnace_check" if action == "furnace_check" else "/action/furnace_take"
+        return _fmt(_api_post(endpoint, payload))
+
+    return f"Error: unknown craft action '{action}'"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 6. mc_combat — Combat, equipment, and survival actions
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _handle_mc_combat(args: dict, **kwargs) -> str:
+    """Fight, flee, equip gear, eat, and execute combat maneuvers."""
+    action = args.get("action", "eat")
+    payload: Dict[str, Any] = {}
+
+    if action == "attack":
+        payload = {}
+        if args.get("target"):
+            payload["target"] = args["target"]
+        return _fmt(_api_post("/action/attack", payload))
+
+    if action == "fight":
+        payload = {"retreat_health": args.get("retreat_health", 6), "duration": args.get("duration", 30)}
+        if args.get("target"):
+            payload["target"] = args["target"]
+        return _fmt(_api_post("/action/fight", payload))
+
+    if action == "flee":
+        payload = {"distance": args.get("distance", 16)}
+        return _fmt(_api_post("/action/flee", payload))
+
+    if action == "eat":
+        return _fmt(_api_post("/action/eat"))
+
+    if action == "equip":
+        if "item" not in args:
+            return "Error: item is required for equip"
+        payload = {"item": args["item"], "slot": args.get("slot", "hand")}
+        return _fmt(_api_post("/action/equip", payload))
+
+    if action == "sneak":
+        payload = {"enable": args.get("enable", True)}
+        return _fmt(_api_post("/action/sneak", payload))
+
+    if action == "shield":
+        payload = {"duration": args.get("duration", 3)}
+        return _fmt(_api_post("/action/shield_block", payload))
+
+    if action == "shoot":
+        payload = {"predict": args.get("predict", True)}
+        if args.get("target"):
+            payload["target"] = args["target"]
+        return _fmt(_api_post("/action/shoot", payload))
+
+    if action == "sprint_attack":
+        payload = {}
+        if args.get("target"):
+            payload["target"] = args["target"]
+        return _fmt(_api_post("/action/sprint_attack", payload))
+
+    if action == "crit":
+        payload = {}
+        if args.get("target"):
+            payload["target"] = args["target"]
+        return _fmt(_api_post("/action/critical_hit", payload))
+
+    if action == "strafe":
+        payload = {"direction": args.get("direction", "random"), "duration": args.get("duration", 5)}
+        if args.get("target"):
+            payload["target"] = args["target"]
+        return _fmt(_api_post("/action/strafe", payload))
+
+    if action == "combo":
+        payload = {"style": args.get("style", "aggressive")}
+        if args.get("target"):
+            payload["target"] = args["target"]
+        return _fmt(_api_post("/action/combo", payload))
+
+    return f"Error: unknown combat action '{action}'"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 7. mc_chat — Communication and team coordination
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _handle_mc_chat(args: dict, **kwargs) -> str:
+    """Send messages: public chat, whispers, team chat, rally points, etc."""
+    action = args.get("action", "chat")
+    payload: Dict[str, Any] = {}
+
+    if action == "chat":
+        if "message" not in args:
+            return "Error: message is required for chat"
+        return _fmt(_api_post("/action/chat", {"message": args["message"]}))
+
+    if action == "whisper":
+        if "player" not in args or "message" not in args:
+            return "Error: player and message are required for whisper"
+        return _fmt(_api_post("/action/whisper", {"player": args["player"], "message": args["message"]}))
+
+    if action == "chat_to":
+        if "player" not in args or "message" not in args:
+            return "Error: player and message are required for chat_to"
+        return _fmt(_api_post("/action/chat_to", {"player": args["player"], "message": args["message"]}))
+
+    if action == "team_chat":
+        if "message" not in args:
+            return "Error: message is required for team_chat"
+        return _fmt(_api_post("/action/team_chat", {"message": args["message"]}))
+
+    if action == "rally":
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for rally"
+        payload = {"x": args["x"], "y": args["y"], "z": args["z"]}
+        if args.get("message"):
+            payload["message"] = args["message"]
+        return _fmt(_api_post("/action/rally", payload))
+
+    if action == "set_team":
+        if "team" not in args:
+            return "Error: team is required for set_team"
+        payload = {"team": args["team"], "role": args.get("role", "warrior")}
+        if args.get("teammates"):
+            payload["teammates"] = args["teammates"].split(",")
+        return _fmt(_api_post("/action/set_team", payload))
+
+    if action == "complete_command":
+        payload = {"index": args.get("index", 0)}
+        return _fmt(_api_post("/action/complete_command", payload))
+
+    return f"Error: unknown chat action '{action}'"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 8. mc_manage — Containers, waypoints, and background tasks
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _handle_mc_manage(args: dict, **kwargs) -> str:
+    """Manage containers, saved locations, and background tasks."""
+    action = args.get("action", "marks")
+    payload: Dict[str, Any] = {}
+
+    if action == "chest":
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for chest"
+        payload = {"x": args["x"], "y": args["y"], "z": args["z"]}
+        return _fmt(_api_post("/action/list_container", payload))
+
+    if action == "deposit":
+        if "item" not in args:
+            return "Error: item is required for deposit"
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for deposit"
+        payload = {"item": args["item"], "x": args["x"], "y": args["y"], "z": args["z"], "count": args.get("count", 0)}
+        return _fmt(_api_post("/action/deposit", payload))
+
+    if action == "withdraw":
+        if "item" not in args:
+            return "Error: item is required for withdraw"
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for withdraw"
+        payload = {"item": args["item"], "x": args["x"], "y": args["y"], "z": args["z"], "count": args.get("count", 0)}
+        return _fmt(_api_post("/action/withdraw", payload))
+
+    if action == "mark":
+        if "name" not in args:
+            return "Error: name is required for mark"
+        payload = {"name": args["name"], "note": args.get("note", "")}
+        return _fmt(_api_post("/action/mark", payload))
+
+    if action == "marks":
+        return _fmt(_api_post("/action/marks"))
+
+    if action == "go_mark":
+        if "name" not in args:
+            return "Error: name is required for go_mark"
+        return _fmt(_api_post("/action/go_mark", {"name": args["name"]}))
+
+    if action == "unmark":
+        if "name" not in args:
+            return "Error: name is required for unmark"
+        return _fmt(_api_post("/action/unmark", {"name": args["name"]}))
+
+    if action == "bg_goto":
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for bg_goto"
+        payload = {"x": args["x"], "y": args["y"], "z": args["z"]}
+        return _fmt(_api_post("/task/goto", payload))
+
+    if action == "bg_collect":
+        if "block" not in args:
+            return "Error: block is required for bg_collect"
+        payload = {"block": args["block"], "count": args.get("count", 1)}
+        return _fmt(_api_post("/task/collect", payload))
+
+    if action == "bg_fight":
+        payload = {"retreat_health": args.get("retreat_health", 6), "duration": args.get("duration", 30)}
+        if args.get("target"):
+            payload["target"] = args["target"]
+        return _fmt(_api_post("/task/fight", payload))
+
+    if action == "bg_combo":
+        payload = {"style": args.get("style", "aggressive")}
+        if args.get("target"):
+            payload["target"] = args["target"]
+        return _fmt(_api_post("/task/combo", payload))
+
+    if action == "bg_strafe":
+        payload = {"direction": args.get("direction", "random"), "duration": args.get("duration", 10)}
+        if args.get("target"):
+            payload["target"] = args["target"]
+        return _fmt(_api_post("/task/strafe", payload))
+
+    if action == "cancel":
+        return _fmt(_api_post("/task/cancel"))
+
+    if action == "task_status":
+        return _fmt(_api_get("/task"))
+
+    return f"Error: unknown manage action '{action}'"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tool Schemas
+# ═══════════════════════════════════════════════════════════════════════════════
+
+MC_PERCEIVE_SCHEMA = {
+    "name": "mc_perceive",
+    "description": "Observe the Minecraft world. Use 'status' for full state, 'inventory' for items, 'nearby' for blocks/entities, 'look' for a narrative description, 'scene' for fair-play view, 'map' for ASCII top-down, 'read_chat' for recent messages, 'social' for interaction summary, 'sounds' for audio events, 'health' for quick vitals, 'deaths' for death log, 'commands' for pending orders, 'furnaces' for active furnaces, 'task_status' for background tasks, 'team_status' for teammates, 'report' to send intel, 'fair_play' to toggle fairness mode.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "type": {
+                "type": "string",
+                "enum": ["status", "inventory", "nearby", "look", "scene", "map", "read_chat", "overhear", "sounds", "stats", "health", "deaths", "commands", "furnaces", "task_status", "social", "team_status", "report", "fair_play"],
+                "description": "What to observe",
+            },
+            "radius": {"type": "number", "description": "Scan radius for nearby/map"},
+            "range": {"type": "number", "description": "View range for scene"},
+            "count": {"type": "number", "description": "Message count for read_chat/overhear"},
+            "message": {"type": "string", "description": "Intel message for report action"},
+            "enabled": {"type": "boolean", "description": "Toggle fair play mode on/off"},
+        },
+        "required": ["type"],
+    },
+}
+
+MC_MOVE_SCHEMA = {
+    "name": "mc_move",
+    "description": "Navigate the bot. 'goto' walks to exact coordinates. 'goto_near' stops within a range. 'follow' trails a player. 'stop' halts all movement. 'deathpoint' returns to last death location.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["goto", "goto_near", "follow", "stop", "deathpoint"],
+                "description": "Movement action",
+            },
+            "x": {"type": "number", "description": "X coordinate"},
+            "y": {"type": "number", "description": "Y coordinate"},
+            "z": {"type": "number", "description": "Z coordinate"},
+            "player": {"type": "string", "description": "Player name to follow"},
+            "range": {"type": "number", "description": "Acceptable distance for goto_near"},
+        },
+        "required": ["action"],
+    },
+}
+
+MC_MINE_SCHEMA = {
+    "name": "mc_mine",
+    "description": "Gather resources. 'collect' mines N blocks of a type. 'dig' breaks a specific block. 'pickup' grabs nearby drops. 'find_blocks' locates block positions. 'find_entities' scans for mobs/players.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["collect", "dig", "pickup", "find_blocks", "find_entities"],
+                "description": "Mining action",
+            },
+            "block": {"type": "string", "description": "Block type (e.g. oak_log, iron_ore)"},
+            "x": {"type": "number", "description": "X coordinate for dig"},
+            "y": {"type": "number", "description": "Y coordinate for dig"},
+            "z": {"type": "number", "description": "Z coordinate for dig"},
+            "count": {"type": "number", "description": "How many blocks to mine or max results"},
+            "radius": {"type": "number", "description": "Search radius"},
+            "entity_type": {"type": "string", "description": "Entity filter for find_entities"},
+        },
+        "required": ["action"],
+    },
+}
+
+MC_BUILD_SCHEMA = {
+    "name": "mc_build",
+    "description": "Build and interact with the world. 'place' a single block. 'fill' a volume. 'interact' right-clicks a block. 'close' any open screen. 'use' activates held item. 'toss' drops items. 'sleep' finds a bed. 'wait' pauses. 'connect' reconnects the bot.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["place", "fill", "interact", "close", "use", "toss", "sleep", "wait", "connect"],
+                "description": "Build/interaction action",
+            },
+            "block": {"type": "string", "description": "Block type for place/fill"},
+            "x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number"},
+            "x1": {"type": "number"}, "y1": {"type": "number"}, "z1": {"type": "number"},
+            "x2": {"type": "number"}, "y2": {"type": "number"}, "z2": {"type": "number"},
+            "hollow": {"type": "boolean", "description": "Fill hollow for fill action"},
+            "item": {"type": "string", "description": "Item for toss"},
+            "count": {"type": "number", "description": "Item count for toss"},
+            "seconds": {"type": "number", "description": "Seconds to wait"},
+        },
+        "required": ["action"],
+    },
+}
+
+MC_CRAFT_SCHEMA = {
+    "name": "mc_craft",
+    "description": "Craft items and manage furnaces. 'craft' creates an item. 'recipes' looks up requirements. 'smelt' cooks in furnace and waits. 'smelt_start' loads furnace and leaves. 'furnace_check' inspects a furnace. 'furnace_take' collects output.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["craft", "recipes", "smelt", "smelt_start", "furnace_check", "furnace_take"],
+                "description": "Crafting action",
+            },
+            "item": {"type": "string", "description": "Item name for craft/recipes"},
+            "input": {"type": "string", "description": "Input material for smelting"},
+            "fuel": {"type": "string", "description": "Fuel for smelting (optional)"},
+            "count": {"type": "number", "description": "Quantity"},
+            "x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number"},
+        },
+        "required": ["action"],
+    },
+}
+
+MC_COMBAT_SCHEMA = {
+    "name": "mc_combat",
+    "description": "Combat and survival. 'attack' a target. 'fight' sustained combat with retreat threshold. 'flee' from hostiles. 'eat' best food. 'equip' an item. 'sneak' toggle. 'shield' block. 'shoot' bow. 'sprint_attack' for knockback. 'crit' for jump-attack. 'strafe' while fighting. 'combo' executes a style sequence.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["attack", "fight", "flee", "eat", "equip", "sneak", "shield", "shoot", "sprint_attack", "crit", "strafe", "combo"],
+                "description": "Combat action",
+            },
+            "target": {"type": "string", "description": "Target mob or player"},
+            "retreat_health": {"type": "number", "description": "HP threshold to retreat during fight"},
+            "duration": {"type": "number", "description": "Duration in seconds for fight/strafe"},
+            "distance": {"type": "number", "description": "Flee distance"},
+            "item": {"type": "string", "description": "Item to equip"},
+            "slot": {"type": "string", "description": "Equipment slot (hand, head, chest, legs, feet, off-hand)"},
+            "enable": {"type": "boolean", "description": "Enable/disable sneak"},
+            "predict": {"type": "boolean", "description": "Predict target movement for shoot"},
+            "direction": {"type": "string", "description": "Strafe direction: left, right, random"},
+            "style": {"type": "string", "description": "Combo style: aggressive, defensive, balanced"},
+        },
+        "required": ["action"],
+    },
+}
+
+MC_CHAT_SCHEMA = {
+    "name": "mc_chat",
+    "description": "Communication. 'chat' public message. 'whisper' private to one player. 'chat_to' alternative private message. 'team_chat' to teammates. 'rally' sets a team rally point. 'set_team' assigns team/role. 'complete_command' marks a pending order done.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["chat", "whisper", "chat_to", "team_chat", "rally", "set_team", "complete_command"],
+                "description": "Chat action",
+            },
+            "message": {"type": "string", "description": "Message content"},
+            "player": {"type": "string", "description": "Target player for whisper/chat_to"},
+            "x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number"},
+            "team": {"type": "string", "description": "Team name for set_team"},
+            "role": {"type": "string", "description": "Role for set_team (default: warrior)"},
+            "teammates": {"type": "string", "description": "Comma-separated teammate names for set_team"},
+            "index": {"type": "number", "description": "Command index to complete"},
+        },
+        "required": ["action"],
+    },
+}
+
+MC_MANAGE_SCHEMA = {
+    "name": "mc_manage",
+    "description": "Manage containers, waypoints, and background tasks. 'chest' lists contents. 'deposit'/'withdraw' items. 'mark' saves current location. 'marks' lists waypoints. 'go_mark' navigates to one. 'unmark' deletes. 'bg_goto'/'bg_collect'/'bg_fight' background tasks. 'bg_combo'/'bg_strafe' background combat. 'cancel' stops background task. 'task_status' checks progress.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["chest", "deposit", "withdraw", "mark", "marks", "go_mark", "unmark", "bg_goto", "bg_collect", "bg_fight", "bg_combo", "bg_strafe", "cancel", "task_status"],
+                "description": "Management action",
+            },
+            "item": {"type": "string", "description": "Item name for deposit/withdraw"},
+            "x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number"},
+            "count": {"type": "number", "description": "Item count for deposit/withdraw or block count for bg_collect"},
+            "name": {"type": "string", "description": "Waypoint name for mark/go_mark/unmark"},
+            "note": {"type": "string", "description": "Optional note for mark"},
+            "block": {"type": "string", "description": "Block type for bg_collect"},
+            "target": {"type": "string", "description": "Target for bg_fight/bg_combo/bg_strafe"},
+            "retreat_health": {"type": "number"},
+            "duration": {"type": "number"},
+            "style": {"type": "string", "description": "Combo style for bg_combo"},
+            "direction": {"type": "string", "description": "Strafe direction for bg_strafe"},
+        },
+        "required": ["action"],
+    },
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════
+# 9. mc_screenshot — Ray-traced world capture
+# ══════════════════════════════════════════════════════════════════════════════════════════
+
+def _handle_mc_screenshot(args: dict, **kwargs) -> str:
+    """Take a ray-traced screenshot of the Minecraft world from the bot's perspective.
+    
+    This produces a high-quality rendered image with realistic lighting, shadows,
+    and reflections using CPU ray tracing. The image is saved to the bot server
+    and the path is returned.
+    """
+    payload: Dict[str, Any] = {}
+    if "width" in args:
+        payload["width"] = args["width"]
+    if "height" in args:
+        payload["height"] = args["height"]
+    if "samples" in args:
+        payload["samples"] = args["samples"]
+    if "fov" in args:
+        payload["fov"] = args["fov"]
+    if "file_name" in args:
+        payload["file_name"] = args["file_name"]
+    
+    resp = _api_post("/action/screenshot", payload, timeout=300)
+    if not resp.get("ok", True):
+        return f"Error: {resp.get('error', 'Screenshot failed')}"
+    
+    path = resp.get("path", "unknown")
+    width = resp.get("width", "?")
+    height = resp.get("height", "?")
+    samples = resp.get("samples", "?")
+    return f"Screenshot saved to {path} ({width}x{height}, {samples} samples)"
+
+
+MC_SCREENSHOT_SCHEMA = {
+    "name": "mc_screenshot",
+    "description": "Take a beautiful ray-traced screenshot of the Minecraft world from the bot's eyes. Produces a high-quality PNG with realistic lighting, shadows, and reflections. Specify width/height (max 1920x1080), samples (1-64, higher = better quality but slower), and optionally a custom file name. The image path is returned so you can share it or analyze it visually.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "width": {"type": "number", "description": "Image width in pixels (default: 854, max: 1920)"},
+            "height": {"type": "number", "description": "Image height in pixels (default: 480, max: 1080)"},
+            "samples": {"type": "number", "description": "Ray-tracing samples per pixel (default: 16, max: 64). Higher = better quality but slower."},
+            "fov": {"type": "number", "description": "Field of view in degrees (default: 90)"},
+            "file_name": {"type": "string", "description": "Custom filename for the screenshot (optional)"},
+        },
+    },
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════
+# Registry
+# ══════════════════════════════════════════════════════════════════════════════════════
+
+registry.register(
+    name="mc_perceive",
+    toolset="minecraft",
+    schema=MC_PERCEIVE_SCHEMA,
+    handler=lambda args, **kw: _handle_mc_perceive(args, **kw),
+    check_fn=check_minecraft_available,
+)
+registry.register(
+    name="mc_move",
+    toolset="minecraft",
+    schema=MC_MOVE_SCHEMA,
+    handler=lambda args, **kw: _handle_mc_move(args, **kw),
+    check_fn=check_minecraft_available,
+)
+registry.register(
+    name="mc_mine",
+    toolset="minecraft",
+    schema=MC_MINE_SCHEMA,
+    handler=lambda args, **kw: _handle_mc_mine(args, **kw),
+    check_fn=check_minecraft_available,
+)
+registry.register(
+    name="mc_build",
+    toolset="minecraft",
+    schema=MC_BUILD_SCHEMA,
+    handler=lambda args, **kw: _handle_mc_build(args, **kw),
+    check_fn=check_minecraft_available,
+)
+registry.register(
+    name="mc_craft",
+    toolset="minecraft",
+    schema=MC_CRAFT_SCHEMA,
+    handler=lambda args, **kw: _handle_mc_craft(args, **kw),
+    check_fn=check_minecraft_available,
+)
+registry.register(
+    name="mc_combat",
+    toolset="minecraft",
+    schema=MC_COMBAT_SCHEMA,
+    handler=lambda args, **kw: _handle_mc_combat(args, **kw),
+    check_fn=check_minecraft_available,
+)
+registry.register(
+    name="mc_chat",
+    toolset="minecraft",
+    schema=MC_CHAT_SCHEMA,
+    handler=lambda args, **kw: _handle_mc_chat(args, **kw),
+    check_fn=check_minecraft_available,
+)
+registry.register(
+    name="mc_manage",
+    toolset="minecraft",
+    schema=MC_MANAGE_SCHEMA,
+    handler=lambda args, **kw: _handle_mc_manage(args, **kw),
+    check_fn=check_minecraft_available,
+)
+registry.register(
+    name="mc_screenshot",
+    toolset="minecraft",
+    schema=MC_SCREENSHOT_SCHEMA,
+    handler=lambda args, **kw: _handle_mc_screenshot(args, **kw),
+    check_fn=check_minecraft_available,
+)

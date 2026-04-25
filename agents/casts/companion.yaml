@@ -1,13 +1,13 @@
 # DaemonCraft Companion Mode Cast
-# Single friendly agent that assists the human player
+# Single agent that follows and helps the human player
 
 name: companion
-description: A single companion agent that follows and helps the player
+description: A single companion agent that plays alongside the human player
 mode: companion
 soul_file: ../SOUL-minecraft.md
 
 agents:
   - name: Steve
-    template: steve
+    template: companion/steve
     port: 3001
     model: kimi/kimi-k2.6

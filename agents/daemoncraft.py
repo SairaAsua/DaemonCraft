@@ -182,19 +182,14 @@ def setup_agent_profile(
     config_path = profile_dir / "config.yaml"
     config = yaml.safe_load(config_path.read_text()) or {} if config_path.exists() else {}
 
-    # Enable minecraft toolset
-    toolsets = config.get("toolsets", ["hermes-cli"])
-    if isinstance(toolsets, list) and "minecraft" not in toolsets:
-        toolsets.append("minecraft")
-        config["toolsets"] = toolsets
+    # Restrict to only minecraft toolset (agents should NOT have terminal/file/web)
+    # Add messaging so agents can use send_message (e.g., Telegram screenshots)
+    config["toolsets"] = ["minecraft", "messaging"]
 
-    # Enable minecraft in platform_toolsets.cli for TUI
+    # Restrict platform_toolsets.cli to only minecraft + clarify + messaging
     platform_toolsets = config.get("platform_toolsets", {})
-    cli_toolsets = platform_toolsets.get("cli", [])
-    if isinstance(cli_toolsets, list) and "minecraft" not in cli_toolsets:
-        cli_toolsets.append("minecraft")
-        platform_toolsets["cli"] = cli_toolsets
-        config["platform_toolsets"] = platform_toolsets
+    platform_toolsets["cli"] = ["minecraft", "clarify", "messaging"]
+    config["platform_toolsets"] = platform_toolsets
 
     # Set model if specified
     if model:
@@ -291,6 +286,9 @@ def start_agent(
     env = {
         **os.environ,
         "MC_API_URL": f"http://localhost:{port}",
+        # Enable send_message tool by telling Hermes we're on a messaging platform.
+        # The actual Telegram credentials come from ~/.hermes/.env (TELEGRAM_BOT_TOKEN, etc.)
+        "HERMES_SESSION_PLATFORM": "telegram",
     }
 
     log(f"Starting Hermes agent for {agent_name}...", cast_name)

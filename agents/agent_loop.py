@@ -2,21 +2,18 @@
 """
 Hermes-native persistent agent loop for Minecraft bots.
 
-Instead of spawning `hermes chat` repeatedly (high overhead, 60s gaps),
-this script creates a single AIAgent instance and calls run_conversation()
-in a loop with a configurable interval.
+Event-driven: chat messages arrive via WebSocket and trigger turns immediately.
+Idle heartbeat runs every 30s when no chat activity.
 
 Usage:
     python agent_loop.py --profile stevie --prompt "Begin."
-
-This uses Hermes' AIAgent directly — the same class used by the CLI,
-gateway, and batch runner. We do NOT reinvent the tool-calling loop.
 """
 
 import argparse
 import json
 import os
 import sys
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -28,9 +25,51 @@ if str(HERMES_DIR) not in sys.path:
 
 from run_agent import AIAgent
 
-
 MC_API_URL = os.getenv("MC_API_URL", "http://localhost:3001")
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Module-level helpers (safe to call from threads)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def log_agent_turn(turn_data: dict):
+    """Send turn data to bot server for dashboard display."""
+    payload = json.dumps(turn_data).encode("utf-8")
+    req = urllib.request.Request(
+        f"{MC_API_URL}/agent/log",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            pass
+    except Exception:
+        pass
+
+
+def send_heartbeat(next_turn_in: float | None = None, turn_in_progress: bool = False):
+    """Send heartbeat countdown to bot server for dashboard display."""
+    payload = json.dumps({
+        "nextTurnIn": next_turn_in,
+        "turnInProgress": turn_in_progress,
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        f"{MC_API_URL}/agent/heartbeat",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            pass
+    except Exception:
+        pass
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Plan helpers
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def fetch_plan() -> dict:
     """Fetch the bot's current plan from the bot server."""
@@ -51,7 +90,6 @@ def format_plan(plan: dict) -> str:
     done = sum(1 for t in tasks if t.get("status") == "done")
     total = len(tasks)
 
-    # Plan fully complete — prompt for next steps
     if total > 0 and done == total:
         return (
             f"Your goal '{goal}' is COMPLETE. All {total} tasks finished.\n"
@@ -103,7 +141,6 @@ def build_system_prompt(profile_dir: Path) -> str:
     if soul.exists():
         parts.append(soul.read_text())
 
-    # Add other context files if present
     for name in ("AGENTS.md", ".cursorrules"):
         f = profile_dir / name
         if f.exists():
@@ -112,41 +149,159 @@ def build_system_prompt(profile_dir: Path) -> str:
     return "\n\n".join(parts) if parts else None
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# WebSocket chat trigger
+# ═══════════════════════════════════════════════════════════════════════════════
+
+chat_event = threading.Event()
+pending_messages = []
+message_lock = threading.Lock()
+last_chat_time = int(time.time() * 1000)
+ws_connected = threading.Event()
+turn_in_progress = threading.Event()
+current_agent = None
+next_turn_time = None
+countdown_lock = threading.Lock()
+
+
+def _ws_on_message(ws, message):
+    global last_chat_time, pending_messages, chat_event
+    try:
+        data = json.loads(message)
+        msg_type = data.get("type")
+        if msg_type == "chat":
+            msgs = data.get("data", [])
+            new_msgs = [
+                m for m in msgs
+                if m.get("time", 0) > last_chat_time
+                and m.get("from", "").lower() != "steve"
+            ]
+            if new_msgs:
+                with message_lock:
+                    pending_messages.extend(new_msgs)
+                    last_chat_time = max(m.get("time", 0) for m in new_msgs)
+                chat_event.set()
+                if turn_in_progress.is_set() and current_agent is not None:
+                    try:
+                        current_agent._interrupt_requested = True
+                        print("[ws] Chat arrived during turn — interrupting to respond now", flush=True)
+                    except Exception:
+                        pass
+        elif msg_type == "status":
+            pass
+        else:
+            pass
+    except Exception as e:
+        print(f"[ws] Error: {e}", flush=True)
+
+
+def _ws_on_open(ws):
+    ws_connected.set()
+    print("[ws] Connected to bot WebSocket", flush=True)
+
+
+def _ws_on_close(ws, close_status_code, close_msg):
+    ws_connected.clear()
+    print(f"[ws] Disconnected: {close_status_code} {close_msg}", flush=True)
+
+
+def _ws_listener():
+    import websocket
+    ws_url = MC_API_URL.replace("http://", "ws://").replace("https://", "wss://") + "/ws"
+    while True:
+        try:
+            ws = websocket.WebSocketApp(
+                ws_url,
+                on_message=_ws_on_message,
+                on_open=_ws_on_open,
+                on_close=_ws_on_close,
+            )
+            ws.run_forever(ping_interval=30, ping_timeout=10)
+        except Exception as e:
+            print(f"[ws] Connection error: {e}. Retrying in 5s...", flush=True)
+        ws_connected.clear()
+        time.sleep(5)
+
+
+def start_ws_listener():
+    t = threading.Thread(target=_ws_listener, daemon=True)
+    t.start()
+    ws_connected.wait(timeout=5)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Countdown timer
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _countdown_timer(interval: int):
+    print("[loop] Countdown timer started", flush=True)
+    while True:
+        try:
+            time.sleep(5)
+            with countdown_lock:
+                target = next_turn_time
+            in_progress = turn_in_progress.is_set()
+            if target is None:
+                if in_progress:
+                    send_heartbeat(next_turn_in=None, turn_in_progress=True)
+                else:
+                    send_heartbeat(next_turn_in=None, turn_in_progress=False)
+                continue
+            remaining = target - time.time()
+            if remaining > 0 and not in_progress:
+                print(f"[loop] Next turn in {int(remaining)}s...", flush=True)
+                send_heartbeat(next_turn_in=remaining, turn_in_progress=False)
+            elif in_progress:
+                # Turn is running — don't spam countdown, just confirm active
+                send_heartbeat(next_turn_in=None, turn_in_progress=True)
+            else:
+                print("[loop] Turn starting now...", flush=True)
+                send_heartbeat(next_turn_in=0, turn_in_progress=False)
+        except Exception as e:
+            print(f"[loop] Countdown thread error: {e}", flush=True)
+            time.sleep(5)
+
+
+def start_countdown(interval: int):
+    t = threading.Thread(target=_countdown_timer, args=(interval,), daemon=True)
+    t.start()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Main loop
+# ═══════════════════════════════════════════════════════════════════════════════
+
 def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
-    """Run an AIAgent in a persistent loop."""
+    """Run an AIAgent in a persistent event-driven loop."""
     config, profile_dir = load_profile_config(profile_name)
 
-    # Resolve model
     model_cfg = config.get("model", {})
     if isinstance(model_cfg, dict):
         model = model_cfg.get("default", "")
     else:
         model = str(model_cfg)
 
-    # Resolve provider / base_url from provider config
     provider = None
     base_url = None
     providers = config.get("providers", {})
     if providers and isinstance(providers, dict):
-        # Use first configured provider
         first_key = next(iter(providers))
         pcfg = providers[first_key]
         if isinstance(pcfg, dict):
             provider = pcfg.get("provider") or first_key
             base_url = pcfg.get("base_url")
 
-    # Resolve toolsets
     toolsets = config.get("toolsets", [])
     if not toolsets:
         toolsets = config.get("platform_toolsets", {}).get("cli", [])
 
     system_prompt = build_system_prompt(profile_dir)
-
-    # Ensure MC_API_URL is set for the minecraft tools
     mc_api_url = os.getenv("MC_API_URL", "")
 
     print(f"[loop] Starting persistent agent: {profile_name}")
     print(f"[loop] Model: {model}")
+    print(f"[loop] Provider: {provider}")
+    print(f"[loop] Base URL: {base_url}")
     print(f"[loop] Toolsets: {toolsets}")
     print(f"[loop] MC_API_URL: {mc_api_url}")
     print(f"[loop] Interval: {interval}s")
@@ -162,37 +317,60 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
         skip_context_files=True,
         skip_memory=False,
         reasoning_config={"enabled": False},
-        max_iterations=5,
+        max_iterations=20,
     )
+
+    global current_agent
+    current_agent = agent
+
+    global next_turn_time
 
     conversation_history = []
     turn_count = 0
 
-    def log_agent_turn(turn_data: dict):
-        """Send turn data to bot server for dashboard display."""
-        payload = json.dumps(turn_data).encode("utf-8")
-        req = urllib.request.Request(
-            f"{MC_API_URL}/agent/log",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                pass
-        except Exception:
-            pass
+    start_ws_listener()
+    start_countdown(interval)
 
     try:
         while True:
             turn_count += 1
             print(f"[loop] Turn {turn_count}", flush=True)
 
-            # Fetch current plan and inject into prompt
+            with countdown_lock:
+                next_turn_time = time.time() + interval
+
+            triggered = chat_event.wait(timeout=interval)
+            chat_event.clear()
+
+            msgs = []
+            if triggered:
+                with message_lock:
+                    msgs = list(pending_messages)
+                    pending_messages.clear()
+                if msgs:
+                    senders = ", ".join({m.get("from", "Player") for m in msgs})
+                    print(f"[loop] Chat trigger from {senders}", flush=True)
+                    with countdown_lock:
+                        next_turn_time = None
+
+            is_chat_triggered = bool(msgs)
+
             plan = fetch_plan()
             plan_context = format_plan(plan)
 
-            if turn_count == 1:
+            if msgs:
+                chat_lines = "\n".join([
+                    f"- {m.get('from', 'Player')}: {m.get('message', '')}"
+                    for m in msgs
+                ])
+                prompt = (
+                    f"New chat messages — respond immediately:\n{chat_lines}\n\n"
+                    f"If this is a new task or request from the player, handle it right away. "
+                    f"Remember: if the player gives you a NEW task that replaces your current work, "
+                    f"FIRST call mc_plan(action='clear_goal') to wipe the old plan, "
+                    f"THEN create a new plan with mc_plan(action='set_goal', ...)."
+                )
+            elif turn_count == 1:
                 prompt = initial_prompt
             else:
                 prompt = (
@@ -212,42 +390,72 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
                 "error": None,
             }
 
+            agent._interrupt_requested = False
+            turn_in_progress.set()
+            send_heartbeat(next_turn_in=None, turn_in_progress=True)
             try:
                 result = agent.run_conversation(
                     user_message=prompt,
                     conversation_history=conversation_history,
                 )
 
-                # Keep the conversation history for context continuity
                 conversation_history = result.get("messages", [])
-
-                # Trim history to avoid token bloat (keep last 20 messages)
                 if len(conversation_history) > 20:
                     conversation_history = conversation_history[-20:]
 
                 response = result.get("final_response", "")
                 turn_log["response"] = response
 
-                # Extract tool calls from conversation history
+                is_budget_error = (
+                    "maximum iterations" in (response or "")
+                    or "couldn't summarize" in (response or "")
+                    or "tool_call_id" in (response or "")
+                )
+
+                mc_chat_used = False
                 for msg in conversation_history:
                     if msg.get("role") == "assistant" and msg.get("tool_calls"):
                         for tc in msg["tool_calls"]:
+                            name = tc.get("function", {}).get("name", "")
                             turn_log["tool_calls"].append({
-                                "name": tc.get("function", {}).get("name", "unknown"),
+                                "name": name,
                                 "args": tc.get("function", {}).get("arguments", ""),
                             })
+                            if name == "mc_chat":
+                                mc_chat_used = True
 
-                if response:
+                if is_budget_error:
+                    print("[loop] Budget exhausted — tools executed but summary failed. Will retry next turn.", flush=True)
+                    conversation_history = []
+                elif response and not mc_chat_used and is_chat_triggered:
+                    chat_msg = response.strip()
+                    if len(chat_msg) > 300:
+                        chat_msg = chat_msg[:297] + "..."
+                    try:
+                        payload = json.dumps({"message": chat_msg}).encode("utf-8")
+                        req = urllib.request.Request(
+                            f"{MC_API_URL}/chat/send",
+                            data=payload,
+                            headers={"Content-Type": "application/json"},
+                            method="POST",
+                        )
+                        with urllib.request.urlopen(req, timeout=5) as resp:
+                            pass
+                        print(f"[loop] Auto-sent to chat: {chat_msg[:80]}...", flush=True)
+                    except Exception as e:
+                        print(f"[loop] Auto-chat failed: {e}", flush=True)
+
+                if response and not is_budget_error:
                     print(f"[loop] Response: {response[:200]}", flush=True)
 
             except Exception as e:
                 turn_log["error"] = str(e)
                 print(f"[loop] Error during turn: {e}", flush=True)
+            finally:
+                turn_in_progress.clear()
+                send_heartbeat(next_turn_in=None, turn_in_progress=False)
 
             log_agent_turn(turn_log)
-
-            print(f"[loop] Sleeping {interval}s...", flush=True)
-            time.sleep(interval)
 
     except KeyboardInterrupt:
         print("[loop] Interrupted. Exiting.")
@@ -257,7 +465,7 @@ def main():
     parser = argparse.ArgumentParser(description="Hermes-native persistent agent loop")
     parser.add_argument("--profile", required=True, help="Hermes profile name")
     parser.add_argument("--prompt", default="Begin.", help="Initial prompt")
-    parser.add_argument("--interval", type=int, default=30, help="Seconds between turns")
+    parser.add_argument("--interval", type=int, default=30, help="Seconds between idle turns")
     args = parser.parse_args()
 
     run_agent_loop(args.profile, args.prompt, args.interval)

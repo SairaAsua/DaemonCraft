@@ -8,6 +8,8 @@ soul_file: ../SOUL-minecraft.md
 
 agents:
   - name: Steve
-    template: companion/steve
+    template: landfolk/steve
     port: 3001
     model: MiniMax-M2.7
+    provider: minimax
+    base_url: https://api.minimax.chat/v1

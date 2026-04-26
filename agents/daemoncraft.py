@@ -178,7 +178,7 @@ def setup_agent_profile(
         soul_dst.write_text("\n".join(soul_parts))
         log(f"Wrote composite SOUL for {name}", cast_name)
 
-    # Update config
+    # Update config — MERGE with existing, don't overwrite
     import yaml
     config_path = profile_dir / "config.yaml"
     config = yaml.safe_load(config_path.read_text()) or {} if config_path.exists() else {}
@@ -192,12 +192,37 @@ def setup_agent_profile(
     platform_toolsets["cli"] = ["minecraft", "clarify", "messaging"]
     config["platform_toolsets"] = platform_toolsets
 
-    # Set model if specified
+    # Set model with provider — infer provider from model name if not specified
     if model:
-        if isinstance(config.get("model"), dict):
-            config["model"]["default"] = model
-        else:
-            config["model"] = {"default": model}
+        provider = agent.get("provider")
+        base_url = agent.get("base_url")
+        if not provider:
+            # Auto-infer provider from model name
+            model_lower = model.lower()
+            if "minimax" in model_lower:
+                provider = "minimax"
+                base_url = base_url or "https://api.minimax.chat/v1"
+            elif "kimi" in model_lower:
+                provider = "kimi-coding"
+            elif "glm" in model_lower:
+                provider = "glm"
+            elif "claude" in model_lower or "opus" in model_lower:
+                provider = "anthropic"
+            elif "gpt" in model_lower or "o1" in model_lower or "o3" in model_lower:
+                provider = "openai"
+            elif "codex" in model_lower:
+                provider = "openai"
+                base_url = base_url or "https://api.openai.com/v1"
+        
+        config["model"] = {"default": model}
+        if provider:
+            config["model"]["provider"] = provider
+        if base_url:
+            config["providers"] = config.get("providers", {})
+            config["providers"][provider] = {
+                "provider": provider,
+                "base_url": base_url,
+            }
 
     config_path.write_text(yaml.dump(config, default_flow_style=False, sort_keys=False))
 
@@ -426,6 +451,51 @@ def cmd_restart(cast_name: str, cast: dict, mc_host: str, mc_port: int):
     cmd_start(cast_name, cast, mc_host, mc_port)
 
 
+def cmd_update(cast_name: str, cast: dict, mc_host: str, mc_port: int):
+    """Hard restart: stop all agents, sync profiles with latest code, start fresh.
+
+    Use this after editing agent_loop.py, server.js, or prompts to ensure
+    changes are picked up. Unlike 'restart', this forces profile re-creation
+    even if agents appear alive.
+    """
+    log(f"Updating cast '{cast_name}' with latest code...", cast_name)
+    cmd_stop(cast_name, cast)
+    time.sleep(2)
+    # Force profile re-setup by removing old profile dirs
+    agents = cast.get("agents", [])
+    for agent in agents:
+        name = agent["name"]
+        profile_name = name.lower().replace(" ", "-")
+        profile_dir = Path.home() / ".hermes" / "profiles" / profile_name
+        if profile_dir.exists():
+            # Persist plan and locations across update
+            workspace_dir = profile_dir / "workspace"
+            backup_dir = get_run_dir(cast_name) / "backup" / profile_name
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            for fname in ("plan-steve.json", "locations-steve.json"):
+                src = workspace_dir / fname
+                if src.exists():
+                    shutil.copy2(src, backup_dir / fname)
+                    log(f"Saved {fname} for {name}", cast_name)
+            log(f"Removing old profile for {name}...", cast_name)
+            shutil.rmtree(profile_dir)
+    cmd_start(cast_name, cast, mc_host, mc_port)
+    # Restore persisted files
+    for agent in agents:
+        name = agent["name"]
+        profile_name = name.lower().replace(" ", "-")
+        profile_dir = Path.home() / ".hermes" / "profiles" / profile_name
+        workspace_dir = profile_dir / "workspace"
+        backup_dir = get_run_dir(cast_name) / "backup" / profile_name
+        for fname in ("plan-steve.json", "locations-steve.json"):
+            src = backup_dir / fname
+            dst = workspace_dir / fname
+            if src.exists():
+                shutil.copy2(src, dst)
+                log(f"Restored {fname} for {name}", cast_name)
+    log(f"Cast '{cast_name}' updated.", cast_name)
+
+
 def cmd_daemon(cast_name: str, cast: dict, mc_host: str, mc_port: int):
     """Run a supervisor loop that keeps all agents alive."""
     agents = cast.get("agents", [])
@@ -492,7 +562,7 @@ def cmd_daemon(cast_name: str, cast: dict, mc_host: str, mc_port: int):
 
 def main():
     parser = argparse.ArgumentParser(description="DaemonCraft — Minecraft Agent Cast Launcher")
-    parser.add_argument("cmd", choices=["start", "stop", "status", "logs", "restart", "daemon"],
+    parser.add_argument("cmd", choices=["start", "stop", "status", "logs", "restart", "update", "daemon"],
                         help="Command to execute")
     parser.add_argument("cast", help="Cast name (e.g., companion, civilization, landfolk)")
     parser.add_argument("--mc-host", default=DEFAULT_MC_HOST, help="Minecraft server host")
@@ -520,6 +590,8 @@ def main():
         cmd_logs(args.cast, args.agent, args.kind, args.follow)
     elif args.cmd == "restart":
         cmd_restart(args.cast, cast, args.mc_host, args.mc_port)
+    elif args.cmd == "update":
+        cmd_update(args.cast, cast, args.mc_host, args.mc_port)
     elif args.cmd == "daemon":
         cmd_daemon(args.cast, cast, args.mc_host, args.mc_port)
 

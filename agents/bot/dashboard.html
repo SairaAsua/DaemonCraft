@@ -195,7 +195,7 @@
   </div>
 
   <div class="panel" style="grid-column: 1 / -1; max-height: 600px;">
-    <div class="panel-header">Bot Mind — Raw Prompts & Responses</div>
+    <div class="panel-header" id="agent-header">Bot Mind — Raw Prompts & Responses</div>
     <div class="panel-body" id="agent-panel">
       <div class="empty">Waiting for agent turns...</div>
     </div>
@@ -261,6 +261,7 @@ function handleMessage(msg) {
     case 'actions': renderActions(msg.data); break;
     case 'task': renderTask(msg.data); break;
     case 'agent': renderAgent(msg.data); break;
+    case 'heartbeat': renderHeartbeat(msg.data); break;
   }
 }
 
@@ -404,6 +405,22 @@ function renderAgent(turns) {
   }
   panel.innerHTML = html;
   panel.scrollTop = panel.scrollHeight;
+}
+
+function renderHeartbeat(data) {
+  const header = document.getElementById('agent-header');
+  if (!data) {
+    header.textContent = 'Bot Mind — Raw Prompts & Responses';
+    return;
+  }
+  if (data.turnInProgress) {
+    header.innerHTML = 'Bot Mind — <span style="color:#58a6ff">⚡ Turn active</span>';
+  } else if (data.nextTurnIn != null && data.nextTurnIn > 0) {
+    const s = Math.ceil(data.nextTurnIn);
+    header.innerHTML = `Bot Mind — <span style="color:#8b949e">⏱️ Next turn in ${s}s</span>`;
+  } else {
+    header.innerHTML = 'Bot Mind — <span style="color:#3fb950">🔄 Turn starting...</span>';
+  }
 }
 
 function escapeHtml(text) {

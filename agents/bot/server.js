@@ -170,10 +170,11 @@ let actionHistory = []; // { action, status, time }
 const MAX_ACTION_HISTORY = 100;
 let agentLog = []; // { turn, time, prompt, response, tool_calls, error }
 const MAX_AGENT_LOG = 50;
+let agentHeartbeat = { nextTurnIn: null, turnInProgress: false }; // countdown for dashboard
 
-// ═══════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════════
 // Fair Play Mode — perception constraints for realistic gameplay
-// ═══════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════════
 
 let fairPlayMode = process.env.FAIR_PLAY !== 'false'; // on by default
 const FAIR_PLAY = {
@@ -3147,6 +3148,33 @@ const httpServer = http.createServer(async (req, res) => {
         if (agentLog.length > MAX_AGENT_LOG) agentLog.shift();
         broadcastDashboard('agent', agentLog.slice(-50));
         return respond(res, 200, { ok: true });
+      }
+
+      // Agent heartbeat — POST /agent/heartbeat
+      if (path === '/agent/heartbeat') {
+        const hb = body || {};
+        log(`[heartbeat] received: nextTurnIn=${hb.nextTurnIn} turnInProgress=${hb.turnInProgress}`);
+        agentHeartbeat = {
+          nextTurnIn: body.nextTurnIn !== undefined ? body.nextTurnIn : agentHeartbeat.nextTurnIn,
+          turnInProgress: body.turnInProgress !== undefined ? body.turnInProgress : agentHeartbeat.turnInProgress,
+        };
+        broadcastDashboard('heartbeat', agentHeartbeat);
+        return respond(res, 200, { ok: true });
+      }
+
+      // Send chat message from agent to Minecraft — POST /chat/send
+      if (path === '/chat/send') {
+        const message = body?.message;
+        if (!message || typeof message !== 'string') {
+          return respond(res, 400, { ok: false, error: 'Missing or invalid "message" field' });
+        }
+        const b = ensureBot();
+        b.chat(message);
+        // Also add to chatLog so it appears in read_chat history
+        chatLog.push({ time: Date.now(), from: b.username, message, self: true });
+        if (chatLog.length > MAX_LOG) chatLog.shift();
+        broadcastDashboard('chat', chatLog.slice(-30));
+        return respond(res, 200, { ok: true, result: 'Message sent.' });
       }
 
       // Background task system: POST /task/ACTION runs async, returns task_id

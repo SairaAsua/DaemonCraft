@@ -67,6 +67,33 @@ def send_heartbeat(next_turn_in: float | None = None, turn_in_progress: bool = F
         pass
 
 
+def _safe_trim_history(messages: list, max_msgs: int = 20) -> list:
+    """Trim conversation history without breaking tool_call chains.
+
+    Never cut between an assistant message with tool_calls and its
+    corresponding tool result messages.
+    """
+    if len(messages) <= max_msgs:
+        return messages
+
+    # Start from max_msgs and walk backward to a safe boundary
+    trim_at = max_msgs
+    while trim_at > 0:
+        msg = messages[-trim_at]
+        if msg.get("role") == "assistant" and msg.get("tool_calls"):
+            tool_ids = {tc["id"] for tc in msg["tool_calls"] if "id" in tc}
+            results_found = 0
+            for m in messages[-trim_at + 1:]:
+                if m.get("role") == "tool" and m.get("tool_call_id") in tool_ids:
+                    results_found += 1
+            if results_found < len(tool_ids):
+                trim_at -= 1
+                continue
+        break
+
+    return messages[-trim_at:]
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Plan helpers
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -265,7 +292,6 @@ def _countdown_timer(interval: int):
                 print(f"[loop] Next turn in {int(remaining)}s...", flush=True)
                 send_heartbeat(next_turn_in=remaining, turn_in_progress=False)
             elif in_progress:
-                # Turn is running — don't spam countdown, just confirm active
                 send_heartbeat(next_turn_in=None, turn_in_progress=True)
             else:
                 print("[loop] Turn starting now...", flush=True)
@@ -330,7 +356,7 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
         skip_context_files=True,
         skip_memory=False,
         reasoning_config={"enabled": False},
-        max_iterations=5,
+        max_iterations=8,
     )
 
     global current_agent
@@ -420,8 +446,7 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
                 )
 
                 conversation_history = result.get("messages", [])
-                if len(conversation_history) > 20:
-                    conversation_history = conversation_history[-20:]
+                conversation_history = _safe_trim_history(conversation_history, max_msgs=20)
 
                 response = result.get("final_response", "")
                 turn_log["response"] = response

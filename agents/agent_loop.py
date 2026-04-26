@@ -14,9 +14,11 @@ gateway, and batch runner. We do NOT reinvent the tool-calling loop.
 """
 
 import argparse
+import json
 import os
 import sys
 import time
+import urllib.request
 from pathlib import Path
 
 # Ensure Hermes is on path
@@ -25,6 +27,54 @@ if str(HERMES_DIR) not in sys.path:
     sys.path.insert(0, str(HERMES_DIR))
 
 from run_agent import AIAgent
+
+
+MC_API_URL = os.getenv("MC_API_URL", "http://localhost:3001")
+
+
+def fetch_plan() -> dict:
+    """Fetch the bot's current plan from the bot server."""
+    try:
+        with urllib.request.urlopen(f"{MC_API_URL}/plan", timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data.get("data", {})
+    except Exception:
+        return {}
+
+
+def format_plan(plan: dict) -> str:
+    """Format the plan as a string to inject into the prompt."""
+    if not plan or not plan.get("goal"):
+        return ""
+    goal = plan.get("goal", "")
+    tasks = plan.get("tasks", [])
+    done = sum(1 for t in tasks if t.get("status") == "done")
+    total = len(tasks)
+
+    # Plan fully complete — prompt for next steps
+    if total > 0 and done == total:
+        return (
+            f"Your goal '{goal}' is COMPLETE. All {total} tasks finished.\n"
+            f"Announce your success to the player with mc_chat, then EITHER:\n"
+            f"  1. Ask what they'd like you to work on next\n"
+            f"  2. Set your own goal based on what would be useful (check status, inventory, surroundings)\n"
+            f"If you choose option 2, use mc_plan(action='set_goal', goal='...', tasks=[...]) to commit.\n"
+        )
+
+    lines = [
+        f"Your current goal: {goal}",
+        f"Task progress: {done}/{total} done",
+    ]
+    for i, t in enumerate(tasks):
+        sym = {
+            "done": "[x]",
+            "in_progress": "[->]",
+            "blocked": "[!]",
+        }.get(t.get("status", ""), "[ ]")
+        desc = t.get("description", "")
+        att = f" (attempt {t.get('attempts', 0)})" if t.get("attempts") else ""
+        lines.append(f"  {sym} {i + 1}. {desc}{att}")
+    return "\n".join(lines)
 
 
 def load_profile_config(profile_name: str) -> dict:
@@ -111,21 +161,56 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
         quiet_mode=True,
         skip_context_files=True,
         skip_memory=False,
+        reasoning_config={"enabled": False},
+        max_iterations=5,
     )
 
     conversation_history = []
     turn_count = 0
 
+    def log_agent_turn(turn_data: dict):
+        """Send turn data to bot server for dashboard display."""
+        payload = json.dumps(turn_data).encode("utf-8")
+        req = urllib.request.Request(
+            f"{MC_API_URL}/agent/log",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                pass
+        except Exception:
+            pass
+
     try:
         while True:
             turn_count += 1
-            print(f"[loop] Turn {turn_count}")
+            print(f"[loop] Turn {turn_count}", flush=True)
 
-            # Alternate between initial prompt and a continuation prompt
-            prompt = initial_prompt if turn_count == 1 else (
-                "Continue your current activity. Check your status, surroundings, "
-                "and any pending commands. Act as your character would."
-            )
+            # Fetch current plan and inject into prompt
+            plan = fetch_plan()
+            plan_context = format_plan(plan)
+
+            if turn_count == 1:
+                prompt = initial_prompt
+            else:
+                prompt = (
+                    "Continue your current activity. Check your status, surroundings, "
+                    "and any pending commands. Act as your character would."
+                )
+
+            if plan_context:
+                prompt = f"{plan_context}\n\n{prompt}"
+
+            turn_log = {
+                "turn": turn_count,
+                "time": int(time.time() * 1000),
+                "prompt": prompt,
+                "response": "",
+                "tool_calls": [],
+                "error": None,
+            }
 
             try:
                 result = agent.run_conversation(
@@ -141,13 +226,27 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
                     conversation_history = conversation_history[-20:]
 
                 response = result.get("final_response", "")
+                turn_log["response"] = response
+
+                # Extract tool calls from conversation history
+                for msg in conversation_history:
+                    if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                        for tc in msg["tool_calls"]:
+                            turn_log["tool_calls"].append({
+                                "name": tc.get("function", {}).get("name", "unknown"),
+                                "args": tc.get("function", {}).get("arguments", ""),
+                            })
+
                 if response:
-                    print(f"[loop] Response: {response[:200]}")
+                    print(f"[loop] Response: {response[:200]}", flush=True)
 
             except Exception as e:
-                print(f"[loop] Error during turn: {e}")
+                turn_log["error"] = str(e)
+                print(f"[loop] Error during turn: {e}", flush=True)
 
-            print(f"[loop] Sleeping {interval}s...")
+            log_agent_turn(turn_log)
+
+            print(f"[loop] Sleeping {interval}s...", flush=True)
             time.sleep(interval)
 
     except KeyboardInterrupt:

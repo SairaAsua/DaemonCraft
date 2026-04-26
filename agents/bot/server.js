@@ -68,6 +68,7 @@ import {
   applySocialEvent,
   summarizeSocialGraph,
 } from './lib/chat.js';
+import { WebSocketServer } from 'ws';
 import {
   yawPitchToDir,
   bearingFromDelta,
@@ -103,6 +104,19 @@ function saveLocations(locs) {
   const dir = path.dirname(LOCATIONS_FILE);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(LOCATIONS_FILE, JSON.stringify(locs, null, 2));
+}
+
+// Per-bot persistent plan file (tactical goal layer)
+const PLAN_FILE = path.join(DATA_DIR, `plan-${(process.env.MC_USERNAME || 'HermesBot').toLowerCase()}.json`);
+
+function loadPlan() {
+  try { return JSON.parse(fs.readFileSync(PLAN_FILE, 'utf8')); }
+  catch { return null; }
+}
+function savePlan(plan) {
+  const dir = path.dirname(PLAN_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(PLAN_FILE, JSON.stringify(plan, null, 2));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -153,7 +167,9 @@ const MAX_QUEUE = 20;
 
 // Rolling buffer of recent action outcomes for loop detection
 let actionHistory = []; // { action, status, time }
-const MAX_ACTION_HISTORY = 10;
+const MAX_ACTION_HISTORY = 100;
+let agentLog = []; // { turn, time, prompt, response, tool_calls, error }
+const MAX_AGENT_LOG = 50;
 
 // ═══════════════════════════════════════════════════════════════════
 // Fair Play Mode — perception constraints for realistic gameplay
@@ -279,6 +295,7 @@ async function handleChat(username, message) {
       targets: routing.targets.length > 0 ? routing.targets : undefined,
     });
     if (chatLog.length > MAX_LOG) chatLog.shift();
+    broadcastDashboard('chat', chatLog.slice(-30));
     log(`[Chat${routing.isBroadcast ? '' : ' @me'}] <${username}> ${routing.body}`);
     
     // If directly addressed (Name: msg format), queue as command
@@ -1367,6 +1384,17 @@ function generateLookAround() {
 // Actions
 // ═══════════════════════════════════════════════════════════════════
 
+// Non-solid blocks that fair-play raycasting cannot detect (rays pass through them).
+// For these, we fall back to findBlocks() even in fairPlayMode.
+const NON_SOLID_BLOCKS = new Set([
+  'grass', 'tall_grass', 'fern', 'large_fern',
+  'dead_bush', 'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet',
+  'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy',
+  'cornflower', 'lily_of_the_valley', 'sunflower', 'lilac', 'rose_bush',
+  'peony', 'sweet_berry_bush', 'seagrass', 'tall_seagrass', 'kelp',
+  'kelp_plant', 'vine', 'glow_lichen', 'cave_vines', 'cave_vines_plant',
+]);
+
 const ACTIONS = {
   // ── Movement ─────────────────────────────────────
   async goto({ x, y, z }) {
@@ -1430,29 +1458,34 @@ const ACTIONS = {
     return { result: 'Stopped all actions.' };
   },
 
-  // ── Mining ───────────────────────────────────────
-  async collect({ block, count = 1 }) {
-    const b = ensureBot();
-    const blockType = mcData.blocksByName[block];
-    if (!blockType) throw new Error(`Unknown block "${block}". Check spelling (e.g. oak_log, iron_ore, cobblestone).`);
+// ── Mining ───────────────────────────────────────
+async collect({ block, count = 1 }) {
+  const b = ensureBot();
+  const blockType = mcData.blocksByName[block];
+  if (!blockType) throw new Error(`Unknown block "${block}". Check spelling (e.g. oak_log, iron_ore, cobblestone).`);
 
-    // Cap at 20 per call — chat piggybacks on the response so AI sees it
-    const batchSize = Math.min(count, 20);
+  // Cap at 20 per call — chat piggybacks on the response so AI sees it
+  const batchSize = Math.min(count, 20);
+  const isNonSolid = NON_SOLID_BLOCKS.has(block.toLowerCase());
 
-    const found = fairPlayMode
-      ? findVisibleBlocksByName(block, { range: 16, count: batchSize * 3 }).map((entry) => new Vec3(entry.position.x, entry.position.y, entry.position.z))
-      : b.findBlocks({
-          matching: blockType.id,
-          maxDistance: 64,
-          count: batchSize * 3,
-        });
+  let found = fairPlayMode && !isNonSolid
+    ? findVisibleBlocksByName(block, { range: 16, count: batchSize * 3 }).map((entry) => new Vec3(entry.position.x, entry.position.y, entry.position.z))
+    : b.findBlocks({
+        matching: blockType.id,
+        maxDistance: 64,
+        count: batchSize * 3,
+      });
 
-    if (found.length === 0) {
-      const pos = posObj();
-      throw new Error(fairPlayMode
-        ? `Can't see any ${block} from ${pos.x}, ${pos.y}, ${pos.z}. Turn around, move closer to likely sources, or use mc_perceive(type="nearby") / mc_scene to inspect before collecting.`
-        : `No ${block} found within 64 blocks of ${pos.x}, ${pos.y}, ${pos.z}. Move to a better area or search for a different resource.`);
+  if (found.length === 0) {
+    const pos = posObj();
+    if (fairPlayMode && isNonSolid) {
+      // Non-solid blocks aren't visible to raycast — tell the agent to search differently
+      throw new Error(`Can't see any ${block} from line-of-sight (it's too small to raycast). Use mc_mine(action="find_blocks", block="${block}") to scan the area, then mc_mine(action="dig", x=..., y=..., z=...) on the exact coordinates.`);
     }
+    throw new Error(fairPlayMode
+      ? `Can't see any ${block} from ${pos.x}, ${pos.y}, ${pos.z}. Turn around, move closer to likely sources, or use mc_perceive(type="nearby") / mc_scene to inspect before collecting.`
+      : `No ${block} found within 64 blocks of ${pos.x}, ${pos.y}, ${pos.z}. Move to a better area or search for a different resource.`);
+  }
 
     // Filter out blocks directly under the bot (never dig straight down!)
     const botPos = b.entity.position;
@@ -1505,10 +1538,21 @@ const ACTIONS = {
       const nearestText = nearest ? ` Nearest candidate was at ${nearest.x},${nearest.y},${nearest.z}.` : '';
       return { result: `Could not mine any ${block}. I found candidates but pathing/digging failed.${nearestText} Try moving closer, looking at the block, or choosing a different resource.` };
     }
+
+    // Smart drop-rate hints for probabilistic drops
+    const dropRateHints = {
+      grass: 'wheat_seeds drop ~10% of the time from grass',
+      tall_grass: 'wheat_seeds drop ~10% of the time from tall_grass',
+      fern: 'wheat_seeds drop ~10% of the time from ferns',
+    };
+    const dropHint = dropRateHints[block.toLowerCase()];
     const remaining = count - collected;
-    const msg = remaining > 0
+    let msg = remaining > 0
       ? `Mined ${collected} ${block} (${remaining} more needed). Have ${invCount} ${block} in inventory.`
       : `Mined ${collected}/${count} ${block}. Have ${invCount} ${block} in inventory.`;
+    if (dropHint) {
+      msg += ` Note: ${dropHint}. If no items appeared, keep breaking more — drops are random.`;
+    }
     return { result: msg };
   },
 
@@ -1518,6 +1562,14 @@ const ACTIONS = {
     if (!target || target.name === 'air' || target.name === 'cave_air') {
       const actual = target ? target.name : 'nothing (out of world)';
       throw new Error(`No mineable block at ${x}, ${y}, ${z} — it's ${actual}. Check coordinates or use mc_perceive(type="nearby") to scan.`);
+    }
+    // Safety: don't dig the block directly under your feet
+    const botPos = b.entity.position;
+    const botFeetX = Math.floor(botPos.x);
+    const botFeetY = Math.floor(botPos.y) - 1; // block we are standing ON
+    const botFeetZ = Math.floor(botPos.z);
+    if (x === botFeetX && y === botFeetY && z === botFeetZ) {
+      throw new Error(`Refusing to dig block at ${x},${y},${z}: that's the block under my feet. Move aside first with mc_move(action="goto", ...).`);
     }
     await b.tool.equipForBlock(target);
     if (b.entity.position.distanceTo(target.position) > 4.5) {
@@ -1558,7 +1610,8 @@ const ACTIONS = {
     const blockType = mcData.blocksByName[block];
     if (!blockType) throw new Error(`Unknown block "${block}".`);
 
-    const found = fairPlayMode
+    const isNonSolid = NON_SOLID_BLOCKS.has(block.toLowerCase());
+    const found = fairPlayMode && !isNonSolid
       ? findVisibleBlocksByName(block, { range: Math.min(radius, 24), count })
       : b.findBlocks({
           matching: blockType.id,
@@ -1568,9 +1621,11 @@ const ACTIONS = {
 
     if (found.length === 0) {
       return {
-        result: fairPlayMode
-          ? `No visible ${block} in the current view cone. Turn, move, or use mc scene to inspect.`
-          : `No ${block} found within ${radius} blocks.`,
+        result: fairPlayMode && isNonSolid
+          ? `No ${block} found within ${radius} blocks. Note: ${block} is a small plant that doesn't show up in line-of-sight scans. Use mc_mine(action="find_blocks", block="${block}") with fair_play off, or search manually.`
+          : fairPlayMode
+            ? `No visible ${block} in the current view cone. Turn, move, or use mc scene to inspect.`
+            : `No ${block} found within ${radius} blocks.`,
         locations: [],
       };
     }
@@ -1929,6 +1984,163 @@ const ACTIONS = {
     }
     await b.activateBlock(block);
     return { result: `Interacted with ${block.name} at ${x}, ${y}, ${z}` };
+  },
+
+  async till({ x, y, z }) {
+    const b = ensureBot();
+    const target = b.blockAt(new Vec3(x, y, z));
+    if (!target) throw new Error(`Can't till at ${x},${y},${z}: out of world.`);
+    const tillable = ['grass_block', 'dirt', 'dirt_path', 'rooted_dirt', 'coarse_dirt'];
+    if (!tillable.includes(target.name)) {
+      throw new Error(`Can't till ${target.name} at ${x},${y},${z}. Tillable blocks: ${tillable.join(', ')}.`);
+    }
+    const dist = b.entity.position.distanceTo(target.position);
+    if (dist > 4.5) {
+      await b.pathfinder.goto(new goals.GoalNear(x, y, z, 2));
+    } else if (dist < 1.8) {
+      // Too close — back up so the hitbox doesn't overlap the block face
+      const away = b.entity.position.minus(target.position).normalize().scale(2.5);
+      const dest = target.position.plus(away);
+      await b.pathfinder.goto(new goals.GoalNear(dest.x, dest.y, dest.z, 1));
+    }
+    const held = b.heldItem?.name || 'hand';
+    if (!held.includes('hoe')) {
+      throw new Error(`Tilling failed at ${x},${y},${z}: you are holding ${held}, not a hoe. Equip a hoe first with mc_combat(action="equip", item="stone_hoe").`);
+    }
+    // Use mineflayer's internal _genericPlace to send block_place packet targeting top face
+    await b._genericPlace(target, new Vec3(0, 1, 0), { swingArm: 'right', forceLook: true });
+    await sleep(250);
+    const after = b.blockAt(new Vec3(x, y, z));
+    if (after.name === 'farmland') {
+      return { result: `Tilled ${target.name} into farmland at ${x},${y},${z}` };
+    }
+    throw new Error(`Tilling failed at ${x},${y},${z}. Block is ${after.name}, expected farmland. The block may be obstructed or too far.`);
+  },
+
+  async bonemeal({ x, y, z }) {
+    const b = ensureBot();
+    const target = b.blockAt(new Vec3(x, y, z));
+    if (!target) throw new Error(`Can't bonemeal at ${x},${y},${z}: out of world.`);
+    const growable = ['wheat', 'carrots', 'potatoes', 'beetroots', 'oak_sapling', 'birch_sapling', 'spruce_sapling', 'jungle_sapling', 'acacia_sapling', 'dark_oak_sapling', 'grass_block', 'melon_stem', 'pumpkin_stem', 'sweet_berry_bush', 'cave_vines', 'cave_vines_plant'];
+    if (!growable.includes(target.name)) {
+      throw new Error(`Can't bonemeal ${target.name} at ${x},${y},${z}. Growable blocks: ${growable.join(', ')}.`);
+    }
+    const dist = b.entity.position.distanceTo(target.position);
+    if (dist > 4.5) {
+      await b.pathfinder.goto(new goals.GoalNear(x, y, z, 2));
+    } else if (dist < 1.8) {
+      const away = b.entity.position.minus(target.position).normalize().scale(2.5);
+      const dest = target.position.plus(away);
+      await b.pathfinder.goto(new goals.GoalNear(dest.x, dest.y, dest.z, 1));
+    }
+    const held = b.heldItem?.name || 'hand';
+    if (held !== 'bone_meal') {
+      throw new Error(`Bonemeal failed at ${x},${y},${z}: you are holding ${held}, not bone_meal. Equip bonemeal first with mc_combat(action="equip", item="bone_meal").`);
+    }
+    await b._genericPlace(target, new Vec3(0, 1, 0), { swingArm: 'right', forceLook: true });
+    await sleep(250);
+    return { result: `Used bonemeal on ${target.name} at ${x},${y},${z}` };
+  },
+
+  async flatten({ x, y, z }) {
+    const b = ensureBot();
+    const target = b.blockAt(new Vec3(x, y, z));
+    if (!target) throw new Error(`Can't flatten at ${x},${y},${z}: out of world.`);
+    const flattenable = ['grass_block', 'dirt', 'podzol', 'mycelium', 'coarse_dirt', 'rooted_dirt'];
+    if (!flattenable.includes(target.name)) {
+      throw new Error(`Can't flatten ${target.name} at ${x},${y},${z}. Flattenable blocks: ${flattenable.join(', ')}.`);
+    }
+    const dist = b.entity.position.distanceTo(target.position);
+    if (dist > 4.5) {
+      await b.pathfinder.goto(new goals.GoalNear(x, y, z, 2));
+    } else if (dist < 1.8) {
+      const away = b.entity.position.minus(target.position).normalize().scale(2.5);
+      const dest = target.position.plus(away);
+      await b.pathfinder.goto(new goals.GoalNear(dest.x, dest.y, dest.z, 1));
+    }
+    const held = b.heldItem?.name || 'hand';
+    if (!held.includes('shovel')) {
+      throw new Error(`Flatten failed at ${x},${y},${z}: you are holding ${held}, not a shovel. Equip a shovel first with mc_combat(action="equip", item="wooden_shovel").`);
+    }
+    await b._genericPlace(target, new Vec3(0, 1, 0), { swingArm: 'right', forceLook: true });
+    await sleep(250);
+    const after = b.blockAt(new Vec3(x, y, z));
+    if (after.name === 'dirt_path') {
+      return { result: `Flattened ${target.name} into dirt_path at ${x},${y},${z}` };
+    }
+    throw new Error(`Flatten failed at ${x},${y},${z}. Block is ${after.name}, expected dirt_path. The block may be obstructed or too far.`);
+  },
+
+  async ignite({ x, y, z }) {
+    const b = ensureBot();
+    const target = b.blockAt(new Vec3(x, y, z));
+    if (!target) throw new Error(`Can't ignite at ${x},${y},${z}: out of world.`);
+    const ignitable = ['netherrack', 'tnt', 'campfire', 'soul_campfire', 'candle', 'white_candle', 'orange_candle', 'magenta_candle', 'light_blue_candle', 'yellow_candle', 'lime_candle', 'pink_candle', 'gray_candle', 'light_gray_candle', 'cyan_candle', 'purple_candle', 'blue_candle', 'brown_candle', 'green_candle', 'red_candle', 'black_candle'];
+    if (!ignitable.includes(target.name)) {
+      throw new Error(`Can't ignite ${target.name} at ${x},${y},${z}. Ignitable blocks: netherrack, tnt, campfire, candle, etc.`);
+    }
+    const dist = b.entity.position.distanceTo(target.position);
+    if (dist > 4.5) {
+      await b.pathfinder.goto(new goals.GoalNear(x, y, z, 2));
+    } else if (dist < 1.8) {
+      const away = b.entity.position.minus(target.position).normalize().scale(2.5);
+      const dest = target.position.plus(away);
+      await b.pathfinder.goto(new goals.GoalNear(dest.x, dest.y, dest.z, 1));
+    }
+    const held = b.heldItem?.name || 'hand';
+    if (held !== 'flint_and_steel') {
+      throw new Error(`Ignite failed at ${x},${y},${z}: you are holding ${held}, not flint_and_steel. Equip it first with mc_combat(action="equip", item="flint_and_steel").`);
+    }
+    await b._genericPlace(target, new Vec3(0, 1, 0), { swingArm: 'right', forceLook: true });
+    await sleep(250);
+    return { result: `Ignited ${target.name} at ${x},${y},${z}` };
+  },
+
+  async fish() {
+    const b = ensureBot();
+    const held = b.heldItem?.name || 'hand';
+    if (held !== 'fishing_rod') {
+      throw new Error(`Fishing failed: you are holding ${held}, not fishing_rod. Equip it first with mc_combat(action="equip", item="fishing_rod").`);
+    }
+    // Find water block in front of bot
+    const pos = b.entity.position;
+    const yaw = b.entity.yaw;
+    const pitch = b.entity.pitch;
+    const reach = 4;
+    const dx = -Math.sin(yaw) * Math.cos(pitch);
+    const dy = -Math.sin(pitch);
+    const dz = -Math.cos(yaw) * Math.cos(pitch);
+    let waterBlock = null;
+    for (let i = 1; i <= reach * 2; i++) {
+      const check = b.blockAt(new Vec3(Math.floor(pos.x + dx * i * 0.5), Math.floor(pos.y + dy * i * 0.5), Math.floor(pos.z + dz * i * 0.5)));
+      if (check && (check.name === 'water' || check.name === 'water_cauldron')) {
+        waterBlock = check;
+        break;
+      }
+    }
+    if (!waterBlock) {
+      throw new Error(`Fishing failed: no water found in front of you. Position yourself facing water (within 4 blocks) and try again.`);
+    }
+    // Cast
+    b.activateItem();
+    await sleep(500);
+    // Wait for bite (playerCollect event means something was caught)
+    let caught = null;
+    const onCollect = (player, entity) => {
+      if (player.username === b.username && entity.name) {
+        caught = entity.name;
+      }
+    };
+    b.on('playerCollect', onCollect);
+    // Wait up to 30 seconds for a bite
+    await sleep(30000);
+    b.deactivateItem(); // reel in
+    b.removeListener('playerCollect', onCollect);
+    await sleep(500);
+    if (caught) {
+      return { result: `Caught ${caught} while fishing.` };
+    }
+    return { result: `Fished for 30s but didn't catch anything. Try again or check for open water.` };
   },
 
   async close_screen() {
@@ -2650,9 +2862,88 @@ const ACTIONS = {
     };
   },
 
-  // ═══════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
+  // Planning — Persistent goal & task state
+  // ═══════════════════════════════════════════════════════════════════
+
+  async plan({ action, goal, tasks, task_id, status, result, attempt }) {
+    const plan = loadPlan() || { goal: '', tasks: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+
+    if (action === 'set_goal') {
+      if (!goal) throw new Error('goal is required for set_goal');
+      plan.goal = goal;
+      plan.tasks = tasks || [];
+      plan.created_at = new Date().toISOString();
+      plan.updated_at = new Date().toISOString();
+      savePlan(plan);
+      broadcastDashboard('plan', plan);
+      return { result: `Goal set: ${goal} (${plan.tasks.length} tasks)` };
+    }
+
+    if (action === 'get_plan') {
+      if (!plan.goal) return { result: 'No active goal. Use set_goal first.' };
+      const done = plan.tasks.filter(t => t.status === 'done').length;
+      const total = plan.tasks.length;
+      const active = plan.tasks.find(t => t.status === 'in_progress');
+      const lines = [
+        `Goal: ${plan.goal}`,
+        `Progress: ${done}/${total} tasks done`,
+        ...(active ? [`Active: ${active.description}`] : []),
+        ...plan.tasks.map((t, i) => {
+          const sym = t.status === 'done' ? '✓' : t.status === 'in_progress' ? '→' : t.status === 'blocked' ? '✗' : ' ';
+          const att = t.attempts ? ` (attempt ${t.attempts})` : '';
+          return `  [${sym}] ${i + 1}. ${t.description}${att}`;
+        }),
+      ];
+      return { result: lines.join('\n'), plan };
+    }
+
+    if (action === 'update_task') {
+      if (task_id == null) throw new Error('task_id is required for update_task');
+      const idx = parseInt(task_id);
+      if (idx < 0 || idx >= plan.tasks.length) throw new Error(`Invalid task_id ${idx}`);
+      if (status) plan.tasks[idx].status = status;
+      if (result !== undefined) plan.tasks[idx].result = result;
+      if (attempt !== undefined) plan.tasks[idx].attempts = (plan.tasks[idx].attempts || 0) + 1;
+      plan.updated_at = new Date().toISOString();
+      savePlan(plan);
+      broadcastDashboard('plan', plan);
+      return { result: `Updated task ${idx + 1}: ${plan.tasks[idx].description} → ${status || 'updated'}` };
+    }
+
+    if (action === 'add_task') {
+      if (!goal) throw new Error('goal (task description) is required for add_task');
+      plan.tasks.push({ description: goal, status: status || 'pending', attempts: 0 });
+      plan.updated_at = new Date().toISOString();
+      savePlan(plan);
+      broadcastDashboard('plan', plan);
+      return { result: `Added task: ${goal}` };
+    }
+
+    if (action === 'remove_task') {
+      if (task_id == null) throw new Error('task_id is required for remove_task');
+      const idx = parseInt(task_id);
+      if (idx < 0 || idx >= plan.tasks.length) throw new Error(`Invalid task_id ${idx}`);
+      const removed = plan.tasks.splice(idx, 1)[0];
+      plan.updated_at = new Date().toISOString();
+      savePlan(plan);
+      broadcastDashboard('plan', plan);
+      return { result: `Removed task: ${removed.description}` };
+    }
+
+    if (action === 'clear_goal') {
+      const emptyPlan = { goal: '', tasks: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      savePlan(emptyPlan);
+      broadcastDashboard('plan', emptyPlan);
+      return { result: 'Goal cleared.' };
+    }
+
+    throw new Error(`Unknown plan action: ${action}`);
+  },
+
+  // ═══════════════════════════════════════════════════════════════════
   // Fair Play Toggle
-  // ═══════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
 
   async set_fair_play({ enabled }) {
     fairPlayMode = !!enabled;
@@ -2792,11 +3083,38 @@ const httpServer = http.createServer(async (req, res) => {
         })) } });
       }
 
+      if (path === '/plan') {
+        const plan = loadPlan();
+        if (!plan || !plan.goal) {
+          return respond(res, 200, { ok: true, data: { goal: null, tasks: [] } });
+        }
+        return respond(res, 200, { ok: true, data: plan });
+      }
+
+      if (path === '/actions') {
+        return respond(res, 200, { ok: true, data: { actions: actionHistory.slice(-50) } });
+      }
+
+      if (path === '/agent/log') {
+        return respond(res, 200, { ok: true, data: { turns: agentLog.slice(-50) } });
+      }
+
       if (path === '/task') {
         // Check background task status
         if (!currentTask) return respond(res, 200, { ok: true, data: { task: null }, state: briefState() });
         const elapsed = Math.round((Date.now() - currentTask.started) / 1000);
         return respond(res, 200, { ok: true, data: { task: { ...currentTask, elapsed_s: elapsed } }, state: briefState() });
+      }
+
+      if (path === '/dashboard') {
+        const htmlPath = new URL('dashboard.html', import.meta.url).pathname;
+        try {
+          const html = fs.readFileSync(htmlPath, 'utf8');
+          res.writeHead(200, { 'Content-Type': 'text/html', 'Access-Control-Allow-Origin': '*' });
+          return res.end(html);
+        } catch {
+          return respond(res, 500, { ok: false, error: 'dashboard.html not found' });
+        }
       }
     }
 
@@ -2813,6 +3131,22 @@ const httpServer = http.createServer(async (req, res) => {
           currentTask.status = 'cancelled';
         }
         return respond(res, 200, { ok: true, result: 'Task cancelled.', state: briefState() });
+      }
+
+      // Agent turn log — POST /agent/log
+      if (path === '/agent/log') {
+        const turn = body || {};
+        agentLog.push({
+          turn: turn.turn || 0,
+          time: turn.time || Date.now(),
+          prompt: turn.prompt || '',
+          response: turn.response || '',
+          tool_calls: turn.tool_calls || [],
+          error: turn.error || null,
+        });
+        if (agentLog.length > MAX_AGENT_LOG) agentLog.shift();
+        broadcastDashboard('agent', agentLog.slice(-50));
+        return respond(res, 200, { ok: true });
       }
 
       // Background task system: POST /task/ACTION runs async, returns task_id
@@ -2837,6 +3171,8 @@ const httpServer = http.createServer(async (req, res) => {
           }
           actionHistory.push({ action: actionName, status: 'done', time: Date.now() });
           if (actionHistory.length > MAX_ACTION_HISTORY) actionHistory.shift();
+          broadcastDashboard('actions', actionHistory.slice(-50));
+          broadcastDashboard('task', currentTask);
         }).catch(err => {
           if (currentTask && currentTask.id === taskId && currentTask.status === 'running') {
             currentTask.status = 'error';
@@ -2844,6 +3180,8 @@ const httpServer = http.createServer(async (req, res) => {
           }
           actionHistory.push({ action: actionName, status: 'error', time: Date.now() });
           if (actionHistory.length > MAX_ACTION_HISTORY) actionHistory.shift();
+          broadcastDashboard('actions', actionHistory.slice(-50));
+          broadcastDashboard('task', currentTask);
         });
         return respond(res, 200, { ok: true, task_id: taskId, status: 'started', state: briefState() });
       }
@@ -2869,6 +3207,7 @@ const httpServer = http.createServer(async (req, res) => {
       const result = await actionFn(body);
       actionHistory.push({ action: actionName, status: 'done', time: Date.now() });
       if (actionHistory.length > MAX_ACTION_HISTORY) actionHistory.shift();
+      broadcastDashboard('actions', actionHistory.slice(-50));
       return respond(res, 200, { ok: true, ...result, state: briefState() });
     }
 
@@ -2922,6 +3261,53 @@ setInterval(() => {
     }
   }
 }, 5000);
+
+// ═══════════════════════════════════════════════════════════════════
+// Live Dashboard WebSocket
+// ═══════════════════════════════════════════════════════════════════
+
+const dashboardClients = new Set();
+
+const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+
+wss.on('connection', (ws) => {
+  dashboardClients.add(ws);
+  log(`[dashboard] Client connected (${dashboardClients.size} total)`);
+
+  // Send immediate snapshot
+  try {
+    ws.send(JSON.stringify({ type: 'status', data: getFullState() }));
+    ws.send(JSON.stringify({ type: 'plan', data: loadPlan() || { goal: null, tasks: [] } }));
+    ws.send(JSON.stringify({ type: 'actions', data: actionHistory.slice(-50) }));
+    ws.send(JSON.stringify({ type: 'chat', data: chatLog.slice(-30) }));
+    ws.send(JSON.stringify({ type: 'task', data: currentTask || null }));
+    ws.send(JSON.stringify({ type: 'agent', data: agentLog.slice(-50) }));
+  } catch {}
+
+  ws.on('close', () => {
+    dashboardClients.delete(ws);
+    log(`[dashboard] Client disconnected (${dashboardClients.size} remaining)`);
+  });
+
+  ws.on('error', () => dashboardClients.delete(ws));
+});
+
+function broadcastDashboard(type, data) {
+  if (dashboardClients.size === 0) return;
+  const msg = JSON.stringify({ type, data });
+  for (const ws of dashboardClients) {
+    try { ws.send(msg); } catch { dashboardClients.delete(ws); }
+  }
+}
+
+// Periodic status broadcast for live dashboard
+setInterval(() => {
+  if (dashboardClients.size === 0) return;
+  try {
+    const state = getFullState();
+    broadcastDashboard('status', state);
+  } catch {}
+}, 2000);
 
 // ═══════════════════════════════════════════════════════════════════
 // Startup

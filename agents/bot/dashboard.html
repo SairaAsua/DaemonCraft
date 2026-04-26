@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DaemonCraft Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    line-height: 1.5;
+  }
+  header {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { font-size: 1.2rem; color: #58a6ff; }
+  #conn-status {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: #238636;
+    color: white;
+    transition: background 0.3s;
+  }
+  #conn-status.disconnected { background: #da3633; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 16px;
+  }
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 420px;
+  }
+  .panel-header {
+    background: #21262d;
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #8b949e;
+    border-bottom: 1px solid #30363d;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .panel-body {
+    padding: 12px 14px;
+    overflow-y: auto;
+    flex: 1;
+    font-size: 0.85rem;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px solid #21262d;
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { color: #8b949e; }
+  .stat-value { color: #c9d1d9; font-weight: 500; }
+  .health { color: #3fb950; }
+  .health.low { color: #f85149; }
+  .task-list { list-style: none; }
+  .task-list li {
+    padding: 5px 0;
+    border-bottom: 1px solid #21262d;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .task-list li:last-child { border-bottom: none; }
+  .task-sym { font-size: 0.9rem; width: 1.2em; text-align: center; }
+  .task-sym.done { color: #3fb950; }
+  .task-sym.active { color: #58a6ff; }
+  .task-sym.blocked { color: #f85149; }
+  .chat-msg {
+    padding: 5px 0;
+    border-bottom: 1px solid #21262d;
+  }
+  .chat-msg:last-child { border-bottom: none; }
+  .chat-from { color: #58a6ff; font-weight: 600; }
+  .chat-time { color: #484f58; font-size: 0.7rem; margin-left: 6px; }
+  .chat-body { color: #c9d1d9; margin-top: 2px; word-break: break-word; }
+  .action-row {
+    padding: 4px 0;
+    border-bottom: 1px solid #21262d;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 0.78rem;
+  }
+  .action-row:last-child { border-bottom: none; }
+  .action-time { color: #484f58; }
+  .action-name { color: #d2a8ff; }
+  .action-ok { color: #3fb950; }
+  .action-err { color: #f85149; }
+  .goal-text { color: #e3b341; font-weight: 600; margin-bottom: 8px; }
+  .progress-bar {
+    height: 6px;
+    background: #21262d;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: #238636;
+    transition: width 0.3s;
+  }
+  .empty { color: #484f58; font-style: italic; }
+  .inventory-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .inv-item {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+  }
+  .inv-item .count { color: #58a6ff; font-weight: 600; margin-left: 4px; }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: #161b22; }
+  ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎮 DaemonCraft Dashboard — <span id="bot-name">Bot</span></h1>
+  <span id="conn-status">Connecting...</span>
+</header>
+
+<div class="grid">
+  <div class="panel">
+    <div class="panel-header">Status</div>
+    <div class="panel-body" id="status-panel">
+      <div class="empty">Waiting for data...</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">Plan & Goals</div>
+    <div class="panel-body" id="plan-panel">
+      <div class="empty">No active goal</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">Live Chat</div>
+    <div class="panel-body" id="chat-panel">
+      <div class="empty">No messages yet</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">Action Log</div>
+    <div class="panel-body" id="actions-panel">
+      <div class="empty">No actions yet</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">Inventory</div>
+    <div class="panel-body" id="inventory-panel">
+      <div class="empty">Empty</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">Background Task</div>
+    <div class="panel-body" id="task-panel">
+      <div class="empty">No active task</div>
+    </div>
+  </div>
+
+  <div class="panel" style="grid-column: 1 / -1; max-height: 600px;">
+    <div class="panel-header">Bot Mind — Raw Prompts & Responses</div>
+    <div class="panel-body" id="agent-panel">
+      <div class="empty">Waiting for agent turns...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const wsUrl = `ws://${window.location.host}/ws`;
+let ws = null;
+let reconnectTimer = null;
+
+function fmtTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function connect() {
+  const status = document.getElementById('conn-status');
+  status.textContent = 'Connecting...';
+  status.className = '';
+
+  ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    status.textContent = 'Live';
+    status.className = '';
+    console.log('[dashboard] WebSocket connected');
+  };
+
+  ws.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      handleMessage(msg);
+    } catch (e) {
+      console.error('Bad WS msg', e);
+    }
+  };
+
+  ws.onclose = () => {
+    status.textContent = 'Disconnected';
+    status.className = 'disconnected';
+    if (!reconnectTimer) {
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, 3000);
+    }
+  };
+
+  ws.onerror = () => {
+    status.textContent = 'Error';
+    status.className = 'disconnected';
+    ws.close();
+  };
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'status': renderStatus(msg.data); break;
+    case 'plan': renderPlan(msg.data); break;
+    case 'chat': renderChat(msg.data); break;
+    case 'actions': renderActions(msg.data); break;
+    case 'task': renderTask(msg.data); break;
+    case 'agent': renderAgent(msg.data); break;
+  }
+}
+
+function renderStatus(data) {
+  const panel = document.getElementById('status-panel');
+  if (!data || !data.health) { panel.innerHTML = '<div class="empty">No status</div>'; return; }
+
+  const healthClass = data.health < 10 ? 'health low' : 'health';
+  const timeStr = data.time != null ? `Day ${Math.floor(data.time / 24000) + 1}, ${fmtTime(Date.now())}` : '';
+
+  panel.innerHTML = `
+    <div class="stat-row"><span class="stat-label">Health</span><span class="stat-value ${healthClass}">${data.health} / 20</span></div>
+    <div class="stat-row"><span class="stat-label">Food</span><span class="stat-value">${data.food} / 20</span></div>
+    <div class="stat-row"><span class="stat-label">Position</span><span class="stat-value">${data.position?.x ?? '?'}, ${data.position?.y ?? '?'}, ${data.position?.z ?? '?'}</span></div>
+    <div class="stat-row"><span class="stat-label">Holding</span><span class="stat-value">${data.holding || 'hand'}</span></div>
+    <div class="stat-row"><span class="stat-label">Time</span><span class="stat-value">${data.isDay ? '☀️ Day' : '🌙 Night'} ${timeStr}</span></div>
+    <div class="stat-row"><span class="stat-label">Connected</span><span class="stat-value">${data.connected !== false ? '✅' : '❌'}</span></div>
+  `;
+
+  document.getElementById('bot-name').textContent = data.username || 'Bot';
+
+  // Inventory sub-panel
+  const invPanel = document.getElementById('inventory-panel');
+  const items = data.inventory || [];
+  if (items.length === 0) {
+    invPanel.innerHTML = '<div class="empty">Empty</div>';
+  } else {
+    invPanel.innerHTML = '<div class="inventory-grid">' +
+      items.map(i => `<div class="inv-item">${i.name}<span class="count">x${i.count}</span></div>`).join('') +
+      '</div>';
+  }
+}
+
+function renderPlan(plan) {
+  const panel = document.getElementById('plan-panel');
+  if (!plan || !plan.goal) {
+    panel.innerHTML = '<div class="empty">No active goal</div>';
+    return;
+  }
+  const tasks = plan.tasks || [];
+  const done = tasks.filter(t => t.status === 'done').length;
+  const total = tasks.length;
+  const pct = total > 0 ? (done / total) * 100 : 0;
+
+  let html = `<div class="goal-text">${plan.goal}</div>`;
+  html += `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>`;
+  html += `<ul class="task-list">`;
+  for (let i = 0; i < tasks.length; i++) {
+    const t = tasks[i];
+    const symClass = t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'active' : t.status === 'blocked' ? 'blocked' : '';
+    const sym = t.status === 'done' ? '✓' : t.status === 'in_progress' ? '→' : t.status === 'blocked' ? '✗' : '○';
+    const att = t.attempts ? ` <span style="color:#8b949e">(${t.attempts}x)</span>` : '';
+    html += `<li><span class="task-sym ${symClass}">${sym}</span> <span>${t.description}${att}</span></li>`;
+  }
+  html += `</ul>`;
+  panel.innerHTML = html;
+}
+
+function renderChat(messages) {
+  const panel = document.getElementById('chat-panel');
+  if (!messages || messages.length === 0) {
+    panel.innerHTML = '<div class="empty">No messages yet</div>';
+    return;
+  }
+  panel.innerHTML = messages.map(m => {
+    const priv = m.private || m.whisper ? ' 💬' : '';
+    return `<div class="chat-msg">
+      <span class="chat-from">${m.from || '?'}</span>${priv}<span class="chat-time">${fmtTime(m.time)}</span>
+      <div class="chat-body">${m.message || m.command || ''}</div>
+    </div>`;
+  }).join('');
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function renderActions(actions) {
+  const panel = document.getElementById('actions-panel');
+  if (!actions || actions.length === 0) {
+    panel.innerHTML = '<div class="empty">No actions yet</div>';
+    return;
+  }
+  panel.innerHTML = actions.slice(-50).map(a => {
+    const statusClass = a.status === 'done' ? 'action-ok' : 'action-err';
+    return `<div class="action-row">
+      <span class="action-time">${fmtTime(a.time)}</span>
+      <span class="action-name">${a.action}</span>
+      <span class="${statusClass}">${a.status}</span>
+    </div>`;
+  }).join('');
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function renderTask(task) {
+  const panel = document.getElementById('task-panel');
+  if (!task) {
+    panel.innerHTML = '<div class="empty">No active task</div>';
+    return;
+  }
+  const elapsed = task.elapsed_s != null ? task.elapsed_s : Math.round((Date.now() - task.started) / 1000);
+  const statusColor = task.status === 'running' ? '#58a6ff' : task.status === 'done' ? '#3fb950' : '#f85149';
+  panel.innerHTML = `
+    <div class="stat-row"><span class="stat-label">Action</span><span class="stat-value">${task.action}</span></div>
+    <div class="stat-row"><span class="stat-label">Status</span><span class="stat-value" style="color:${statusColor}">${task.status}</span></div>
+    <div class="stat-row"><span class="stat-label">Elapsed</span><span class="stat-value">${elapsed}s</span></div>
+    ${task.error ? `<div class="stat-row"><span class="stat-label">Error</span><span class="stat-value" style="color:#f85149">${task.error}</span></div>` : ''}
+  `;
+}
+
+function renderAgent(turns) {
+  const panel = document.getElementById('agent-panel');
+  if (!turns || turns.length === 0) {
+    panel.innerHTML = '<div class="empty">Waiting for agent turns...</div>';
+    return;
+  }
+  let html = '';
+  for (const turn of turns.slice(-20)) {
+    const errorBadge = turn.error ? `<span style="color:#f85149;font-weight:600">[ERROR]</span>` : '';
+    const tcHtml = (turn.tool_calls || []).map(tc => {
+      let args = tc.args;
+      try { args = JSON.stringify(JSON.parse(tc.args)); } catch {}
+      return `<div class="action-row" style="margin-left:12px;border-left:2px solid #58a6ff;padding-left:8px;margin-top:4px">
+        → <span class="action-name">${tc.name}</span> ${args}
+      </div>`;
+    }).join('');
+    html += `<div style="border-bottom:1px solid #21262d;padding:10px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <strong style="color:#e3b341">Turn ${turn.turn}</strong>
+        <span style="color:#484f58;font-size:0.75rem">${fmtTime(turn.time)}</span>
+        ${errorBadge}
+      </div>
+      <details>
+        <summary style="color:#8b949e;cursor:pointer;font-size:0.8rem">Prompt / Context</summary>
+        <pre style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:8px;margin-top:6px;font-size:0.78rem;white-space:pre-wrap;word-break:break-word;color:#c9d1d9;max-height:200px;overflow:auto">${escapeHtml(turn.prompt || '')}</pre>
+      </details>
+      <div style="margin-top:8px;color:#c9d1d9;font-size:0.85rem">
+        <strong style="color:#3fb950">Response:</strong>
+        <div style="margin-top:4px;white-space:pre-wrap;word-break:break-word">${escapeHtml(turn.response || '(no response)')}</div>
+      </div>
+      ${tcHtml ? `<div style="margin-top:8px"><strong style="color:#58a6ff;font-size:0.8rem">Tool Calls:</strong>${tcHtml}</div>` : ''}
+      ${turn.error ? `<div style="margin-top:8px;color:#f85149;font-size:0.8rem">Error: ${escapeHtml(turn.error)}</div>` : ''}
+    </div>`;
+  }
+  panel.innerHTML = html;
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+connect();
+</script>
+</body>
+</html>

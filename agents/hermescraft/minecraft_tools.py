@@ -55,6 +55,12 @@ def _api_get(path: str, timeout: int = 15) -> dict:
     try:
         with urllib.request.urlopen(url, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            body = json.loads(e.read().decode("utf-8"))
+            return body
+        except Exception:
+            return {"ok": False, "error": f"Bot server error: {e.code} {e.reason}"}
     except urllib.error.URLError as e:
         return {"ok": False, "error": f"Bot server not responding at {MC_API_URL}: {e}"}
     except Exception as e:
@@ -68,6 +74,12 @@ def _api_post(path: str, data: Optional[dict] = None, timeout: int = 300) -> dic
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            body = json.loads(e.read().decode("utf-8"))
+            return body
+        except Exception:
+            return {"ok": False, "error": f"Bot server error: {e.code} {e.reason}"}
     except urllib.error.URLError as e:
         return {"ok": False, "error": f"Bot server not responding at {MC_API_URL}: {e}"}
     except Exception as e:
@@ -295,6 +307,37 @@ def _handle_mc_build(args: dict, **kwargs) -> str:
                 return f"Error: {coord} is required for interact"
         payload = {"x": args["x"], "y": args["y"], "z": args["z"]}
         return _fmt(_api_post("/action/interact", payload))
+
+    if action == "till":
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for till"
+        payload = {"x": args["x"], "y": args["y"], "z": args["z"]}
+        return _fmt(_api_post("/action/till", payload))
+
+    if action == "bonemeal":
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for bonemeal"
+        payload = {"x": args["x"], "y": args["y"], "z": args["z"]}
+        return _fmt(_api_post("/action/bonemeal", payload))
+
+    if action == "flatten":
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for flatten"
+        payload = {"x": args["x"], "y": args["y"], "z": args["z"]}
+        return _fmt(_api_post("/action/flatten", payload))
+
+    if action == "ignite":
+        for coord in ("x", "y", "z"):
+            if coord not in args:
+                return f"Error: {coord} is required for ignite"
+        payload = {"x": args["x"], "y": args["y"], "z": args["z"]}
+        return _fmt(_api_post("/action/ignite", payload))
+
+    if action == "fish":
+        return _fmt(_api_post("/action/fish"))
 
     if action == "close":
         return _fmt(_api_post("/action/close_screen"))
@@ -663,13 +706,13 @@ MC_MINE_SCHEMA = {
 
 MC_BUILD_SCHEMA = {
     "name": "mc_build",
-    "description": "Build and interact with the world. 'place' a single block. 'fill' a volume. 'interact' right-clicks a block. 'close' any open screen. 'use' activates held item. 'toss' drops items. 'sleep' finds a bed. 'wait' pauses. 'connect' reconnects the bot.",
+    "description": "Build and interact with the world. 'place' a single block. 'fill' a volume. 'interact' right-clicks a block (chests, doors, furnaces). 'till' hoes grass_block/dirt into farmland. 'bonemeal' grows crops/saplings. 'flatten' shovels grass/dirt into dirt_path. 'ignite' lights netherrack/TNT/campfires with flint_and_steel. 'fish' casts a fishing rod. 'close' any open screen. 'use' activates held item. 'toss' drops items. 'sleep' finds a bed. 'wait' pauses. 'connect' reconnects the bot.",
     "parameters": {
         "type": "object",
         "properties": {
             "action": {
                 "type": "string",
-                "enum": ["place", "fill", "interact", "close", "use", "toss", "sleep", "wait", "connect"],
+                "enum": ["place", "fill", "interact", "till", "bonemeal", "flatten", "ignite", "fish", "close", "use", "toss", "sleep", "wait", "connect"],
                 "description": "Build/interaction action",
             },
             "block": {"type": "string", "description": "Block type for place/fill"},
@@ -783,9 +826,102 @@ MC_MANAGE_SCHEMA = {
 }
 
 
-# ══════════════════════════════════════════════════════════════════════════════════════════
-# 9. mc_screenshot — Ray-traced world capture
-# ══════════════════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
+# 9. mc_plan — Persistent goal & task planning
+# ═══════════════════════════════════════════════════════════════════
+
+def _handle_mc_plan(args: dict, **kwargs) -> str:
+    """Manage persistent goals and tasks. Bots use this to remember multi-step projects across turns."""
+    action = args.get("action", "get_plan")
+    payload: Dict[str, Any] = {}
+
+    if action == "set_goal":
+        if "goal" not in args:
+            return "Error: goal is required for set_goal"
+        payload = {
+            "action": "set_goal",
+            "goal": args["goal"],
+            "tasks": args.get("tasks", []),
+        }
+        return _fmt(_api_post("/action/plan", payload))
+
+    if action == "get_plan":
+        return _fmt(_api_post("/action/plan", {"action": "get_plan"}))
+
+    if action == "update_task":
+        if "task_id" not in args:
+            return "Error: task_id is required for update_task"
+        payload = {
+            "action": "update_task",
+            "task_id": args["task_id"],
+            "status": args.get("status"),
+            "result": args.get("result"),
+            "attempt": args.get("attempt"),
+        }
+        return _fmt(_api_post("/action/plan", payload))
+
+    if action == "add_task":
+        if "goal" not in args:
+            return "Error: goal (task description) is required for add_task"
+        payload = {
+            "action": "add_task",
+            "goal": args["goal"],
+            "status": args.get("status", "pending"),
+        }
+        return _fmt(_api_post("/action/plan", payload))
+
+    if action == "remove_task":
+        if "task_id" not in args:
+            return "Error: task_id is required for remove_task"
+        payload = {
+            "action": "remove_task",
+            "task_id": args["task_id"],
+        }
+        return _fmt(_api_post("/action/plan", payload))
+
+    if action == "clear_goal":
+        return _fmt(_api_post("/action/plan", {"action": "clear_goal"}))
+
+    return f"Error: unknown plan action '{action}'"
+
+
+MC_PLAN_SCHEMA = {
+    "name": "mc_plan",
+    "description": "Persistent goal and task management. Use this to plan multi-step projects that survive across turns. 'set_goal' creates a goal with tasks. 'get_plan' reads current progress. 'update_task' marks tasks done/in_progress/blocked. 'add_task' appends a task. 'remove_task' deletes one. 'clear_goal' resets everything.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["set_goal", "get_plan", "update_task", "add_task", "remove_task", "clear_goal"],
+                "description": "Planning action",
+            },
+            "goal": {"type": "string", "description": "Goal description (for set_goal) or task description (for add_task)"},
+            "tasks": {
+                "type": "array",
+                "description": "List of tasks for set_goal",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "description": {"type": "string"},
+                        "status": {"type": "string", "enum": ["pending", "in_progress", "done", "blocked"]},
+                        "attempts": {"type": "number"},
+                    },
+                },
+            },
+            "task_id": {"type": "number", "description": "Zero-based task index for update/remove"},
+            "status": {"type": "string", "enum": ["pending", "in_progress", "done", "blocked"], "description": "New status for update_task"},
+            "result": {"type": "string", "description": "Optional result note for update_task"},
+            "attempt": {"type": "boolean", "description": "If true, increments attempt counter for update_task"},
+        },
+        "required": ["action"],
+    },
+}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 10. mc_screenshot — Ray-traced world capture
+# ═══════════════════════════════════════════════════════════════════
 
 def _handle_mc_screenshot(args: dict, **kwargs) -> str:
     """Take a ray-traced screenshot of the Minecraft world from the bot's perspective.
@@ -891,6 +1027,13 @@ registry.register(
     toolset="minecraft",
     schema=MC_MANAGE_SCHEMA,
     handler=lambda args, **kw: _handle_mc_manage(args, **kw),
+    check_fn=check_minecraft_available,
+)
+registry.register(
+    name="mc_plan",
+    toolset="minecraft",
+    schema=MC_PLAN_SCHEMA,
+    handler=lambda args, **kw: _handle_mc_plan(args, **kw),
     check_fn=check_minecraft_available,
 )
 registry.register(

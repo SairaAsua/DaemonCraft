@@ -165,15 +165,15 @@ countdown_lock = threading.Lock()
 cancel_event = threading.Event()
 
 
-def _wire_tool_cancel_event(event: threading.Event):
+def _wire_tool_cancel_event(event) -> bool:
     """Find the minecraft_tools module (loaded by Hermes) and wire the cancel event."""
     for mod_name in ("minecraft_tools", "hermescraft.minecraft_tools"):
         mod = sys.modules.get(mod_name)
         if mod and hasattr(mod, "set_cancel_event"):
             mod.set_cancel_event(event)
             print(f"[loop] Wired cancel event into {mod_name}", flush=True)
-            return
-    print("[loop] Warning: minecraft_tools module not found in sys.modules — cancel event not wired", flush=True)
+            return True
+    return False
 
 
 def _ws_on_message(ws, message):
@@ -336,13 +336,11 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
     global current_agent
     current_agent = agent
 
-    # Wire cancel event into tools so chat can interrupt mid-tool-call
-    _wire_tool_cancel_event(cancel_event)
-
     global next_turn_time
 
     conversation_history = []
     turn_count = 0
+    _cancel_wired = False
 
     start_ws_listener()
     start_countdown(interval)
@@ -351,6 +349,11 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
         while True:
             turn_count += 1
             print(f"[loop] Turn {turn_count}", flush=True)
+
+            # Wire cancel event into tools (Hermes loads modules lazily; retry until found)
+            if not _cancel_wired:
+                if _wire_tool_cancel_event(cancel_event):
+                    _cancel_wired = True
 
             with countdown_lock:
                 next_turn_time = time.time() + interval

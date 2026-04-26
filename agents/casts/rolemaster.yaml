@@ -1,0 +1,56 @@
+# DaemonCraft Rolemaster Mode Cast
+# Solo Holodeck Director — Pamplinas manipulates the world directly.
+# No supporting cast. He spawns what the story needs, when the timeline demands it.
+
+name: rolemaster
+description: |
+  A single agent — Pamplinas, the Holodeck Director — who creates and guides
+  adventures by manipulating the Minecraft world directly. He works alone:
+  no helper bots, no NPC entourage. The world itself is his cast.
+  
+  Timelines are measured in Minecraft days (1 day = 20 real minutes).
+  Stories breathe to the rhythm of sunrises and sunsets.
+
+mode: rolemaster
+soul_file: ../SOUL-rolemaster.md
+
+# Pamplinas defines the cast he needs per-adventure in his blueprint JSON.
+# This top-level cast is just the director.
+agents:
+  - name: Pamplinas
+    template: rolemaster/pamplinas
+    port: 3002
+    model: MiniMax-M2.7
+    provider: minimax
+    base_url: https://api.minimax.chat/v1
+
+# Narrative timing configuration
+# All story phases, triggers, and deadlines are expressed in Minecraft days.
+timeline:
+  unit: minecraft_days        # 1 day = 20 min real time = 24,000 ticks
+  dawn: 0                     # Day counter resets / begins
+  noon: 6000                  # Mid-day checkpoint
+  dusk: 12000                 # Night falls — tension rises
+  midnight: 18000             # Darkest hour — climax territory
+
+# Example timeline schema (Pamplinas generates this per-adventure):
+# timeline:
+#   phases:
+#     - name: "The Arrival"
+#       start_day: 1
+#       end_day: 1
+#       events:
+#         - trigger: "player enters biome"
+#           action: "spawn signs, set weather"
+#     - name: "The Awakening"
+#       start_day: 2
+#       end_day: 3
+#       events:
+#         - trigger: "dusk of day 2"
+#           action: "spawn antagonist, shift weather to thunder"
+#     - name: "The Reckoning"
+#       start_day: 3
+#       end_day: 3
+#       events:
+#         - trigger: "midnight of day 3"
+#           action: "climax sequence, world state change"

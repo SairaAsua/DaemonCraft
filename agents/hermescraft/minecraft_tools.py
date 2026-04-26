@@ -1024,6 +1024,216 @@ MC_SCREENSHOT_SCHEMA = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════════
+# 11. mc_command — Execute Minecraft server commands
+# ═══════════════════════════════════════════════════════════════════
+
+def _handle_mc_command(args: dict, **kwargs) -> str:
+    """Execute a Minecraft server command via the bot's chat interface.
+    
+    The bot must have operator privileges for most commands.
+    Commands are sent as chat messages starting with '/' and are executed
+    by the server without appearing in public chat.
+    """
+    command = args.get("command", "")
+    if not command:
+        return "Error: command is required"
+    if not command.startswith("/"):
+        command = "/" + command
+    return _fmt(_api_post("/chat/send", {"message": command}))
+
+
+MC_COMMAND_SCHEMA = {
+    "name": "mc_command",
+    "description": "Execute any Minecraft server command. The bot must have operator privileges. Examples: /weather thunder, /time set midnight, /summon zombie ~ ~ ~, /give @p diamond 1, /effect give @p blindness 10, /playsound ambient.cave ambient @p, /tellraw @p {\"text\":\"Hello\"}, /setblock ~ ~ ~ stone, /fill x1 y1 z1 x2 y2 z2 water. This is the primary tool for world manipulation in Role Master mode.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "command": {
+                "type": "string",
+                "description": "Minecraft command to execute. Must start with / or it will be added automatically.",
+            },
+        },
+        "required": ["command"],
+    },
+}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 12. mc_story — Narrative state tracker for Role Master mode
+# ═══════════════════════════════════════════════════════════════════
+
+import os
+from pathlib import Path
+
+_STORY_PATH = Path(os.getenv("DAEMONCRAFT_STORY_PATH", Path.home() / ".local" / "share" / "daemoncraft" / "story.json"))
+
+
+def _load_story() -> dict:
+    if _STORY_PATH.exists():
+        try:
+            return json.loads(_STORY_PATH.read_text())
+        except Exception:
+            pass
+    return {
+        "title": None,
+        "phase": None,
+        "day": 1,
+        "flags": {},
+        "objectives": [],
+        "events": [],
+        "player_choices": {},
+    }
+
+
+def _save_story(story: dict) -> None:
+    _STORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _STORY_PATH.write_text(json.dumps(story, indent=2))
+
+
+def _handle_mc_story(args: dict, **kwargs) -> str:
+    """Track narrative state for Role Master adventures. Pure Python — no bot server needed."""
+    action = args.get("action", "get_state")
+    story = _load_story()
+
+    if action == "get_state":
+        lines = [
+            f"Story: {story.get('title') or 'Untitled'}",
+            f"Phase: {story.get('phase') or 'none'}",
+            f"Day: {story.get('day', 1)}",
+            f"Flags: {json.dumps(story.get('flags', {}))}",
+            f"Objectives ({len(story.get('objectives', []))}):",
+        ]
+        for obj in story.get("objectives", []):
+            status = obj.get("status", "pending")
+            lines.append(f"  [{status}] {obj.get('title', 'Untitled')}: {obj.get('description', '')}")
+        lines.append(f"Events ({len(story.get('events', []))}): {story.get('events', [])[-5:]}")
+        return "\n".join(lines)
+
+    if action == "set_flag":
+        key = args.get("key")
+        value = args.get("value")
+        if key is None:
+            return "Error: key is required for set_flag"
+        story["flags"][key] = value
+        _save_story(story)
+        return f"Flag set: {key} = {value}"
+
+    if action == "advance_phase":
+        phase = args.get("phase")
+        if not phase:
+            return "Error: phase is required for advance_phase"
+        story["phase"] = phase
+        story["events"].append(f"Advanced to phase: {phase}")
+        _save_story(story)
+        return f"Phase advanced to: {phase}"
+
+    if action == "advance_day":
+        story["day"] = story.get("day", 1) + 1
+        story["events"].append(f"Day advanced to {story['day']}")
+        _save_story(story)
+        return f"Day advanced to {story['day']}"
+
+    if action == "add_objective":
+        title = args.get("title")
+        if not title:
+            return "Error: title is required for add_objective"
+        obj = {
+            "id": len(story.get("objectives", [])),
+            "title": title,
+            "description": args.get("description", ""),
+            "status": "pending",
+            "optional": args.get("optional", False),
+        }
+        story.setdefault("objectives", []).append(obj)
+        story["events"].append(f"Added objective: {title}")
+        _save_story(story)
+        return f"Objective added: {title}"
+
+    if action == "complete_objective":
+        obj_id = args.get("objective_id")
+        if obj_id is None:
+            return "Error: objective_id is required for complete_objective"
+        objectives = story.get("objectives", [])
+        if obj_id < 0 or obj_id >= len(objectives):
+            return f"Error: objective_id {obj_id} not found"
+        objectives[obj_id]["status"] = "done"
+        story["events"].append(f"Completed objective: {objectives[obj_id]['title']}")
+        _save_story(story)
+        return f"Objective completed: {objectives[obj_id]['title']}"
+
+    if action == "log_event":
+        event = args.get("event")
+        if not event:
+            return "Error: event is required for log_event"
+        story.setdefault("events", []).append(event)
+        _save_story(story)
+        return f"Event logged: {event}"
+
+    if action == "set_title":
+        title = args.get("title")
+        if not title:
+            return "Error: title is required for set_title"
+        story["title"] = title
+        _save_story(story)
+        return f"Story title set: {title}"
+
+    if action == "record_choice":
+        player = args.get("player", "unknown")
+        choice = args.get("choice")
+        if not choice:
+            return "Error: choice is required for record_choice"
+        story.setdefault("player_choices", {})[player] = choice
+        story["events"].append(f"{player} chose: {choice}")
+        _save_story(story)
+        return f"Choice recorded for {player}: {choice}"
+
+    if action == "reset":
+        _save_story({
+            "title": None,
+            "phase": None,
+            "day": 1,
+            "flags": {},
+            "objectives": [],
+            "events": [],
+            "player_choices": {},
+        })
+        return "Story state reset"
+
+    return f"Error: unknown story action '{action}'"
+
+
+MC_STORY_SCHEMA = {
+    "name": "mc_story",
+    "description": "Narrative state tracker for Role Master mode. Tracks story phase, day counter, flags, objectives, events, and player choices across sessions. All data persists in a JSON file. No bot connection required.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": [
+                    "get_state", "set_flag", "advance_phase", "advance_day",
+                    "add_objective", "complete_objective", "log_event",
+                    "set_title", "record_choice", "reset",
+                ],
+                "description": "Story management action",
+            },
+            "key": {"type": "string", "description": "Flag key (for set_flag)"},
+            "value": {"type": ["string", "number", "boolean"], "description": "Flag value (for set_flag)"},
+            "phase": {"type": "string", "description": "Phase name (for advance_phase)"},
+            "title": {"type": "string", "description": "Objective or story title"},
+            "description": {"type": "string", "description": "Objective description"},
+            "objective_id": {"type": "number", "description": "Objective index to complete"},
+            "event": {"type": "string", "description": "Event description to log"},
+            "player": {"type": "string", "description": "Player name (for record_choice)"},
+            "choice": {"type": "string", "description": "Choice description (for record_choice)"},
+            "optional": {"type": "boolean", "description": "Whether objective is optional"},
+        },
+        "required": ["action"],
+    },
+}
+
+
 # ══════════════════════════════════════════════════════════════════════════════════════════
 # Registry
 # ══════════════════════════════════════════════════════════════════════════════════════
@@ -1096,5 +1306,19 @@ registry.register(
     toolset="minecraft",
     schema=MC_SCREENSHOT_SCHEMA,
     handler=lambda args, **kw: _handle_mc_screenshot(args, **kw),
+    check_fn=check_minecraft_available,
+)
+registry.register(
+    name="mc_command",
+    toolset="minecraft",
+    schema=MC_COMMAND_SCHEMA,
+    handler=lambda args, **kw: _handle_mc_command(args, **kw),
+    check_fn=check_minecraft_available,
+)
+registry.register(
+    name="mc_story",
+    toolset="minecraft",
+    schema=MC_STORY_SCHEMA,
+    handler=lambda args, **kw: _handle_mc_story(args, **kw),
     check_fn=check_minecraft_available,
 )

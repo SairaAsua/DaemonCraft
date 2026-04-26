@@ -40,6 +40,7 @@ Environment:
 
 import json
 import os
+import threading
 import urllib.request
 import urllib.error
 from typing import Any, Dict, Optional
@@ -48,6 +49,15 @@ from tools.registry import registry, tool_error
 
 
 MC_API_URL = os.getenv("MC_API_URL", "http://localhost:3001")
+
+# Global cancel event — set by agent_loop.py when chat arrives during a turn
+_cancel_event: Optional[threading.Event] = None
+
+
+def set_cancel_event(event: Optional[threading.Event]):
+    """Wire the cancel event from agent_loop so tool calls can be interrupted mid-flight."""
+    global _cancel_event
+    _cancel_event = event
 
 
 def _api_get(path: str, timeout: int = 15) -> dict:
@@ -67,23 +77,68 @@ def _api_get(path: str, timeout: int = 15) -> dict:
         return {"ok": False, "error": str(e)}
 
 
+def _cancel_bot_action():
+    """Tell the bot server to stop whatever it's doing (mining, moving, etc.)."""
+    try:
+        req = urllib.request.Request(
+            f"{MC_API_URL}/task/cancel",
+            data=b"{}",
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            pass
+    except Exception:
+        pass
+
+
 def _api_post(path: str, data: Optional[dict] = None, timeout: int = 300) -> dict:
+    """POST to the bot server. Runs in a thread so it can be cancelled mid-flight."""
     url = f"{MC_API_URL}{path}"
     payload = json.dumps(data or {}).encode("utf-8")
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
+
+    result_container: dict = {}
+    exception_container: dict = {}
+
+    def do_request():
         try:
-            body = json.loads(e.read().decode("utf-8"))
-            return body
-        except Exception:
-            return {"ok": False, "error": f"Bot server error: {e.code} {e.reason}"}
-    except urllib.error.URLError as e:
-        return {"ok": False, "error": f"Bot server not responding at {MC_API_URL}: {e}"}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                result_container["result"] = json.loads(resp.read().decode("utf-8"))
+        except Exception as e:
+            exception_container["error"] = e
+
+    t = threading.Thread(target=do_request)
+    t.start()
+
+    # Poll every 0.5s — if cancel_event fires, abort the server action and return
+    poll_interval = 0.5
+    elapsed = 0.0
+    while t.is_alive() and elapsed < timeout:
+        t.join(timeout=poll_interval)
+        elapsed += poll_interval
+        if _cancel_event is not None and _cancel_event.is_set():
+            _cancel_bot_action()
+            return {"ok": False, "error": "Interrupted by new chat message — action cancelled."}
+
+    if t.is_alive():
+        # Still running after timeout — abandon it
+        return {"ok": False, "error": f"Request timed out after {timeout}s"}
+
+    if "error" in exception_container:
+        e = exception_container["error"]
+        if isinstance(e, urllib.error.HTTPError):
+            try:
+                body = json.loads(e.read().decode("utf-8"))
+                return body
+            except Exception:
+                return {"ok": False, "error": f"Bot server error: {e.code} {e.reason}"}
+        elif isinstance(e, urllib.error.URLError):
+            return {"ok": False, "error": f"Bot server not responding at {MC_API_URL}: {e}"}
+        else:
+            return {"ok": False, "error": str(e)}
+
+    return result_container.get("result", {})
 
 
 def _fmt(resp: dict) -> str:

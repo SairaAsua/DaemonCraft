@@ -162,6 +162,18 @@ turn_in_progress = threading.Event()
 current_agent = None
 next_turn_time = None
 countdown_lock = threading.Lock()
+cancel_event = threading.Event()
+
+
+def _wire_tool_cancel_event(event: threading.Event):
+    """Find the minecraft_tools module (loaded by Hermes) and wire the cancel event."""
+    for mod_name in ("minecraft_tools", "hermescraft.minecraft_tools"):
+        mod = sys.modules.get(mod_name)
+        if mod and hasattr(mod, "set_cancel_event"):
+            mod.set_cancel_event(event)
+            print(f"[loop] Wired cancel event into {mod_name}", flush=True)
+            return
+    print("[loop] Warning: minecraft_tools module not found in sys.modules — cancel event not wired", flush=True)
 
 
 def _ws_on_message(ws, message):
@@ -183,6 +195,7 @@ def _ws_on_message(ws, message):
                 chat_event.set()
                 if turn_in_progress.is_set() and current_agent is not None:
                     try:
+                        cancel_event.set()
                         current_agent._interrupt_requested = True
                         print("[ws] Chat arrived during turn — interrupting to respond now", flush=True)
                     except Exception:
@@ -317,11 +330,14 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
         skip_context_files=True,
         skip_memory=False,
         reasoning_config={"enabled": False},
-        max_iterations=20,
+        max_iterations=5,
     )
 
     global current_agent
     current_agent = agent
+
+    # Wire cancel event into tools so chat can interrupt mid-tool-call
+    _wire_tool_cancel_event(cancel_event)
 
     global next_turn_time
 
@@ -391,6 +407,7 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
             }
 
             agent._interrupt_requested = False
+            cancel_event.clear()
             turn_in_progress.set()
             send_heartbeat(next_turn_in=None, turn_in_progress=True)
             try:

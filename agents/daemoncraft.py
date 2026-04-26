@@ -224,6 +224,12 @@ def setup_agent_profile(
                 "base_url": base_url,
             }
 
+    # Disable context compression — it corrupts tool_call_id chains when
+    # compressing assistant messages that have tool_calls but leaving their
+    # tool result messages behind. This causes "tool_call_id not found" errors
+    # during AIAgent's budget-exhaustion summary call.
+    config["compression"] = {"enabled": False}
+
     config_path.write_text(yaml.dump(config, default_flow_style=False, sort_keys=False))
 
     # Update .env with MC_API_URL

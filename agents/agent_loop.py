@@ -167,6 +167,10 @@ cancel_event = threading.Event()
 
 def _wire_tool_cancel_event(event) -> bool:
     """Find the minecraft_tools module (loaded by Hermes) and wire the cancel event."""
+    # Debug: log candidate modules
+    candidates = [k for k in sys.modules.keys() if "minecraft" in k.lower()]
+    if candidates:
+        print(f"[loop] DEBUG minecraft modules in sys.modules: {candidates}", flush=True)
     for mod_name in ("minecraft_tools", "hermescraft.minecraft_tools"):
         mod = sys.modules.get(mod_name)
         if mod and hasattr(mod, "set_cancel_event"):

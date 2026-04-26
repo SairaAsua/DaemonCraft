@@ -70,28 +70,30 @@ def send_heartbeat(next_turn_in: float | None = None, turn_in_progress: bool = F
 def _safe_trim_history(messages: list, max_msgs: int = 20) -> list:
     """Trim conversation history without breaking tool_call chains.
 
-    Never cut between an assistant message with tool_calls and its
-    corresponding tool result messages.
+    If a tool result message is kept, its parent assistant message (containing
+    the matching tool_call) must also be kept. Otherwise tool_call_id refs
+    become orphaned and the API rejects with 400.
     """
     if len(messages) <= max_msgs:
         return messages
 
-    # Start from max_msgs and walk backward to a safe boundary
-    trim_at = max_msgs
-    while trim_at > 0:
-        msg = messages[-trim_at]
-        if msg.get("role") == "assistant" and msg.get("tool_calls"):
-            tool_ids = {tc["id"] for tc in msg["tool_calls"] if "id" in tc}
-            results_found = 0
-            for m in messages[-trim_at + 1:]:
-                if m.get("role") == "tool" and m.get("tool_call_id") in tool_ids:
-                    results_found += 1
-            if results_found < len(tool_ids):
-                trim_at -= 1
-                continue
-        break
+    keep_from = len(messages) - max_msgs
 
-    return messages[-trim_at:]
+    # Collect all tool_call_ids from tool messages inside the proposed window
+    tool_ids_in_window = set()
+    for msg in messages[keep_from:]:
+        if msg.get("role") == "tool" and msg.get("tool_call_id"):
+            tool_ids_in_window.add(msg["tool_call_id"])
+
+    # Ensure every assistant that owns those tool_calls is also in the window
+    for i, msg in enumerate(messages):
+        if msg.get("role") == "assistant" and msg.get("tool_calls"):
+            for tc in msg["tool_calls"]:
+                tc_id = tc.get("id")
+                if tc_id and tc_id in tool_ids_in_window:
+                    keep_from = min(keep_from, i)
+
+    return messages[keep_from:]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

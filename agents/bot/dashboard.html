@@ -143,59 +143,99 @@
   ::-webkit-scrollbar { width: 8px; }
   ::-webkit-scrollbar-track { background: #161b22; }
   ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+
+  .panel.collapsed .panel-body { display: none; }
+  .panel.collapsed { max-height: none; }
+  .panel-header { cursor: pointer; user-select: none; }
+  .panel-toggle {
+    background: none; border: none; color: #8b949e; cursor: pointer;
+    font-size: 0.75rem; padding: 2px 6px; margin-left: 8px;
+  }
+  .panel-toggle:hover { color: #c9d1d9; }
+  #global-controls { display: flex; gap: 8px; }
+  #global-controls button {
+    background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
+    padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;
+  }
+  #global-controls button:hover { background: #30363d; }
+  .adventure-list { list-style: none; }
+  .adventure-item {
+    padding: 8px; border-bottom: 1px solid #21262d; cursor: pointer;
+    border-left: 3px solid transparent;
+  }
+  .adventure-item:hover { background: #21262d; }
+  .adventure-item.active { background: #1f6feb33; border-left-color: #58a6ff; }
+  .adventure-meta { color: #8b949e; font-size: 0.75rem; }
+  .adventure-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid #30363d; }
+  .phase-list { list-style: none; margin-top: 8px; }
+  .phase-item { padding: 6px 0; border-bottom: 1px solid #21262d; }
 </style>
 </head>
 <body>
 <header>
   <h1>🎮 DaemonCraft Dashboard — <span id="bot-name">Bot</span></h1>
-  <span id="conn-status">Connecting...</span>
+  <div style="display:flex;gap:12px;align-items:center">
+    <div id="global-controls">
+      <button onclick="collapseAll()">Collapse All</button>
+      <button onclick="expandAll()">Expand All</button>
+    </div>
+    <span id="conn-status">Connecting...</span>
+  </div>
 </header>
 
 <div class="grid">
   <div class="panel">
-    <div class="panel-header">Status</div>
+    <div class="panel-header" data-panel="status">Status<button class="panel-toggle">▼</button></div>
     <div class="panel-body" id="status-panel">
       <div class="empty">Waiting for data...</div>
     </div>
   </div>
 
   <div class="panel">
-    <div class="panel-header">Plan & Goals</div>
+    <div class="panel-header" data-panel="plan">Plan & Goals<button class="panel-toggle">▼</button></div>
     <div class="panel-body" id="plan-panel">
       <div class="empty">No active goal</div>
     </div>
   </div>
 
   <div class="panel">
-    <div class="panel-header">Live Chat</div>
+    <div class="panel-header" data-panel="chat">Live Chat<button class="panel-toggle">▼</button></div>
     <div class="panel-body" id="chat-panel">
       <div class="empty">No messages yet</div>
     </div>
   </div>
 
   <div class="panel">
-    <div class="panel-header">Action Log</div>
+    <div class="panel-header" data-panel="actions">Action Log<button class="panel-toggle">▼</button></div>
     <div class="panel-body" id="actions-panel">
       <div class="empty">No actions yet</div>
     </div>
   </div>
 
   <div class="panel">
-    <div class="panel-header">Inventory</div>
+    <div class="panel-header" data-panel="inventory">Inventory<button class="panel-toggle">▼</button></div>
     <div class="panel-body" id="inventory-panel">
       <div class="empty">Empty</div>
     </div>
   </div>
 
   <div class="panel">
-    <div class="panel-header">Background Task</div>
+    <div class="panel-header" data-panel="task">Background Task<button class="panel-toggle">▼</button></div>
     <div class="panel-body" id="task-panel">
       <div class="empty">No active task</div>
     </div>
   </div>
 
-  <div class="panel" style="grid-column: 1 / -1; max-height: 600px;">
-    <div class="panel-header" id="agent-header">Bot Mind — Raw Prompts & Responses</div>
+  
+  <div class="panel">
+    <div class="panel-header" data-panel="adventures">Adventures<button class="panel-toggle">▼</button></div>
+    <div class="panel-body" id="adventures-panel">
+      <div class="empty">Loading blueprints...</div>
+    </div>
+  </div>
+
+<div class="panel" style="grid-column: 1 / -1; max-height: 600px;">
+    <div class="panel-header" data-panel="agent" id="agent-header">Bot Mind — Raw Prompts & Responses<button class="panel-toggle">▼</button></div>
     <div class="panel-body" id="agent-panel">
       <div class="empty">Waiting for agent turns...</div>
     </div>
@@ -241,7 +281,148 @@ function connect() {
     if (!reconnectTimer) {
       reconnectTimer = setTimeout(() => {
         reconnectTimer = null;
-        connect();
+        
+// ── Panel Collapse / Persistence ───────────────────
+function togglePanel(panel) {
+  panel.classList.toggle('collapsed');
+  const toggle = panel.querySelector('.panel-toggle');
+  if (toggle) toggle.textContent = panel.classList.contains('collapsed') ? '▶' : '▼';
+  savePanelState();
+}
+function collapseAll() {
+  document.querySelectorAll('.panel').forEach(p => {
+    p.classList.add('collapsed');
+    const t = p.querySelector('.panel-toggle');
+    if (t) t.textContent = '▶';
+  });
+  savePanelState();
+}
+function expandAll() {
+  document.querySelectorAll('.panel').forEach(p => {
+    p.classList.remove('collapsed');
+    const t = p.querySelector('.panel-toggle');
+    if (t) t.textContent = '▼';
+  });
+  savePanelState();
+}
+function savePanelState() {
+  const state = {};
+  document.querySelectorAll('.panel').forEach((panel, idx) => {
+    const header = panel.querySelector('.panel-header');
+    const key = header?.dataset?.panel || `panel-${idx}`;
+    state[key] = panel.classList.contains('collapsed');
+  });
+  try { localStorage.setItem('dc_dashboard_panels', JSON.stringify(state)); } catch {}
+}
+function loadPanelState() {
+  try {
+    const raw = localStorage.getItem('dc_dashboard_panels');
+    if (!raw) return;
+    const state = JSON.parse(raw);
+    document.querySelectorAll('.panel').forEach((panel, idx) => {
+      const header = panel.querySelector('.panel-header');
+      const key = header?.dataset?.panel || `panel-${idx}`;
+      if (state[key]) {
+        panel.classList.add('collapsed');
+        const t = panel.querySelector('.panel-toggle');
+        if (t) t.textContent = '▶';
+      }
+    });
+  } catch {}
+}
+function initPanelToggles() {
+  document.querySelectorAll('.panel-header').forEach(h => {
+    h.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      const panel = h.closest('.panel');
+      if (panel) togglePanel(panel);
+    });
+  });
+  document.querySelectorAll('.panel-toggle').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const panel = btn.closest('.panel');
+      if (panel) togglePanel(panel);
+    });
+  });
+}
+
+// ── Adventures / Blueprints ────────────────────────
+async function fetchBlueprints() {
+  try {
+    const res = await fetch('/blueprints');
+    const json = await res.json();
+    if (json.ok) renderBlueprints(json.data.blueprints);
+    else renderBlueprintsError(json.error);
+  } catch (err) {
+    renderBlueprintsError(err.message);
+  }
+}
+function renderBlueprints(blueprints) {
+  const panel = document.getElementById('adventures-panel');
+  if (!blueprints || blueprints.length === 0) {
+    panel.innerHTML = '<div class="empty">No blueprints found</div>';
+    return;
+  }
+  let html = '<ul class="adventure-list">';
+  for (const bp of blueprints) {
+    html += `<li class="adventure-item" data-name="${bp.name}" onclick="selectBlueprint('${bp.name}')">`;
+    html += `<div style="font-weight:600">${escapeHtml(bp.title)}</div>`;
+    html += `<div class="adventure-meta">${escapeHtml(bp.theme)}${bp.author ? ' • ' + escapeHtml(bp.author) : ''}</div>`;
+    html += '</li>';
+  }
+  html += '</ul>';
+  html += '<div id="adventure-detail" class="adventure-detail" style="display:none"></div>';
+  panel.innerHTML = html;
+}
+function renderBlueprintsError(msg) {
+  const panel = document.getElementById('adventures-panel');
+  panel.innerHTML = `<div class="empty" style="color:#f85149">Error: ${escapeHtml(msg)}</div>`;
+}
+async function selectBlueprint(name) {
+  document.querySelectorAll('.adventure-item').forEach(i => i.classList.remove('active'));
+  const active = document.querySelector(`.adventure-item[data-name="${name}"]`);
+  if (active) active.classList.add('active');
+  const detail = document.getElementById('adventure-detail');
+  detail.style.display = 'block';
+  detail.innerHTML = '<div class="empty">Loading...</div>';
+  try {
+    const res = await fetch(`/blueprints/${name}`);
+    const json = await res.json();
+    if (json.ok) detail.innerHTML = renderBlueprintHtml(json.data);
+    else detail.innerHTML = `<div class="empty" style="color:#f85149">${escapeHtml(json.error)}</div>`;
+  } catch (err) {
+    detail.innerHTML = `<div class="empty" style="color:#f85149">${escapeHtml(err.message)}</div>`;
+  }
+}
+function renderBlueprintHtml(data) {
+  let html = `<div style="margin-bottom:10px"><strong style="color:#e3b341">${escapeHtml(data.metadata?.title || 'Untitled')}</strong></div>`;
+  if (data.metadata?.theme) html += `<div class="adventure-meta">${escapeHtml(data.metadata.theme)}</div>`;
+  if (data.phases && data.phases.length > 0) {
+    html += `<div style="margin-top:12px;font-weight:600;color:#8b949e;font-size:0.8rem;text-transform:uppercase">Phases</div>`;
+    html += '<ul class="phase-list">';
+    for (const phase of data.phases) {
+      html += `<li class="phase-item"><strong>${escapeHtml(phase.name)}</strong>`;
+      html += `<div style="color:#8b949e;font-size:0.78rem">${escapeHtml(phase.description || '')}</div></li>`;
+    }
+    html += '</ul>';
+  }
+  if (data.entities && data.entities.length > 0) {
+    html += `<div style="margin-top:12px;font-weight:600;color:#8b949e;font-size:0.8rem;text-transform:uppercase">Entities</div>`;
+    html += '<ul class="phase-list">';
+    for (const ent of data.entities) {
+      html += `<li class="phase-item">${escapeHtml(ent.name || ent.type)} <span style="color:#484f58">at ${ent.location?.x ?? '?'},${ent.location?.y ?? '?'},${ent.location?.z ?? '?'}</span></li>`;
+    }
+    html += '</ul>';
+  }
+  return html;
+}
+
+initPanelToggles();
+loadPanelState();
+fetchBlueprints();
+
+connect();
       }, 3000);
     }
   };
@@ -429,6 +610,147 @@ function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
+
+
+// ── Panel Collapse / Persistence ───────────────────
+function togglePanel(panel) {
+  panel.classList.toggle('collapsed');
+  const toggle = panel.querySelector('.panel-toggle');
+  if (toggle) toggle.textContent = panel.classList.contains('collapsed') ? '▶' : '▼';
+  savePanelState();
+}
+function collapseAll() {
+  document.querySelectorAll('.panel').forEach(p => {
+    p.classList.add('collapsed');
+    const t = p.querySelector('.panel-toggle');
+    if (t) t.textContent = '▶';
+  });
+  savePanelState();
+}
+function expandAll() {
+  document.querySelectorAll('.panel').forEach(p => {
+    p.classList.remove('collapsed');
+    const t = p.querySelector('.panel-toggle');
+    if (t) t.textContent = '▼';
+  });
+  savePanelState();
+}
+function savePanelState() {
+  const state = {};
+  document.querySelectorAll('.panel').forEach((panel, idx) => {
+    const header = panel.querySelector('.panel-header');
+    const key = header?.dataset?.panel || `panel-${idx}`;
+    state[key] = panel.classList.contains('collapsed');
+  });
+  try { localStorage.setItem('dc_dashboard_panels', JSON.stringify(state)); } catch {}
+}
+function loadPanelState() {
+  try {
+    const raw = localStorage.getItem('dc_dashboard_panels');
+    if (!raw) return;
+    const state = JSON.parse(raw);
+    document.querySelectorAll('.panel').forEach((panel, idx) => {
+      const header = panel.querySelector('.panel-header');
+      const key = header?.dataset?.panel || `panel-${idx}`;
+      if (state[key]) {
+        panel.classList.add('collapsed');
+        const t = panel.querySelector('.panel-toggle');
+        if (t) t.textContent = '▶';
+      }
+    });
+  } catch {}
+}
+function initPanelToggles() {
+  document.querySelectorAll('.panel-header').forEach(h => {
+    h.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      const panel = h.closest('.panel');
+      if (panel) togglePanel(panel);
+    });
+  });
+  document.querySelectorAll('.panel-toggle').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const panel = btn.closest('.panel');
+      if (panel) togglePanel(panel);
+    });
+  });
+}
+
+// ── Adventures / Blueprints ────────────────────────
+async function fetchBlueprints() {
+  try {
+    const res = await fetch('/blueprints');
+    const json = await res.json();
+    if (json.ok) renderBlueprints(json.data.blueprints);
+    else renderBlueprintsError(json.error);
+  } catch (err) {
+    renderBlueprintsError(err.message);
+  }
+}
+function renderBlueprints(blueprints) {
+  const panel = document.getElementById('adventures-panel');
+  if (!blueprints || blueprints.length === 0) {
+    panel.innerHTML = '<div class="empty">No blueprints found</div>';
+    return;
+  }
+  let html = '<ul class="adventure-list">';
+  for (const bp of blueprints) {
+    html += `<li class="adventure-item" data-name="${bp.name}" onclick="selectBlueprint('${bp.name}')">`;
+    html += `<div style="font-weight:600">${escapeHtml(bp.title)}</div>`;
+    html += `<div class="adventure-meta">${escapeHtml(bp.theme)}${bp.author ? ' • ' + escapeHtml(bp.author) : ''}</div>`;
+    html += '</li>';
+  }
+  html += '</ul>';
+  html += '<div id="adventure-detail" class="adventure-detail" style="display:none"></div>';
+  panel.innerHTML = html;
+}
+function renderBlueprintsError(msg) {
+  const panel = document.getElementById('adventures-panel');
+  panel.innerHTML = `<div class="empty" style="color:#f85149">Error: ${escapeHtml(msg)}</div>`;
+}
+async function selectBlueprint(name) {
+  document.querySelectorAll('.adventure-item').forEach(i => i.classList.remove('active'));
+  const active = document.querySelector(`.adventure-item[data-name="${name}"]`);
+  if (active) active.classList.add('active');
+  const detail = document.getElementById('adventure-detail');
+  detail.style.display = 'block';
+  detail.innerHTML = '<div class="empty">Loading...</div>';
+  try {
+    const res = await fetch(`/blueprints/${name}`);
+    const json = await res.json();
+    if (json.ok) detail.innerHTML = renderBlueprintHtml(json.data);
+    else detail.innerHTML = `<div class="empty" style="color:#f85149">${escapeHtml(json.error)}</div>`;
+  } catch (err) {
+    detail.innerHTML = `<div class="empty" style="color:#f85149">${escapeHtml(err.message)}</div>`;
+  }
+}
+function renderBlueprintHtml(data) {
+  let html = `<div style="margin-bottom:10px"><strong style="color:#e3b341">${escapeHtml(data.metadata?.title || 'Untitled')}</strong></div>`;
+  if (data.metadata?.theme) html += `<div class="adventure-meta">${escapeHtml(data.metadata.theme)}</div>`;
+  if (data.phases && data.phases.length > 0) {
+    html += `<div style="margin-top:12px;font-weight:600;color:#8b949e;font-size:0.8rem;text-transform:uppercase">Phases</div>`;
+    html += '<ul class="phase-list">';
+    for (const phase of data.phases) {
+      html += `<li class="phase-item"><strong>${escapeHtml(phase.name)}</strong>`;
+      html += `<div style="color:#8b949e;font-size:0.78rem">${escapeHtml(phase.description || '')}</div></li>`;
+    }
+    html += '</ul>';
+  }
+  if (data.entities && data.entities.length > 0) {
+    html += `<div style="margin-top:12px;font-weight:600;color:#8b949e;font-size:0.8rem;text-transform:uppercase">Entities</div>`;
+    html += '<ul class="phase-list">';
+    for (const ent of data.entities) {
+      html += `<li class="phase-item">${escapeHtml(ent.name || ent.type)} <span style="color:#484f58">at ${ent.location?.x ?? '?'},${ent.location?.y ?? '?'},${ent.location?.z ?? '?'}</span></li>`;
+    }
+    html += '</ul>';
+  }
+  return html;
+}
+
+initPanelToggles();
+loadPanelState();
+fetchBlueprints();
 
 connect();
 </script>

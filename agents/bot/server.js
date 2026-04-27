@@ -98,6 +98,7 @@ const DATA_DIR = process.env.WORKSPACE_DIR
   ? path.join(process.env.WORKSPACE_DIR)
   : path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'data');
 const LOCATIONS_FILE = path.join(DATA_DIR, `locations-${(process.env.MC_USERNAME || 'HermesBot').toLowerCase()}.json`);
+const BLUEPRINTS_DIR = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'blueprints');
 
 function loadLocations() {
   try { return JSON.parse(fs.readFileSync(LOCATIONS_FILE, 'utf8')); }
@@ -3200,6 +3201,44 @@ const httpServer = http.createServer(async (req, res) => {
           return res.end(html);
         } catch {
           return respond(res, 500, { ok: false, error: 'dashboard.html not found' });
+        }
+      }
+
+      if (path === '/blueprints') {
+        try {
+          const files = fs.readdirSync(BLUEPRINTS_DIR).filter(f => f.endsWith('.json'));
+          const list = files.map(f => {
+            try {
+              const raw = fs.readFileSync(`${BLUEPRINTS_DIR}/${f}`, 'utf8');
+              const data = JSON.parse(raw);
+              return {
+                name: f.replace(/\.json$/, ''),
+                title: data.metadata?.title || f,
+                theme: data.metadata?.theme || '',
+                author: data.metadata?.author || '',
+                version: data.metadata?.version || '',
+              };
+            } catch {
+              return { name: f.replace(/\.json$/, ''), title: f, theme: '', author: '', version: '' };
+            }
+          });
+          return respond(res, 200, { ok: true, data: { blueprints: list } });
+        } catch (err) {
+          return respond(res, 500, { ok: false, error: 'Failed to read blueprints: ' + err.message });
+        }
+      }
+
+      const blueprintMatch = path.match(/^\/blueprints\/(.+)$/);
+      if (blueprintMatch) {
+        const name = blueprintMatch[1].replace(/[^a-zA-Z0-9_-]/g, '');
+        if (!name) return respond(res, 400, { ok: false, error: 'Invalid blueprint name' });
+        const filePath = `${BLUEPRINTS_DIR}/${name}.json`;
+        try {
+          const raw = fs.readFileSync(filePath, 'utf8');
+          const data = JSON.parse(raw);
+          return respond(res, 200, { ok: true, data });
+        } catch {
+          return respond(res, 404, { ok: false, error: `Blueprint '${name}' not found` });
         }
       }
     }

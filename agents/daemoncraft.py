@@ -391,10 +391,13 @@ def start_agent(
     hermes_venv_python = str(Path.home() / ".hermes" / "hermes-agent" / "venv" / "bin" / "python")
     agent_loop_script = str(SCRIPT_DIR / "agent_loop.py")
 
+    standby_file = str(get_pid_dir(cast_name) / f"{agent_name}_standby")
+
     env = {
         **os.environ,
         "MC_API_URL": f"http://localhost:{port}",
         "MC_USERNAME": agent_name,
+        "STANDBY_FILE": standby_file,
         # Enable send_message tool by telling Hermes we're on a messaging platform.
         "HERMES_SESSION_PLATFORM": "telegram",
     }
@@ -547,6 +550,48 @@ def cmd_restart(cast_name: str, cast: dict, mc_host: str, mc_port: int):
     cmd_start(cast_name, cast, mc_host, mc_port)
 
 
+def cmd_pause(cast_name: str, cast: dict, target_name: str | None = None):
+    """Pause autonomous turns for one or all agents (standby mode)."""
+    agents = cast.get("agents", [])
+    if target_name:
+        agents = [a for a in agents if a["name"].lower() == target_name.lower()]
+        if not agents:
+            error(f"Agent '{target_name}' not found in cast '{cast_name}'")
+
+    for agent in agents:
+        name = agent["name"]
+        sf = get_pid_dir(cast_name) / f"{name}_standby"
+        sf.write_text("1")
+        pid = read_pid(cast_name, name, "agent")
+        if pid and is_alive(pid):
+            try:
+                os.kill(pid, signal.SIGUSR1)
+            except ProcessLookupError:
+                pass
+        log(f"{name} paused (standby mode).", cast_name)
+
+
+def cmd_resume(cast_name: str, cast: dict, target_name: str | None = None):
+    """Resume autonomous turns for one or all agents."""
+    agents = cast.get("agents", [])
+    if target_name:
+        agents = [a for a in agents if a["name"].lower() == target_name.lower()]
+        if not agents:
+            error(f"Agent '{target_name}' not found in cast '{cast_name}'")
+
+    for agent in agents:
+        name = agent["name"]
+        sf = get_pid_dir(cast_name) / f"{name}_standby"
+        sf.unlink(missing_ok=True)
+        pid = read_pid(cast_name, name, "agent")
+        if pid and is_alive(pid):
+            try:
+                os.kill(pid, signal.SIGUSR1)
+            except ProcessLookupError:
+                pass
+        log(f"{name} resumed (autonomous mode).", cast_name)
+
+
 def cmd_update(cast_name: str, cast: dict, mc_host: str, mc_port: int):
     """Hard restart: stop all agents, sync profiles with latest code, start fresh.
 
@@ -659,14 +704,16 @@ def cmd_daemon(cast_name: str, cast: dict, mc_host: str, mc_port: int):
 
 def main():
     parser = argparse.ArgumentParser(description="DaemonCraft — Minecraft Agent Cast Launcher")
-    parser.add_argument("cmd", choices=["start", "stop", "status", "logs", "restart", "update", "daemon"],
+    parser.add_argument("cmd", choices=["start", "stop", "status", "logs", "restart", "update", "daemon", "pause", "resume"],
                         help="Command to execute")
     parser.add_argument("cast", help="Cast name (e.g., companion, civilization, landfolk)")
     parser.add_argument("--mc-host", default=DEFAULT_MC_HOST, help="Minecraft server host")
     parser.add_argument("--mc-port", type=int, default=DEFAULT_MC_PORT, help="Minecraft server port")
 
+    # Agent-specific args (for logs, stop, pause, resume)
+    parser.add_argument("agent", nargs="?", help="Agent name (for logs, pause, resume commands)")
+
     # Logs-specific args
-    parser.add_argument("agent", nargs="?", help="Agent name (for logs command)")
     parser.add_argument("--kind", choices=["agent", "bot"], default="agent", help="Log type")
     parser.add_argument("-f", "--follow", action="store_true", help="Follow logs (tail -f)")
 
@@ -691,6 +738,10 @@ def main():
         cmd_update(args.cast, cast, args.mc_host, args.mc_port)
     elif args.cmd == "daemon":
         cmd_daemon(args.cast, cast, args.mc_host, args.mc_port)
+    elif args.cmd == "pause":
+        cmd_pause(args.cast, cast, target_name=args.agent)
+    elif args.cmd == "resume":
+        cmd_resume(args.cast, cast, target_name=args.agent)
 
 
 if __name__ == "__main__":

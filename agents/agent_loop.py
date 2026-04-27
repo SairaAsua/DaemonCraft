@@ -255,6 +255,37 @@ next_turn_time = None
 countdown_lock = threading.Lock()
 cancel_event = threading.Event()
 
+# ── Standby mode ───────────────────────────────────────────────────────────────
+# When standby is enabled, the bot stays connected to Minecraft but skips
+# autonomous turns (heartbeat). It only responds to player chat messages.
+# Controlled via STANDBY_FILE (touched by daemoncraft.py pause/resume).
+STANDBY_FILE = os.getenv("STANDBY_FILE", "")
+
+
+def _is_standby() -> bool:
+    if not STANDBY_FILE:
+        return False
+    return Path(STANDBY_FILE).exists()
+
+
+def _toggle_standby(signum=None, frame=None):
+    """SIGUSR1 handler — toggles standby mode by creating/deleting the control file."""
+    if not STANDBY_FILE:
+        return
+    sf = Path(STANDBY_FILE)
+    if sf.exists():
+        sf.unlink(missing_ok=True)
+        print("[loop] Standby OFF — autonomous turns resumed", flush=True)
+    else:
+        sf.write_text("1")
+        print("[loop] Standby ON — autonomous turns paused, chat responses only", flush=True)
+    # Wake the main loop so it notices the change immediately
+    chat_event.set()
+
+
+# Wire SIGUSR1 for instant toggle
+signal.signal(signal.SIGUSR1, _toggle_standby)
+
 
 def _wire_tool_cancel_event(event) -> bool:
     """Find the minecraft_tools module (loaded by Hermes) and wire the cancel event."""
@@ -463,6 +494,12 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
                         next_turn_time = None
 
             is_chat_triggered = bool(msgs)
+
+            # Standby mode: skip autonomous turns, but still respond to chat
+            if _is_standby() and not is_chat_triggered:
+                print("[loop] Standby mode — skipping autonomous turn", flush=True)
+                send_heartbeat(next_turn_in=interval, turn_in_progress=False)
+                continue
 
             plan = fetch_plan()
             plan_context = format_plan(plan)

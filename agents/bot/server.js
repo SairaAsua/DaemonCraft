@@ -2864,6 +2864,13 @@ async collect({ block, count = 1 }) {
         waitUntil: 'networkidle2',
         timeout: 30000,
       });
+      // Increase FOV for wider context (default is 75)
+      await viewerPage.evaluate(() => {
+        if (window.u && window.u.camera) {
+          window.u.camera.fov = 95;
+          window.u.camera.updateProjectionMatrix();
+        }
+      });
       // Allow WebGL/Three.js to render a few frames
       await new Promise(r => setTimeout(r, 4000));
     }

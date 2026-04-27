@@ -12,6 +12,7 @@ Usage:
 import argparse
 import json
 import os
+import signal
 import sys
 import threading
 import time
@@ -268,23 +269,20 @@ def _is_standby() -> bool:
     return Path(STANDBY_FILE).exists()
 
 
-def _toggle_standby(signum=None, frame=None):
-    """SIGUSR1 handler — toggles standby mode by creating/deleting the control file."""
+def _refresh_standby(signum=None, frame=None):
+    """SIGUSR1 handler — wakes the main loop so it re-reads the standby file immediately.
+    The control file is the source of truth; we do NOT toggle it here (daemoncraft.py manages it)."""
     if not STANDBY_FILE:
         return
     sf = Path(STANDBY_FILE)
-    if sf.exists():
-        sf.unlink(missing_ok=True)
-        print("[loop] Standby OFF — autonomous turns resumed", flush=True)
-    else:
-        sf.write_text("1")
-        print("[loop] Standby ON — autonomous turns paused, chat responses only", flush=True)
+    state = "ON" if sf.exists() else "OFF"
+    print(f"[loop] Standby signal received — standby is {state}", flush=True)
     # Wake the main loop so it notices the change immediately
     chat_event.set()
 
 
-# Wire SIGUSR1 for instant toggle
-signal.signal(signal.SIGUSR1, _toggle_standby)
+# Wire SIGUSR1 for instant refresh
+signal.signal(signal.SIGUSR1, _refresh_standby)
 
 
 def _wire_tool_cancel_event(event) -> bool:

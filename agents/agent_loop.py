@@ -475,7 +475,7 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
                 if is_budget_error:
                     print("[loop] Budget exhausted — tools executed but summary failed. Will retry next turn.", flush=True)
                     conversation_history = []
-                elif response and not mc_chat_used and is_chat_triggered:
+                elif response and not mc_chat_used and (is_chat_triggered or os.getenv("MC_ALWAYS_CHAT", "").lower() in ("1", "true", "yes")):
                     chat_msg = response.strip()
                     if len(chat_msg) > 300:
                         chat_msg = chat_msg[:297] + "..."

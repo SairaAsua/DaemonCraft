@@ -362,6 +362,7 @@ def start_agent(
     agent_name: str,
     port: int,
     interval: int = 30,
+    always_chat: bool = False,
 ) -> int:
     """Start the Hermes agent using the native persistent loop. Returns PID."""
     profile_name = agent_name.lower().replace(" ", "-")
@@ -379,6 +380,8 @@ def start_agent(
         # Enable send_message tool by telling Hermes we're on a messaging platform.
         "HERMES_SESSION_PLATFORM": "telegram",
     }
+    if always_chat:
+        env["MC_ALWAYS_CHAT"] = "1"
 
     log(f"Starting persistent agent for {agent_name}...", cast_name)
     proc = subprocess.Popen(
@@ -424,7 +427,8 @@ def cmd_start(cast_name: str, cast: dict, mc_host: str, mc_port: int):
         start_bot(cast_name, name, port, mc_host, mc_port, workspace_dir)
 
         # 3. Start agent
-        start_agent(cast_name, name, port)
+        always_chat = agent.get("always_chat", False)
+        start_agent(cast_name, name, port, always_chat=always_chat)
 
         time.sleep(2)  # Stagger to avoid resource spikes
 
@@ -594,7 +598,8 @@ def cmd_daemon(cast_name: str, cast: dict, mc_host: str, mc_port: int):
                     remove_pid(cast_name, name, "agent")
                 log(f"Agent {name} down, restarting...", cast_name)
                 try:
-                    start_agent(cast_name, name, port)
+                    always_chat = agent.get("always_chat", False)
+                    start_agent(cast_name, name, port, always_chat=always_chat)
                 except SystemExit:
                     pass
                 time.sleep(5)

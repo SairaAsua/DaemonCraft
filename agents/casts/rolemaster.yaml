@@ -23,6 +23,7 @@ agents:
     model: MiniMax-M2.7
     provider: minimax
     base_url: https://api.minimax.chat/v1
+    always_chat: true
 
 # Narrative timing configuration
 # All story phases, triggers, and deadlines are expressed in Minecraft days.

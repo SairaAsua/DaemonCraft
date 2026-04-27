@@ -3320,6 +3320,29 @@ const httpServer = http.createServer(async (req, res) => {
         return respond(res, 200, { ok: true, result: 'Message sent.', from: chatFrom });
       }
 
+      // Save blueprint edits — POST /blueprints/:name
+      const bpPostMatch = path.match(/^\/blueprints\/(.+)$/);
+      if (bpPostMatch) {
+        const name = bpPostMatch[1].replace(/[^a-zA-Z0-9_-]/g, '');
+        if (!name) return respond(res, 400, { ok: false, error: 'Invalid blueprint name' });
+        const filePath = `${BLUEPRINTS_DIR}/${name}.json`;
+        try {
+          // Validate: must be valid JSON and have metadata object
+          if (!body || typeof body !== 'object') {
+            return respond(res, 400, { ok: false, error: 'Body must be a JSON object' });
+          }
+          if (!body.metadata || typeof body.metadata !== 'object') {
+            return respond(res, 400, { ok: false, error: 'Blueprint must have a metadata object' });
+          }
+          // Write atomically: stringify first, then write
+          const json = JSON.stringify(body, null, 2);
+          fs.writeFileSync(filePath, json, 'utf8');
+          return respond(res, 200, { ok: true, result: `Blueprint '${name}' saved.` });
+        } catch (err) {
+          return respond(res, 500, { ok: false, error: 'Failed to save blueprint: ' + err.message });
+        }
+      }
+
       // Background task system: POST /task/ACTION runs async, returns task_id
       const taskMatch = path.match(/^\/task\/(\w+)$/);
       if (taskMatch) {

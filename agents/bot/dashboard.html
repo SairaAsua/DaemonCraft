@@ -263,6 +263,75 @@
   @media (max-width: 900px) {
     .bp-two-col { grid-template-columns: 1fr; }
   }
+  [contenteditable="true"] {
+    border: 1px dashed #30363d;
+    border-radius: 4px;
+    padding: 2px 6px;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  [contenteditable="true"]:hover {
+    border-color: #58a6ff;
+    background: #0d1117;
+  }
+  [contenteditable="true"]:focus {
+    border-color: #58a6ff;
+    background: #0d1117;
+  }
+  [contenteditable="true"].dirty {
+    border-color: #e3b341;
+    background: #e3b34111;
+  }
+  .bp-save-bar {
+    position: sticky;
+    bottom: 0;
+    background: #161b22;
+    border-top: 1px solid #30363d;
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .bp-save-bar .status {
+    font-size: 0.8rem;
+    color: #8b949e;
+  }
+  .bp-save-bar .status.dirty { color: #e3b341; }
+  .bp-save-bar .status.saved { color: #3fb950; }
+  .bp-save-bar button {
+    background: #238636;
+    border: none;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .bp-save-bar button:disabled {
+    background: #21262d;
+    color: #484f58;
+    cursor: not-allowed;
+  }
+  .bp-save-bar button:hover:not(:disabled) { background: #2ea043; }
+  .bp-input {
+    background: #0d1117;
+    border: 1px dashed #30363d;
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: #c9d1d9;
+    font-size: 0.85rem;
+    width: 100%;
+    outline: none;
+  }
+  .bp-input:hover, .bp-input:focus {
+    border-color: #58a6ff;
+  }
+  .bp-input.dirty {
+    border-color: #e3b341;
+    background: #e3b34111;
+  }
 </style>
 </head>
 <body>
@@ -474,6 +543,7 @@ function renderBlueprintsError(msg) {
   panel.innerHTML = `<div class="empty" style="color:#f85149">Error: ${escapeHtml(msg)}</div>`;
 }
 async function selectBlueprint(name) {
+  currentBlueprintName = name;
   document.querySelectorAll('.adventure-item').forEach(i => i.classList.remove('active'));
   const active = document.querySelector(`.adventure-item[data-name="${name}"]`);
   if (active) active.classList.add('active');
@@ -489,14 +559,147 @@ async function selectBlueprint(name) {
     detail.innerHTML = `<div class="empty" style="color:#f85149">${escapeHtml(err.message)}</div>`;
   }
 }
+let currentBlueprint = null;
+let currentBlueprintName = null;
+
+function markDirty(el) {
+  el.classList.add('dirty');
+  const status = document.getElementById('bp-save-status');
+  const btn = document.getElementById('bp-save-btn');
+  if (status) { status.textContent = 'Unsaved changes'; status.className = 'status dirty'; }
+  if (btn) btn.disabled = false;
+}
+
+function clearDirty() {
+  document.querySelectorAll('.dirty').forEach(el => el.classList.remove('dirty'));
+  const status = document.getElementById('bp-save-status');
+  const btn = document.getElementById('bp-save-btn');
+  if (status) { status.textContent = 'Saved'; status.className = 'status saved'; }
+  if (btn) btn.disabled = true;
+}
+
+async function saveBlueprint() {
+  if (!currentBlueprint || !currentBlueprintName) return;
+  const btn = document.getElementById('bp-save-btn');
+  const status = document.getElementById('bp-save-status');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  
+  // Rebuild blueprint from editable fields
+  const bp = JSON.parse(JSON.stringify(currentBlueprint));
+  
+  // Metadata
+  const mTitle = document.querySelector('[data-bp="metadata.title"]');
+  const mTheme = document.querySelector('[data-bp="metadata.theme"]');
+  const mTone = document.querySelector('[data-bp="metadata.tone"]');
+  const mAuthor = document.querySelector('[data-bp="metadata.author"]');
+  const mVersion = document.querySelector('[data-bp="metadata.version"]');
+  if (mTitle) bp.metadata.title = mTitle.textContent.trim();
+  if (mTheme) bp.metadata.theme = mTheme.textContent.trim();
+  if (mTone) bp.metadata.tone = mTone.textContent.trim();
+  if (mAuthor) bp.metadata.author = mAuthor.textContent.trim();
+  if (mVersion) bp.metadata.version = mVersion.textContent.trim();
+  
+  // Setting
+  const sBiome = document.querySelector('[data-bp="setting.biome"]');
+  const sX = document.querySelector('[data-bp="setting.center.x"]');
+  const sY = document.querySelector('[data-bp="setting.center.y"]');
+  const sZ = document.querySelector('[data-bp="setting.center.z"]');
+  const sRadius = document.querySelector('[data-bp="setting.radius"]');
+  if (sBiome && bp.setting) bp.setting.biome = sBiome.textContent.trim();
+  if (sX && bp.setting?.center) bp.setting.center.x = parseInt(sX.textContent.trim()) || 0;
+  if (sY && bp.setting?.center) bp.setting.center.y = parseInt(sY.textContent.trim()) || 0;
+  if (sZ && bp.setting?.center) bp.setting.center.z = parseInt(sZ.textContent.trim()) || 0;
+  if (sRadius && bp.setting) bp.setting.radius = parseInt(sRadius.textContent.trim()) || 0;
+  
+  // Init description
+  const initDesc = document.querySelector('[data-bp="init.description"]');
+  if (initDesc && bp.init) bp.init.description = initDesc.textContent.trim();
+  
+  // Phases
+  if (bp.phases) {
+    for (let i = 0; i < bp.phases.length; i++) {
+      const phName = document.querySelector(`[data-bp="phases.${i}.name"]`);
+      const phDesc = document.querySelector(`[data-bp="phases.${i}.description"]`);
+      const phTimeout = document.querySelector(`[data-bp="phases.${i}.timeout_minutes"]`);
+      if (phName) bp.phases[i].name = phName.textContent.trim();
+      if (phDesc) bp.phases[i].description = phDesc.textContent.trim();
+      if (phTimeout) bp.phases[i].timeout_minutes = parseInt(phTimeout.textContent.trim()) || 10;
+      
+      if (bp.phases[i].objectives) {
+        for (let j = 0; j < bp.phases[i].objectives.length; j++) {
+          const objTitle = document.querySelector(`[data-bp="phases.${i}.objectives.${j}.title"]`);
+          const objDesc = document.querySelector(`[data-bp="phases.${i}.objectives.${j}.description"]`);
+          if (objTitle) bp.phases[i].objectives[j].title = objTitle.textContent.trim();
+          if (objDesc) bp.phases[i].objectives[j].description = objDesc.textContent.trim();
+        }
+      }
+      
+      if (bp.phases[i].events) {
+        for (let j = 0; j < bp.phases[i].events.length; j++) {
+          if (bp.phases[i].events[j].type === 'chat' && bp.phases[i].events[j].lines) {
+            for (let k = 0; k < bp.phases[i].events[j].lines.length; k++) {
+              const evLine = document.querySelector(`[data-bp="phases.${i}.events.${j}.lines.${k}"]`);
+              if (evLine) bp.phases[i].events[j].lines[k] = evLine.textContent.trim();
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Entities
+  if (bp.entities) {
+    for (let i = 0; i < bp.entities.length; i++) {
+      const entName = document.querySelector(`[data-bp="entities.${i}.name"]`);
+      const entX = document.querySelector(`[data-bp="entities.${i}.location.x"]`);
+      const entY = document.querySelector(`[data-bp="entities.${i}.location.y"]`);
+      const entZ = document.querySelector(`[data-bp="entities.${i}.location.z"]`);
+      if (entName) bp.entities[i].name = entName.textContent.trim();
+      if (entX) bp.entities[i].location.x = parseInt(entX.textContent.trim()) || 0;
+      if (entY) bp.entities[i].location.y = parseInt(entY.textContent.trim()) || 0;
+      if (entZ) bp.entities[i].location.z = parseInt(entZ.textContent.trim()) || 0;
+    }
+  }
+  
+  // Objects
+  if (bp.objects) {
+    for (let i = 0; i < bp.objects.length; i++) {
+      const objName = document.querySelector(`[data-bp="objects.${i}.name"]`);
+      const objLore = document.querySelector(`[data-bp="objects.${i}.lore"]`);
+      if (objName) bp.objects[i].name = objName.textContent.trim();
+      if (objLore) bp.objects[i].lore = objLore.textContent.trim();
+    }
+  }
+  
+  try {
+    const res = await fetch(`/blueprints/${currentBlueprintName}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bp)
+    });
+    const json = await res.json();
+    if (json.ok) {
+      currentBlueprint = bp;
+      clearDirty();
+      if (status) status.textContent = 'Saved successfully';
+    } else {
+      if (status) { status.textContent = 'Error: ' + json.error; status.className = 'status dirty'; }
+    }
+  } catch (err) {
+    if (status) { status.textContent = 'Error: ' + err.message; status.className = 'status dirty'; }
+  }
+  if (btn) btn.textContent = 'Save Changes';
+}
+
 function renderBlueprintHtml(data) {
+  currentBlueprint = JSON.parse(JSON.stringify(data));
   const m = data.metadata || {};
   let html = '<div class="bp-meta-grid">';
-  html += `<div class="bp-meta-box"><label>Title</label><value>${escapeHtml(m.title || 'Untitled')}</value></div>`;
-  html += `<div class="bp-meta-box"><label>Theme</label><value>${escapeHtml(m.theme || '—')}</value></div>`;
-  html += `<div class="bp-meta-box"><label>Tone</label><value>${escapeHtml(m.tone || '—')}</value></div>`;
-  html += `<div class="bp-meta-box"><label>Author</label><value>${escapeHtml(m.author || '—')}</value></div>`;
-  html += `<div class="bp-meta-box"><label>Version</label><value>${escapeHtml(m.version || '—')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Title</label><value contenteditable="true" data-bp="metadata.title" oninput="markDirty(this)">${escapeHtml(m.title || 'Untitled')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Theme</label><value contenteditable="true" data-bp="metadata.theme" oninput="markDirty(this)">${escapeHtml(m.theme || '—')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Tone</label><value contenteditable="true" data-bp="metadata.tone" oninput="markDirty(this)">${escapeHtml(m.tone || '—')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Author</label><value contenteditable="true" data-bp="metadata.author" oninput="markDirty(this)">${escapeHtml(m.author || '—')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Version</label><value contenteditable="true" data-bp="metadata.version" oninput="markDirty(this)">${escapeHtml(m.version || '—')}</value></div>`;
   html += '</div>';
 
   // Setting
@@ -504,18 +707,20 @@ function renderBlueprintHtml(data) {
     const s = data.setting;
     html += '<div class="bp-section-title">Setting</div>';
     html += '<div class="bp-meta-grid">';
-    html += `<div class="bp-meta-box"><label>Biome</label><value>${escapeHtml(s.biome || '—')}</value></div>`;
-    html += `<div class="bp-meta-box"><label>Center</label><value>${s.center?.x ?? '?'}, ${s.center?.y ?? '?'}, ${s.center?.z ?? '?'}</value></div>`;
-    html += `<div class="bp-meta-box"><label>Radius</label><value>${s.radius ?? '—'}</value></div>`;
-    if (s.time_lock) html += `<div class="bp-meta-box"><label>Time Lock</label><value>${escapeHtml(s.time_lock)}</value></div>`;
-    if (s.weather_lock) html += `<div class="bp-meta-box"><label>Weather Lock</label><value>${escapeHtml(s.weather_lock)}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Biome</label><value contenteditable="true" data-bp="setting.biome" oninput="markDirty(this)">${escapeHtml(s.biome || '—')}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Center X</label><value contenteditable="true" data-bp="setting.center.x" oninput="markDirty(this)">${s.center?.x ?? '?'}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Center Y</label><value contenteditable="true" data-bp="setting.center.y" oninput="markDirty(this)">${s.center?.y ?? '?'}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Center Z</label><value contenteditable="true" data-bp="setting.center.z" oninput="markDirty(this)">${s.center?.z ?? '?'}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Radius</label><value contenteditable="true" data-bp="setting.radius" oninput="markDirty(this)">${s.radius ?? '—'}</value></div>`;
+    if (s.time_lock != null) html += `<div class="bp-meta-box"><label>Time Lock</label><value contenteditable="true" data-bp="setting.time_lock" oninput="markDirty(this)">${escapeHtml(s.time_lock)}</value></div>`;
+    if (s.weather_lock != null) html += `<div class="bp-meta-box"><label>Weather Lock</label><value contenteditable="true" data-bp="setting.weather_lock" oninput="markDirty(this)">${escapeHtml(s.weather_lock)}</value></div>`;
     html += '</div>';
   }
 
   // Init
   if (data.init) {
     html += '<div class="bp-section-title">Init Setup</div>';
-    if (data.init.description) html += `<div style="margin-bottom:8px;color:#c9d1d9;font-size:0.85rem">${escapeHtml(data.init.description)}</div>`;
+    if (data.init.description) html += `<div contenteditable="true" data-bp="init.description" oninput="markDirty(this)" style="margin-bottom:8px;color:#c9d1d9;font-size:0.85rem">${escapeHtml(data.init.description)}</div>`;
     if (data.init.sensors && data.init.sensors.length) {
       html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin-bottom:4px">Sensors</div>';
       for (const sen of data.init.sensors) {
@@ -536,11 +741,11 @@ function renderBlueprintHtml(data) {
     for (let i = 0; i < data.phases.length; i++) {
       const ph = data.phases[i];
       html += `<div class="bp-phase-header" onclick="togglePhase(this)">`;
-      html += `<span><strong>${i+1}. ${escapeHtml(ph.name)}</strong> <span class="bp-tag">${ph.timeout_minutes ?? '?'} min</span></span>`;
+      html += `<span><strong contenteditable="true" data-bp="phases.${i}.name" oninput="markDirty(this)">${i+1}. ${escapeHtml(ph.name)}</strong> <span class="bp-tag" contenteditable="true" data-bp="phases.${i}.timeout_minutes" oninput="markDirty(this)">${ph.timeout_minutes ?? '?'} min</span></span>`;
       html += `<span style="color:#8b949e;font-size:0.75rem">▼</span>`;
       html += '</div>';
       html += `<div class="bp-phase-body collapsed">`;
-      if (ph.description) html += `<div style="margin-bottom:8px">${escapeHtml(ph.description)}</div>`;
+      if (ph.description) html += `<div contenteditable="true" data-bp="phases.${i}.description" oninput="markDirty(this)" style="margin-bottom:8px">${escapeHtml(ph.description)}</div>`;
       
       // Trigger
       if (ph.trigger) {
@@ -556,8 +761,9 @@ function renderBlueprintHtml(data) {
       if (ph.objectives && ph.objectives.length) {
         html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Objectives</div>';
         html += '<ul class="phase-list">';
-        for (const obj of ph.objectives) {
-          html += `<li class="phase-item"><strong>${escapeHtml(obj.title)}</strong><div style="color:#8b949e;font-size:0.78rem">${escapeHtml(obj.description || '')}</div></li>`;
+        for (let j = 0; j < ph.objectives.length; j++) {
+          const obj = ph.objectives[j];
+          html += `<li class="phase-item"><strong contenteditable="true" data-bp="phases.${i}.objectives.${j}.title" oninput="markDirty(this)">${escapeHtml(obj.title)}</strong><div contenteditable="true" data-bp="phases.${i}.objectives.${j}.description" oninput="markDirty(this)" style="color:#8b949e;font-size:0.78rem">${escapeHtml(obj.description || '')}</div></li>`;
         }
         html += '</ul>';
       }
@@ -565,10 +771,11 @@ function renderBlueprintHtml(data) {
       // Events
       if (ph.events && ph.events.length) {
         html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Events</div>';
-        for (const ev of ph.events) {
+        for (let j = 0; j < ph.events.length; j++) {
+          const ev = ph.events[j];
           if (ev.type === 'chat' && ev.lines) {
-            for (const line of ev.lines) {
-              html += `<div class="bp-event-chat">${escapeHtml(line)}</div>`;
+            for (let k = 0; k < ev.lines.length; k++) {
+              html += `<div class="bp-event-chat" contenteditable="true" data-bp="phases.${i}.events.${j}.lines.${k}" oninput="markDirty(this)">${escapeHtml(ev.lines[k])}</div>`;
             }
           } else {
             html += `<div class="bp-event-chat">${escapeHtml(JSON.stringify(ev))}</div>`;
@@ -590,10 +797,11 @@ function renderBlueprintHtml(data) {
   if (data.entities && data.entities.length) {
     html += '<div class="bp-section-title">Entities</div>';
     html += '<div class="bp-two-col">';
-    for (const ent of data.entities) {
+    for (let i = 0; i < data.entities.length; i++) {
+      const ent = data.entities[i];
       html += '<div class="bp-meta-box">';
-      html += `<label>${escapeHtml(ent.name || ent.type)}</label>`;
-      html += `<value>${escapeHtml(ent.type)} at ${ent.location?.x ?? '?'}, ${ent.location?.y ?? '?'}, ${ent.location?.z ?? '?'}</value>`;
+      html += `<label contenteditable="true" data-bp="entities.${i}.name" oninput="markDirty(this)">${escapeHtml(ent.name || ent.type)}</label>`;
+      html += `<value>${escapeHtml(ent.type)} at <span contenteditable="true" data-bp="entities.${i}.location.x" oninput="markDirty(this)">${ent.location?.x ?? '?'}</span>, <span contenteditable="true" data-bp="entities.${i}.location.y" oninput="markDirty(this)">${ent.location?.y ?? '?'}</span>, <span contenteditable="true" data-bp="entities.${i}.location.z" oninput="markDirty(this)">${ent.location?.z ?? '?'}</span></value>`;
       if (ent.properties) html += `<div class="bp-command" style="margin-top:6px">${escapeHtml(JSON.stringify(ent.properties))}</div>`;
       html += '</div>';
     }
@@ -604,11 +812,12 @@ function renderBlueprintHtml(data) {
   if (data.objects && data.objects.length) {
     html += '<div class="bp-section-title">Objects</div>';
     html += '<div class="bp-two-col">';
-    for (const obj of data.objects) {
+    for (let i = 0; i < data.objects.length; i++) {
+      const obj = data.objects[i];
       html += '<div class="bp-meta-box">';
-      html += `<label>${escapeHtml(obj.name || 'Object')}</label>`;
+      html += `<label contenteditable="true" data-bp="objects.${i}.name" oninput="markDirty(this)">${escapeHtml(obj.name || 'Object')}</label>`;
       html += `<value>${escapeHtml(obj.type || '')}</value>`;
-      if (obj.lore) html += `<div style="margin-top:4px;color:#8b949e;font-size:0.78rem">${escapeHtml(obj.lore)}</div>`;
+      if (obj.lore) html += `<div contenteditable="true" data-bp="objects.${i}.lore" oninput="markDirty(this)" style="margin-top:4px;color:#8b949e;font-size:0.78rem">${escapeHtml(obj.lore)}</div>`;
       html += '</div>';
     }
     html += '</div>';
@@ -627,6 +836,8 @@ function renderBlueprintHtml(data) {
     if (data.cleanup.description) html += `<div style="margin-bottom:6px">${escapeHtml(data.cleanup.description)}</div>`;
     if (data.cleanup.action) html += `<div class="bp-command">${escapeHtml(data.cleanup.action)}</div>`;
   }
+
+  html += `<div class="bp-save-bar"><span id="bp-save-status" class="status">No changes</span><button id="bp-save-btn" onclick="saveBlueprint()" disabled>Save Changes</button></div>`;
 
   return html;
 }
@@ -931,6 +1142,7 @@ function renderBlueprintsError(msg) {
   panel.innerHTML = `<div class="empty" style="color:#f85149">Error: ${escapeHtml(msg)}</div>`;
 }
 async function selectBlueprint(name) {
+  currentBlueprintName = name;
   document.querySelectorAll('.adventure-item').forEach(i => i.classList.remove('active'));
   const active = document.querySelector(`.adventure-item[data-name="${name}"]`);
   if (active) active.classList.add('active');
@@ -946,14 +1158,147 @@ async function selectBlueprint(name) {
     detail.innerHTML = `<div class="empty" style="color:#f85149">${escapeHtml(err.message)}</div>`;
   }
 }
+let currentBlueprint = null;
+let currentBlueprintName = null;
+
+function markDirty(el) {
+  el.classList.add('dirty');
+  const status = document.getElementById('bp-save-status');
+  const btn = document.getElementById('bp-save-btn');
+  if (status) { status.textContent = 'Unsaved changes'; status.className = 'status dirty'; }
+  if (btn) btn.disabled = false;
+}
+
+function clearDirty() {
+  document.querySelectorAll('.dirty').forEach(el => el.classList.remove('dirty'));
+  const status = document.getElementById('bp-save-status');
+  const btn = document.getElementById('bp-save-btn');
+  if (status) { status.textContent = 'Saved'; status.className = 'status saved'; }
+  if (btn) btn.disabled = true;
+}
+
+async function saveBlueprint() {
+  if (!currentBlueprint || !currentBlueprintName) return;
+  const btn = document.getElementById('bp-save-btn');
+  const status = document.getElementById('bp-save-status');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  
+  // Rebuild blueprint from editable fields
+  const bp = JSON.parse(JSON.stringify(currentBlueprint));
+  
+  // Metadata
+  const mTitle = document.querySelector('[data-bp="metadata.title"]');
+  const mTheme = document.querySelector('[data-bp="metadata.theme"]');
+  const mTone = document.querySelector('[data-bp="metadata.tone"]');
+  const mAuthor = document.querySelector('[data-bp="metadata.author"]');
+  const mVersion = document.querySelector('[data-bp="metadata.version"]');
+  if (mTitle) bp.metadata.title = mTitle.textContent.trim();
+  if (mTheme) bp.metadata.theme = mTheme.textContent.trim();
+  if (mTone) bp.metadata.tone = mTone.textContent.trim();
+  if (mAuthor) bp.metadata.author = mAuthor.textContent.trim();
+  if (mVersion) bp.metadata.version = mVersion.textContent.trim();
+  
+  // Setting
+  const sBiome = document.querySelector('[data-bp="setting.biome"]');
+  const sX = document.querySelector('[data-bp="setting.center.x"]');
+  const sY = document.querySelector('[data-bp="setting.center.y"]');
+  const sZ = document.querySelector('[data-bp="setting.center.z"]');
+  const sRadius = document.querySelector('[data-bp="setting.radius"]');
+  if (sBiome && bp.setting) bp.setting.biome = sBiome.textContent.trim();
+  if (sX && bp.setting?.center) bp.setting.center.x = parseInt(sX.textContent.trim()) || 0;
+  if (sY && bp.setting?.center) bp.setting.center.y = parseInt(sY.textContent.trim()) || 0;
+  if (sZ && bp.setting?.center) bp.setting.center.z = parseInt(sZ.textContent.trim()) || 0;
+  if (sRadius && bp.setting) bp.setting.radius = parseInt(sRadius.textContent.trim()) || 0;
+  
+  // Init description
+  const initDesc = document.querySelector('[data-bp="init.description"]');
+  if (initDesc && bp.init) bp.init.description = initDesc.textContent.trim();
+  
+  // Phases
+  if (bp.phases) {
+    for (let i = 0; i < bp.phases.length; i++) {
+      const phName = document.querySelector(`[data-bp="phases.${i}.name"]`);
+      const phDesc = document.querySelector(`[data-bp="phases.${i}.description"]`);
+      const phTimeout = document.querySelector(`[data-bp="phases.${i}.timeout_minutes"]`);
+      if (phName) bp.phases[i].name = phName.textContent.trim();
+      if (phDesc) bp.phases[i].description = phDesc.textContent.trim();
+      if (phTimeout) bp.phases[i].timeout_minutes = parseInt(phTimeout.textContent.trim()) || 10;
+      
+      if (bp.phases[i].objectives) {
+        for (let j = 0; j < bp.phases[i].objectives.length; j++) {
+          const objTitle = document.querySelector(`[data-bp="phases.${i}.objectives.${j}.title"]`);
+          const objDesc = document.querySelector(`[data-bp="phases.${i}.objectives.${j}.description"]`);
+          if (objTitle) bp.phases[i].objectives[j].title = objTitle.textContent.trim();
+          if (objDesc) bp.phases[i].objectives[j].description = objDesc.textContent.trim();
+        }
+      }
+      
+      if (bp.phases[i].events) {
+        for (let j = 0; j < bp.phases[i].events.length; j++) {
+          if (bp.phases[i].events[j].type === 'chat' && bp.phases[i].events[j].lines) {
+            for (let k = 0; k < bp.phases[i].events[j].lines.length; k++) {
+              const evLine = document.querySelector(`[data-bp="phases.${i}.events.${j}.lines.${k}"]`);
+              if (evLine) bp.phases[i].events[j].lines[k] = evLine.textContent.trim();
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Entities
+  if (bp.entities) {
+    for (let i = 0; i < bp.entities.length; i++) {
+      const entName = document.querySelector(`[data-bp="entities.${i}.name"]`);
+      const entX = document.querySelector(`[data-bp="entities.${i}.location.x"]`);
+      const entY = document.querySelector(`[data-bp="entities.${i}.location.y"]`);
+      const entZ = document.querySelector(`[data-bp="entities.${i}.location.z"]`);
+      if (entName) bp.entities[i].name = entName.textContent.trim();
+      if (entX) bp.entities[i].location.x = parseInt(entX.textContent.trim()) || 0;
+      if (entY) bp.entities[i].location.y = parseInt(entY.textContent.trim()) || 0;
+      if (entZ) bp.entities[i].location.z = parseInt(entZ.textContent.trim()) || 0;
+    }
+  }
+  
+  // Objects
+  if (bp.objects) {
+    for (let i = 0; i < bp.objects.length; i++) {
+      const objName = document.querySelector(`[data-bp="objects.${i}.name"]`);
+      const objLore = document.querySelector(`[data-bp="objects.${i}.lore"]`);
+      if (objName) bp.objects[i].name = objName.textContent.trim();
+      if (objLore) bp.objects[i].lore = objLore.textContent.trim();
+    }
+  }
+  
+  try {
+    const res = await fetch(`/blueprints/${currentBlueprintName}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bp)
+    });
+    const json = await res.json();
+    if (json.ok) {
+      currentBlueprint = bp;
+      clearDirty();
+      if (status) status.textContent = 'Saved successfully';
+    } else {
+      if (status) { status.textContent = 'Error: ' + json.error; status.className = 'status dirty'; }
+    }
+  } catch (err) {
+    if (status) { status.textContent = 'Error: ' + err.message; status.className = 'status dirty'; }
+  }
+  if (btn) btn.textContent = 'Save Changes';
+}
+
 function renderBlueprintHtml(data) {
+  currentBlueprint = JSON.parse(JSON.stringify(data));
   const m = data.metadata || {};
   let html = '<div class="bp-meta-grid">';
-  html += `<div class="bp-meta-box"><label>Title</label><value>${escapeHtml(m.title || 'Untitled')}</value></div>`;
-  html += `<div class="bp-meta-box"><label>Theme</label><value>${escapeHtml(m.theme || '—')}</value></div>`;
-  html += `<div class="bp-meta-box"><label>Tone</label><value>${escapeHtml(m.tone || '—')}</value></div>`;
-  html += `<div class="bp-meta-box"><label>Author</label><value>${escapeHtml(m.author || '—')}</value></div>`;
-  html += `<div class="bp-meta-box"><label>Version</label><value>${escapeHtml(m.version || '—')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Title</label><value contenteditable="true" data-bp="metadata.title" oninput="markDirty(this)">${escapeHtml(m.title || 'Untitled')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Theme</label><value contenteditable="true" data-bp="metadata.theme" oninput="markDirty(this)">${escapeHtml(m.theme || '—')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Tone</label><value contenteditable="true" data-bp="metadata.tone" oninput="markDirty(this)">${escapeHtml(m.tone || '—')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Author</label><value contenteditable="true" data-bp="metadata.author" oninput="markDirty(this)">${escapeHtml(m.author || '—')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Version</label><value contenteditable="true" data-bp="metadata.version" oninput="markDirty(this)">${escapeHtml(m.version || '—')}</value></div>`;
   html += '</div>';
 
   // Setting
@@ -961,18 +1306,20 @@ function renderBlueprintHtml(data) {
     const s = data.setting;
     html += '<div class="bp-section-title">Setting</div>';
     html += '<div class="bp-meta-grid">';
-    html += `<div class="bp-meta-box"><label>Biome</label><value>${escapeHtml(s.biome || '—')}</value></div>`;
-    html += `<div class="bp-meta-box"><label>Center</label><value>${s.center?.x ?? '?'}, ${s.center?.y ?? '?'}, ${s.center?.z ?? '?'}</value></div>`;
-    html += `<div class="bp-meta-box"><label>Radius</label><value>${s.radius ?? '—'}</value></div>`;
-    if (s.time_lock) html += `<div class="bp-meta-box"><label>Time Lock</label><value>${escapeHtml(s.time_lock)}</value></div>`;
-    if (s.weather_lock) html += `<div class="bp-meta-box"><label>Weather Lock</label><value>${escapeHtml(s.weather_lock)}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Biome</label><value contenteditable="true" data-bp="setting.biome" oninput="markDirty(this)">${escapeHtml(s.biome || '—')}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Center X</label><value contenteditable="true" data-bp="setting.center.x" oninput="markDirty(this)">${s.center?.x ?? '?'}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Center Y</label><value contenteditable="true" data-bp="setting.center.y" oninput="markDirty(this)">${s.center?.y ?? '?'}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Center Z</label><value contenteditable="true" data-bp="setting.center.z" oninput="markDirty(this)">${s.center?.z ?? '?'}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Radius</label><value contenteditable="true" data-bp="setting.radius" oninput="markDirty(this)">${s.radius ?? '—'}</value></div>`;
+    if (s.time_lock != null) html += `<div class="bp-meta-box"><label>Time Lock</label><value contenteditable="true" data-bp="setting.time_lock" oninput="markDirty(this)">${escapeHtml(s.time_lock)}</value></div>`;
+    if (s.weather_lock != null) html += `<div class="bp-meta-box"><label>Weather Lock</label><value contenteditable="true" data-bp="setting.weather_lock" oninput="markDirty(this)">${escapeHtml(s.weather_lock)}</value></div>`;
     html += '</div>';
   }
 
   // Init
   if (data.init) {
     html += '<div class="bp-section-title">Init Setup</div>';
-    if (data.init.description) html += `<div style="margin-bottom:8px;color:#c9d1d9;font-size:0.85rem">${escapeHtml(data.init.description)}</div>`;
+    if (data.init.description) html += `<div contenteditable="true" data-bp="init.description" oninput="markDirty(this)" style="margin-bottom:8px;color:#c9d1d9;font-size:0.85rem">${escapeHtml(data.init.description)}</div>`;
     if (data.init.sensors && data.init.sensors.length) {
       html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin-bottom:4px">Sensors</div>';
       for (const sen of data.init.sensors) {
@@ -993,11 +1340,11 @@ function renderBlueprintHtml(data) {
     for (let i = 0; i < data.phases.length; i++) {
       const ph = data.phases[i];
       html += `<div class="bp-phase-header" onclick="togglePhase(this)">`;
-      html += `<span><strong>${i+1}. ${escapeHtml(ph.name)}</strong> <span class="bp-tag">${ph.timeout_minutes ?? '?'} min</span></span>`;
+      html += `<span><strong contenteditable="true" data-bp="phases.${i}.name" oninput="markDirty(this)">${i+1}. ${escapeHtml(ph.name)}</strong> <span class="bp-tag" contenteditable="true" data-bp="phases.${i}.timeout_minutes" oninput="markDirty(this)">${ph.timeout_minutes ?? '?'} min</span></span>`;
       html += `<span style="color:#8b949e;font-size:0.75rem">▼</span>`;
       html += '</div>';
       html += `<div class="bp-phase-body collapsed">`;
-      if (ph.description) html += `<div style="margin-bottom:8px">${escapeHtml(ph.description)}</div>`;
+      if (ph.description) html += `<div contenteditable="true" data-bp="phases.${i}.description" oninput="markDirty(this)" style="margin-bottom:8px">${escapeHtml(ph.description)}</div>`;
       
       // Trigger
       if (ph.trigger) {
@@ -1013,8 +1360,9 @@ function renderBlueprintHtml(data) {
       if (ph.objectives && ph.objectives.length) {
         html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Objectives</div>';
         html += '<ul class="phase-list">';
-        for (const obj of ph.objectives) {
-          html += `<li class="phase-item"><strong>${escapeHtml(obj.title)}</strong><div style="color:#8b949e;font-size:0.78rem">${escapeHtml(obj.description || '')}</div></li>`;
+        for (let j = 0; j < ph.objectives.length; j++) {
+          const obj = ph.objectives[j];
+          html += `<li class="phase-item"><strong contenteditable="true" data-bp="phases.${i}.objectives.${j}.title" oninput="markDirty(this)">${escapeHtml(obj.title)}</strong><div contenteditable="true" data-bp="phases.${i}.objectives.${j}.description" oninput="markDirty(this)" style="color:#8b949e;font-size:0.78rem">${escapeHtml(obj.description || '')}</div></li>`;
         }
         html += '</ul>';
       }
@@ -1022,10 +1370,11 @@ function renderBlueprintHtml(data) {
       // Events
       if (ph.events && ph.events.length) {
         html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Events</div>';
-        for (const ev of ph.events) {
+        for (let j = 0; j < ph.events.length; j++) {
+          const ev = ph.events[j];
           if (ev.type === 'chat' && ev.lines) {
-            for (const line of ev.lines) {
-              html += `<div class="bp-event-chat">${escapeHtml(line)}</div>`;
+            for (let k = 0; k < ev.lines.length; k++) {
+              html += `<div class="bp-event-chat" contenteditable="true" data-bp="phases.${i}.events.${j}.lines.${k}" oninput="markDirty(this)">${escapeHtml(ev.lines[k])}</div>`;
             }
           } else {
             html += `<div class="bp-event-chat">${escapeHtml(JSON.stringify(ev))}</div>`;
@@ -1047,10 +1396,11 @@ function renderBlueprintHtml(data) {
   if (data.entities && data.entities.length) {
     html += '<div class="bp-section-title">Entities</div>';
     html += '<div class="bp-two-col">';
-    for (const ent of data.entities) {
+    for (let i = 0; i < data.entities.length; i++) {
+      const ent = data.entities[i];
       html += '<div class="bp-meta-box">';
-      html += `<label>${escapeHtml(ent.name || ent.type)}</label>`;
-      html += `<value>${escapeHtml(ent.type)} at ${ent.location?.x ?? '?'}, ${ent.location?.y ?? '?'}, ${ent.location?.z ?? '?'}</value>`;
+      html += `<label contenteditable="true" data-bp="entities.${i}.name" oninput="markDirty(this)">${escapeHtml(ent.name || ent.type)}</label>`;
+      html += `<value>${escapeHtml(ent.type)} at <span contenteditable="true" data-bp="entities.${i}.location.x" oninput="markDirty(this)">${ent.location?.x ?? '?'}</span>, <span contenteditable="true" data-bp="entities.${i}.location.y" oninput="markDirty(this)">${ent.location?.y ?? '?'}</span>, <span contenteditable="true" data-bp="entities.${i}.location.z" oninput="markDirty(this)">${ent.location?.z ?? '?'}</span></value>`;
       if (ent.properties) html += `<div class="bp-command" style="margin-top:6px">${escapeHtml(JSON.stringify(ent.properties))}</div>`;
       html += '</div>';
     }
@@ -1061,11 +1411,12 @@ function renderBlueprintHtml(data) {
   if (data.objects && data.objects.length) {
     html += '<div class="bp-section-title">Objects</div>';
     html += '<div class="bp-two-col">';
-    for (const obj of data.objects) {
+    for (let i = 0; i < data.objects.length; i++) {
+      const obj = data.objects[i];
       html += '<div class="bp-meta-box">';
-      html += `<label>${escapeHtml(obj.name || 'Object')}</label>`;
+      html += `<label contenteditable="true" data-bp="objects.${i}.name" oninput="markDirty(this)">${escapeHtml(obj.name || 'Object')}</label>`;
       html += `<value>${escapeHtml(obj.type || '')}</value>`;
-      if (obj.lore) html += `<div style="margin-top:4px;color:#8b949e;font-size:0.78rem">${escapeHtml(obj.lore)}</div>`;
+      if (obj.lore) html += `<div contenteditable="true" data-bp="objects.${i}.lore" oninput="markDirty(this)" style="margin-top:4px;color:#8b949e;font-size:0.78rem">${escapeHtml(obj.lore)}</div>`;
       html += '</div>';
     }
     html += '</div>';
@@ -1084,6 +1435,8 @@ function renderBlueprintHtml(data) {
     if (data.cleanup.description) html += `<div style="margin-bottom:6px">${escapeHtml(data.cleanup.description)}</div>`;
     if (data.cleanup.action) html += `<div class="bp-command">${escapeHtml(data.cleanup.action)}</div>`;
   }
+
+  html += `<div class="bp-save-bar"><span id="bp-save-status" class="status">No changes</span><button id="bp-save-btn" onclick="saveBlueprint()" disabled>Save Changes</button></div>`;
 
   return html;
 }

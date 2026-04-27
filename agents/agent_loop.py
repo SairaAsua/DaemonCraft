@@ -69,38 +69,34 @@ def send_heartbeat(next_turn_in: float | None = None, turn_in_progress: bool = F
 
 
 def _send_chat_chunks(text: str, max_len: int = 240):
-    """Split text into Minecraft-chat-sized chunks and send sequentially.
-
-    Minecraft chat has a hard limit of ~256 characters. We use 240 to stay
-    safely under the limit, including any formatting overhead.
-
-    Respects MC_MAX_CHAT_CHARS env var to limit total output per turn.
+    """Send SAY: lines to Minecraft chat. 
+    
+    We do NOT truncate — the model must learn to generate short SAY: lines.
+    If a line exceeds the Minecraft protocol limit (~256 bytes), we reject it
+    with a loud error so the model sees the failure and corrects its behavior.
+    
+    For multi-line responses, split on newlines and send each line separately.
     """
     text = text.strip()
     if not text:
         return
 
-    # Hard cap on total characters per turn (configured per cast)
-    max_total = int(os.getenv("MC_MAX_CHAT_CHARS", "0") or 0)
-    if max_total > 0 and len(text) > max_total:
-        text = text[:max_total - 3].strip() + "..."
-
-    chunks = []
-    while len(text) > max_len:
-        # Try to break at a space or newline to avoid mid-word cuts
-        break_at = max_len
-        for i in range(max_len, max_len // 2, -1):
-            if text[i] in " \n":
-                break_at = i
-                break
-        chunks.append(text[:break_at].strip())
-        text = text[break_at:].strip()
-    if text:
-        chunks.append(text)
-
-    for i, chunk in enumerate(chunks):
+    lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+    
+    for i, line in enumerate(lines):
+        # Reject lines that are too long for Minecraft protocol
+        # Minecraft chat limit is 256 bytes; we use 240 chars as safe threshold
+        if len(line) > max_len:
+            print(
+                f"[loop] CHAT TOO LONG ({len(line)} chars, max {max_len}). "
+                f"NOT SENT. The model must generate shorter SAY: lines. "
+                f"Content: {line[:80]}...",
+                flush=True,
+            )
+            continue
+        
         try:
-            payload = json.dumps({"message": chunk}).encode("utf-8")
+            payload = json.dumps({"message": line}).encode("utf-8")
             req = urllib.request.Request(
                 f"{MC_API_URL}/chat/send",
                 data=payload,
@@ -109,11 +105,11 @@ def _send_chat_chunks(text: str, max_len: int = 240):
             )
             with urllib.request.urlopen(req, timeout=5) as resp:
                 pass
-            print(f"[loop] Auto-sent chunk {i+1}/{len(chunks)}: {chunk[:60]}...", flush=True)
+            print(f"[loop] Auto-sent: {line[:80]}", flush=True)
         except Exception as e:
-            print(f"[loop] Auto-chat chunk {i+1} failed: {e}", flush=True)
-        # Small delay between chunks so they arrive in order
-        if i < len(chunks) - 1:
+            print(f"[loop] Auto-chat failed: {e}", flush=True)
+        # Small delay between lines so they arrive in order
+        if i < len(lines) - 1:
             time.sleep(0.3)
 
 

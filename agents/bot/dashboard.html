@@ -169,6 +169,7 @@
   .adventure-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid #30363d; }
   .phase-list { list-style: none; margin-top: 8px; }
   .phase-item { padding: 6px 0; border-bottom: 1px solid #21262d; }
+
   .bp-meta-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -315,23 +316,6 @@
     cursor: not-allowed;
   }
   .bp-save-bar button:hover:not(:disabled) { background: #2ea043; }
-  .bp-input {
-    background: #0d1117;
-    border: 1px dashed #30363d;
-    border-radius: 4px;
-    padding: 4px 8px;
-    color: #c9d1d9;
-    font-size: 0.85rem;
-    width: 100%;
-    outline: none;
-  }
-  .bp-input:hover, .bp-input:focus {
-    border-color: #58a6ff;
-  }
-  .bp-input.dirty {
-    border-color: #e3b341;
-    background: #e3b34111;
-  }
 </style>
 </head>
 <body>
@@ -559,6 +543,310 @@ async function selectBlueprint(name) {
     detail.innerHTML = `<div class="empty" style="color:#f85149">${escapeHtml(err.message)}</div>`;
   }
 }
+
+      }, 3000);
+    }
+  };
+
+  ws.onerror = () => {
+    status.textContent = 'Error';
+    status.className = 'disconnected';
+    ws.close();
+  };
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'status': renderStatus(msg.data); break;
+    case 'plan': renderPlan(msg.data); break;
+    case 'chat': renderChat(msg.data); break;
+    case 'actions': renderActions(msg.data); break;
+    case 'task': renderTask(msg.data); break;
+    case 'agent': renderAgent(msg.data); break;
+    case 'heartbeat': renderHeartbeat(msg.data); break;
+  }
+}
+
+function renderStatus(data) {
+  const panel = document.getElementById('status-panel');
+  if (!data || !data.health) { panel.innerHTML = '<div class="empty">No status</div>'; return; }
+
+  const healthClass = data.health < 10 ? 'health low' : 'health';
+  const timeStr = data.time != null ? `Day ${Math.floor(data.time / 24000) + 1}, ${fmtTime(Date.now())}` : '';
+
+  panel.innerHTML = `
+    <div class="stat-row"><span class="stat-label">Health</span><span class="stat-value ${healthClass}">${data.health} / 20</span></div>
+    <div class="stat-row"><span class="stat-label">Food</span><span class="stat-value">${data.food} / 20</span></div>
+    <div class="stat-row"><span class="stat-label">Position</span><span class="stat-value">${data.position?.x ?? '?'}, ${data.position?.y ?? '?'}, ${data.position?.z ?? '?'}</span></div>
+    <div class="stat-row"><span class="stat-label">Holding</span><span class="stat-value">${data.holding || 'hand'}</span></div>
+    <div class="stat-row"><span class="stat-label">Time</span><span class="stat-value">${data.isDay ? '☀️ Day' : '🌙 Night'} ${timeStr}</span></div>
+    <div class="stat-row"><span class="stat-label">Connected</span><span class="stat-value">${data.connected !== false ? '✅' : '❌'}</span></div>
+  `;
+
+  document.getElementById('bot-name').textContent = data.username || 'Bot';
+
+  // Inventory sub-panel
+  const invPanel = document.getElementById('inventory-panel');
+  const items = data.inventory || [];
+  if (items.length === 0) {
+    invPanel.innerHTML = '<div class="empty">Empty</div>';
+  } else {
+    invPanel.innerHTML = '<div class="inventory-grid">' +
+      items.map(i => `<div class="inv-item">${i.name}<span class="count">x${i.count}</span></div>`).join('') +
+      '</div>';
+  }
+}
+
+function renderPlan(plan) {
+  const panel = document.getElementById('plan-panel');
+  if (!plan || !plan.goal) {
+    panel.innerHTML = '<div class="empty">No active goal</div>';
+    return;
+  }
+  const tasks = plan.tasks || [];
+  const done = tasks.filter(t => t.status === 'done').length;
+  const total = tasks.length;
+  const pct = total > 0 ? (done / total) * 100 : 0;
+
+  let html = `<div class="goal-text">${plan.goal}</div>`;
+  html += `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>`;
+  html += `<ul class="task-list">`;
+  for (let i = 0; i < tasks.length; i++) {
+    const t = tasks[i];
+    const symClass = t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'active' : t.status === 'blocked' ? 'blocked' : '';
+    const sym = t.status === 'done' ? '✓' : t.status === 'in_progress' ? '→' : t.status === 'blocked' ? '✗' : '○';
+    const att = t.attempts ? ` <span style="color:#8b949e">(${t.attempts}x)</span>` : '';
+    html += `<li><span class="task-sym ${symClass}">${sym}</span> <span>${t.description}${att}</span></li>`;
+  }
+  html += `</ul>`;
+  panel.innerHTML = html;
+}
+
+function renderChat(messages) {
+  const panel = document.getElementById('chat-panel');
+  if (!messages || messages.length === 0) {
+    panel.innerHTML = '<div class="empty">No messages yet</div>';
+    return;
+  }
+  panel.innerHTML = messages.map(m => {
+    const priv = m.private || m.whisper ? ' 💬' : '';
+    return `<div class="chat-msg">
+      <span class="chat-from">${m.from || '?'}</span>${priv}<span class="chat-time">${fmtTime(m.time)}</span>
+      <div class="chat-body">${m.message || m.command || ''}</div>
+    </div>`;
+  }).join('');
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function renderActions(actions) {
+  const panel = document.getElementById('actions-panel');
+  if (!actions || actions.length === 0) {
+    panel.innerHTML = '<div class="empty">No actions yet</div>';
+    return;
+  }
+  panel.innerHTML = actions.slice(-50).map(a => {
+    const statusClass = a.status === 'done' ? 'action-ok' : 'action-err';
+    return `<div class="action-row">
+      <span class="action-time">${fmtTime(a.time)}</span>
+      <span class="action-name">${a.action}</span>
+      <span class="${statusClass}">${a.status}</span>
+    </div>`;
+  }).join('');
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function renderTask(task) {
+  const panel = document.getElementById('task-panel');
+  if (!task) {
+    panel.innerHTML = '<div class="empty">No active task</div>';
+    return;
+  }
+  const elapsed = task.elapsed_s != null ? task.elapsed_s : Math.round((Date.now() - task.started) / 1000);
+  const statusColor = task.status === 'running' ? '#58a6ff' : task.status === 'done' ? '#3fb950' : '#f85149';
+  panel.innerHTML = `
+    <div class="stat-row"><span class="stat-label">Action</span><span class="stat-value">${task.action}</span></div>
+    <div class="stat-row"><span class="stat-label">Status</span><span class="stat-value" style="color:${statusColor}">${task.status}</span></div>
+    <div class="stat-row"><span class="stat-label">Elapsed</span><span class="stat-value">${elapsed}s</span></div>
+    ${task.error ? `<div class="stat-row"><span class="stat-label">Error</span><span class="stat-value" style="color:#f85149">${task.error}</span></div>` : ''}
+  `;
+}
+
+function renderAgent(turns) {
+  const panel = document.getElementById('agent-panel');
+  if (!turns || turns.length === 0) {
+    panel.innerHTML = '<div class="empty">Waiting for agent turns...</div>';
+    return;
+  }
+  let html = '';
+  for (const turn of turns.slice(-20)) {
+    const errorBadge = turn.error ? `<span style="color:#f85149;font-weight:600">[ERROR]</span>` : '';
+    const tcHtml = (turn.tool_calls || []).map(tc => {
+      let args = tc.args;
+      try { args = JSON.stringify(JSON.parse(tc.args)); } catch {}
+      return `<div class="action-row" style="margin-left:12px;border-left:2px solid #58a6ff;padding-left:8px;margin-top:4px">
+        → <span class="action-name">${tc.name}</span> ${args}
+      </div>`;
+    }).join('');
+    html += `<div style="border-bottom:1px solid #21262d;padding:10px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <strong style="color:#e3b341">Turn ${turn.turn}</strong>
+        <span style="color:#484f58;font-size:0.75rem">${fmtTime(turn.time)}</span>
+        ${errorBadge}
+      </div>
+      <details>
+        <summary style="color:#8b949e;cursor:pointer;font-size:0.8rem">Prompt / Context</summary>
+        <pre style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:8px;margin-top:6px;font-size:0.78rem;white-space:pre-wrap;word-break:break-word;color:#c9d1d9;max-height:200px;overflow:auto">${escapeHtml(turn.prompt || '')}</pre>
+      </details>
+      <div style="margin-top:8px;color:#c9d1d9;font-size:0.85rem">
+        <strong style="color:#3fb950">Response:</strong>
+        <div style="margin-top:4px;white-space:pre-wrap;word-break:break-word">${escapeHtml(turn.response || '(no response)')}</div>
+      </div>
+      ${tcHtml ? `<div style="margin-top:8px"><strong style="color:#58a6ff;font-size:0.8rem">Tool Calls:</strong>${tcHtml}</div>` : ''}
+      ${turn.error ? `<div style="margin-top:8px;color:#f85149;font-size:0.8rem">Error: ${escapeHtml(turn.error)}</div>` : ''}
+    </div>`;
+  }
+  panel.innerHTML = html;
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function renderHeartbeat(data) {
+  const header = document.getElementById('agent-header');
+  if (!data) {
+    header.textContent = 'Bot Mind — Raw Prompts & Responses';
+    return;
+  }
+  if (data.turnInProgress) {
+    header.innerHTML = 'Bot Mind — <span style="color:#58a6ff">⚡ Turn active</span>';
+  } else if (data.nextTurnIn != null && data.nextTurnIn > 0) {
+    const s = Math.ceil(data.nextTurnIn);
+    header.innerHTML = `Bot Mind — <span style="color:#8b949e">⏱️ Next turn in ${s}s</span>`;
+  } else {
+    header.innerHTML = 'Bot Mind — <span style="color:#3fb950">🔄 Turn starting...</span>';
+  }
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+
+// ── Panel Collapse / Persistence ───────────────────
+function togglePanel(panel) {
+  panel.classList.toggle('collapsed');
+  const toggle = panel.querySelector('.panel-toggle');
+  if (toggle) toggle.textContent = panel.classList.contains('collapsed') ? '▶' : '▼';
+  savePanelState();
+}
+function collapseAll() {
+  document.querySelectorAll('.panel').forEach(p => {
+    p.classList.add('collapsed');
+    const t = p.querySelector('.panel-toggle');
+    if (t) t.textContent = '▶';
+  });
+  savePanelState();
+}
+function expandAll() {
+  document.querySelectorAll('.panel').forEach(p => {
+    p.classList.remove('collapsed');
+    const t = p.querySelector('.panel-toggle');
+    if (t) t.textContent = '▼';
+  });
+  savePanelState();
+}
+function savePanelState() {
+  const state = {};
+  document.querySelectorAll('.panel').forEach((panel, idx) => {
+    const header = panel.querySelector('.panel-header');
+    const key = header?.dataset?.panel || `panel-${idx}`;
+    state[key] = panel.classList.contains('collapsed');
+  });
+  try { localStorage.setItem('dc_dashboard_panels', JSON.stringify(state)); } catch {}
+}
+function loadPanelState() {
+  try {
+    const raw = localStorage.getItem('dc_dashboard_panels');
+    if (!raw) return;
+    const state = JSON.parse(raw);
+    document.querySelectorAll('.panel').forEach((panel, idx) => {
+      const header = panel.querySelector('.panel-header');
+      const key = header?.dataset?.panel || `panel-${idx}`;
+      if (state[key]) {
+        panel.classList.add('collapsed');
+        const t = panel.querySelector('.panel-toggle');
+        if (t) t.textContent = '▶';
+      }
+    });
+  } catch {}
+}
+function initPanelToggles() {
+  document.querySelectorAll('.panel-header').forEach(h => {
+    h.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      const panel = h.closest('.panel');
+      if (panel) togglePanel(panel);
+    });
+  });
+  document.querySelectorAll('.panel-toggle').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const panel = btn.closest('.panel');
+      if (panel) togglePanel(panel);
+    });
+  });
+}
+
+// ── Adventures / Blueprints ────────────────────────
+async function fetchBlueprints() {
+  try {
+    const res = await fetch('/blueprints');
+    const json = await res.json();
+    if (json.ok) renderBlueprints(json.data.blueprints);
+    else renderBlueprintsError(json.error);
+  } catch (err) {
+    renderBlueprintsError(err.message);
+  }
+}
+function renderBlueprints(blueprints) {
+  const panel = document.getElementById('adventures-panel');
+  if (!blueprints || blueprints.length === 0) {
+    panel.innerHTML = '<div class="empty">No blueprints found</div>';
+    return;
+  }
+  let html = '<ul class="adventure-list">';
+  for (const bp of blueprints) {
+    html += `<li class="adventure-item" data-name="${bp.name}" onclick="selectBlueprint('${bp.name}')">`;
+    html += `<div style="font-weight:600">${escapeHtml(bp.title)}</div>`;
+    html += `<div class="adventure-meta">${escapeHtml(bp.theme)}${bp.author ? ' • ' + escapeHtml(bp.author) : ''}</div>`;
+    html += '</li>';
+  }
+  html += '</ul>';
+  html += '<div id="adventure-detail" class="adventure-detail" style="display:none"></div>';
+  panel.innerHTML = html;
+}
+function renderBlueprintsError(msg) {
+  const panel = document.getElementById('adventures-panel');
+  panel.innerHTML = `<div class="empty" style="color:#f85149">Error: ${escapeHtml(msg)}</div>`;
+}
+async function selectBlueprint(name) {
+  currentBlueprintName = name;
+  document.querySelectorAll('.adventure-item').forEach(i => i.classList.remove('active'));
+  const active = document.querySelector(`.adventure-item[data-name="${name}"]`);
+  if (active) active.classList.add('active');
+  const detail = document.getElementById('adventure-detail');
+  detail.style.display = 'block';
+  detail.innerHTML = '<div class="empty">Loading...</div>';
+  try {
+    const res = await fetch(`/blueprints/${name}`);
+    const json = await res.json();
+    if (json.ok) detail.innerHTML = renderBlueprintHtml(json.data);
+    else detail.innerHTML = `<div class="empty" style="color:#f85149">${escapeHtml(json.error)}</div>`;
+  } catch (err) {
+    detail.innerHTML = `<div class="empty" style="color:#f85149">${escapeHtml(err.message)}</div>`;
+  }
+}
 let currentBlueprint = null;
 let currentBlueprintName = null;
 
@@ -584,10 +872,8 @@ async function saveBlueprint() {
   const status = document.getElementById('bp-save-status');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
   
-  // Rebuild blueprint from editable fields
   const bp = JSON.parse(JSON.stringify(currentBlueprint));
   
-  // Metadata
   const mTitle = document.querySelector('[data-bp="metadata.title"]');
   const mTheme = document.querySelector('[data-bp="metadata.theme"]');
   const mTone = document.querySelector('[data-bp="metadata.tone"]');
@@ -599,7 +885,6 @@ async function saveBlueprint() {
   if (mAuthor) bp.metadata.author = mAuthor.textContent.trim();
   if (mVersion) bp.metadata.version = mVersion.textContent.trim();
   
-  // Setting
   const sBiome = document.querySelector('[data-bp="setting.biome"]');
   const sX = document.querySelector('[data-bp="setting.center.x"]');
   const sY = document.querySelector('[data-bp="setting.center.y"]');
@@ -611,11 +896,9 @@ async function saveBlueprint() {
   if (sZ && bp.setting?.center) bp.setting.center.z = parseInt(sZ.textContent.trim()) || 0;
   if (sRadius && bp.setting) bp.setting.radius = parseInt(sRadius.textContent.trim()) || 0;
   
-  // Init description
   const initDesc = document.querySelector('[data-bp="init.description"]');
   if (initDesc && bp.init) bp.init.description = initDesc.textContent.trim();
   
-  // Phases
   if (bp.phases) {
     for (let i = 0; i < bp.phases.length; i++) {
       const phName = document.querySelector(`[data-bp="phases.${i}.name"]`);
@@ -647,7 +930,6 @@ async function saveBlueprint() {
     }
   }
   
-  // Entities
   if (bp.entities) {
     for (let i = 0; i < bp.entities.length; i++) {
       const entName = document.querySelector(`[data-bp="entities.${i}.name"]`);
@@ -661,7 +943,6 @@ async function saveBlueprint() {
     }
   }
   
-  // Objects
   if (bp.objects) {
     for (let i = 0; i < bp.objects.length; i++) {
       const objName = document.querySelector(`[data-bp="objects.${i}.name"]`);
@@ -702,7 +983,6 @@ function renderBlueprintHtml(data) {
   html += `<div class="bp-meta-box"><label>Version</label><value contenteditable="true" data-bp="metadata.version" oninput="markDirty(this)">${escapeHtml(m.version || '—')}</value></div>`;
   html += '</div>';
 
-  // Setting
   if (data.setting) {
     const s = data.setting;
     html += '<div class="bp-section-title">Setting</div>';
@@ -717,7 +997,6 @@ function renderBlueprintHtml(data) {
     html += '</div>';
   }
 
-  // Init
   if (data.init) {
     html += '<div class="bp-section-title">Init Setup</div>';
     if (data.init.description) html += `<div contenteditable="true" data-bp="init.description" oninput="markDirty(this)" style="margin-bottom:8px;color:#c9d1d9;font-size:0.85rem">${escapeHtml(data.init.description)}</div>`;
@@ -735,7 +1014,6 @@ function renderBlueprintHtml(data) {
     }
   }
 
-  // Phases
   if (data.phases && data.phases.length) {
     html += '<div class="bp-section-title">Phases</div>';
     for (let i = 0; i < data.phases.length; i++) {
@@ -746,11 +1024,11 @@ function renderBlueprintHtml(data) {
       html += '</div>';
       html += `<div class="bp-phase-body collapsed">`;
       if (ph.description) html += `<div contenteditable="true" data-bp="phases.${i}.description" oninput="markDirty(this)" style="margin-bottom:8px">${escapeHtml(ph.description)}</div>`;
+      
       html += `<div class="bp-meta-grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:4px;margin-bottom:8px">`;
       html += `<div class="bp-meta-box" style="padding:6px"><label>Timeout (minutes)</label><value contenteditable="true" data-bp="phases.${i}.timeout_minutes" oninput="markDirty(this)">${ph.timeout_minutes ?? '?'}</value></div>`;
       html += '</div>';
       
-      // Trigger
       if (ph.trigger) {
         html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Trigger</div>';
         html += `<div class="bp-meta-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px">`;
@@ -760,7 +1038,6 @@ function renderBlueprintHtml(data) {
         html += '</div>';
       }
       
-      // Objectives
       if (ph.objectives && ph.objectives.length) {
         html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Objectives</div>';
         html += '<ul class="phase-list">';
@@ -771,7 +1048,6 @@ function renderBlueprintHtml(data) {
         html += '</ul>';
       }
       
-      // Events
       if (ph.events && ph.events.length) {
         html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Events</div>';
         for (let j = 0; j < ph.events.length; j++) {
@@ -786,7 +1062,6 @@ function renderBlueprintHtml(data) {
         }
       }
       
-      // Flags
       if (ph.flags) {
         html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Flags</div>';
         html += `<div class="bp-command">${escapeHtml(JSON.stringify(ph.flags))}</div>`;
@@ -796,7 +1071,6 @@ function renderBlueprintHtml(data) {
     }
   }
 
-  // Entities
   if (data.entities && data.entities.length) {
     html += '<div class="bp-section-title">Entities</div>';
     html += '<div class="bp-two-col">';
@@ -811,7 +1085,6 @@ function renderBlueprintHtml(data) {
     html += '</div>';
   }
 
-  // Objects
   if (data.objects && data.objects.length) {
     html += '<div class="bp-section-title">Objects</div>';
     html += '<div class="bp-two-col">';
@@ -826,14 +1099,12 @@ function renderBlueprintHtml(data) {
     html += '</div>';
   }
 
-  // Completion
   if (data.completion) {
     html += '<div class="bp-section-title">Completion</div>';
     html += `<div class="bp-meta-box"><label>Condition</label><value>${escapeHtml(data.completion.condition || '—')}</value></div>`;
     if (data.completion.on_complete) html += `<div class="bp-command">${escapeHtml(data.completion.on_complete)}</div>`;
   }
 
-  // Cleanup
   if (data.cleanup) {
     html += '<div class="bp-section-title">Cleanup</div>';
     if (data.cleanup.description) html += `<div style="margin-bottom:6px">${escapeHtml(data.cleanup.description)}</div>`;
@@ -843,14 +1114,6 @@ function renderBlueprintHtml(data) {
   html += `<div class="bp-save-bar"><span id="bp-save-status" class="status">No changes</span><button id="bp-save-btn" onclick="saveBlueprint()" disabled>Save Changes</button></div>`;
 
   return html;
-}
-
-function togglePhase(header) {
-  const body = header.nextElementSibling;
-  if (!body) return;
-  body.classList.toggle('collapsed');
-  const arrow = header.querySelector('span:last-child');
-  if (arrow) arrow.textContent = body.classList.contains('collapsed') ? '▼' : '▲';
 }
 
 initPanelToggles();

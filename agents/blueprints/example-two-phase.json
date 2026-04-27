@@ -1,0 +1,126 @@
+{
+  "metadata": {
+    "title": "El Pozo del Eco",
+    "theme": "Misterio rural con toque sobrenatural",
+    "tone": "Inquietante, melancólico, íntimo",
+    "author": "Pamplinas",
+    "version": "1.0"
+  },
+  "setting": {
+    "biome": "plains",
+    "center": {"x": 100, "y": 64, "z": 100},
+    "radius": 50,
+    "time_lock": null,
+    "weather_lock": null
+  },
+  "phases": [
+    {
+      "name": "llegada",
+      "trigger": "player se acerca al pozo (distancia < 20 bloques)",
+      "timeout_minutes": 30,
+      "objectives": [
+        {
+          "id": 0,
+          "title": "Investigar el pozo",
+          "description": "Acércate al borde y mira hacia abajo. ¿Qué ves?"
+        }
+      ],
+      "events": [
+        {
+          "type": "command",
+          "description": "Colocar señales de advertencia alrededor del pozo",
+          "command": "/setblock 98 64 98 oak_sign{Text1:'{\"text\":\"NO MIRES\",\"color\":\"dark_red\"}',Text2:'{\"text\":\"ABAJO\"}'}"
+        },
+        {
+          "type": "command",
+          "description": "Spawnear un cuervo que observa",
+          "command": "/summon parrot 102 65 98 {CustomName:'\"El Vigía\"',Silent:1b}"
+        },
+        {
+          "type": "chat",
+          "as": "narrator",
+          "lines": [
+            "SAY: El viento no sopla aquí. Se detiene, como si escuchara.",
+            "SAY: Hay un pozo en el claro. Las piedras alrededor están húmedas, aunque no llovió."
+          ]
+        }
+      ],
+      "flags": {
+        "investigo_pozo": false,
+        "escucho_eco": false
+      }
+    },
+    {
+      "name": "revelacion",
+      "trigger": "player mira al pozo (investigo_pozo = true)",
+      "timeout_minutes": 40,
+      "objectives": [
+        {
+          "id": 1,
+          "title": "Descubrir la verdad",
+          "description": "El eco del pozo te habla. ¿Respondes?"
+        }
+      ],
+      "events": [
+        {
+          "type": "command",
+          "description": "Cambiar clima a tormenta",
+          "command": "/weather thunder 600"
+        },
+        {
+          "type": "command",
+          "description": "Spawnear sombra en el fondo del pozo (bat)",
+          "command": "/summon bat 100 55 100 {Silent:1b,CustomName:'\"El Eco\"'}"
+        },
+        {
+          "type": "chat",
+          "as": "narrator",
+          "lines": [
+            "SAY: El pozo susurra. No con palabras — con tu propia voz, devuelta tres segundos tarde.",
+            "SAY: Algo sube. No rápido. Como si no tuviera prisa.",
+            "SAY: Dime, Nico: ¿quién eres cuando nadie te ve?"
+          ]
+        }
+      ],
+      "flags": {
+        "respondio_eco": false,
+        "huyo": false
+      }
+    }
+  ],
+  "entities": [
+    {
+      "name": "El Vigía",
+      "type": "parrot",
+      "location": {"x": 102, "y": 65, "z": 98},
+      "properties": {"Silent": true, "CustomName": "El Vigía"}
+    },
+    {
+      "name": "El Eco",
+      "type": "bat",
+      "location": {"x": 100, "y": 55, "z": 100},
+      "properties": {"Silent": true, "CustomName": "El Eco"}
+    }
+  ],
+  "objects": [
+    {
+      "name": "Diario del Pozo",
+      "type": "written_book",
+      "location": {"x": 99, "y": 64, "z": 99},
+      "content": {
+        "title": "Última Entrada",
+        "author": "Desconocido",
+        "pages": [
+          "Día 47. El pozo sigue hablando. Le respondí ayer y hoy mi sombra tardó un segundo en seguirme. No miren abajo. No respondan."
+        ]
+      }
+    }
+  ],
+  "soundscape": [
+    {"sound": "ambient.cave", "trigger": "player entra a fase revelacion", "volume": 0.5, "pitch": 0.8}
+  ],
+  "completion": {
+    "condition": "respondio_eco = true OR huyo = true",
+    "on_complete": "mc_story(action='log_event', event='Aventura completada. El Eco fue respondido o evitado.')"
+  }
+}

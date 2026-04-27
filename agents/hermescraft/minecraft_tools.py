@@ -1079,6 +1079,9 @@ def _load_story() -> dict:
     return {
         "title": None,
         "phase": None,
+        "phase_started_at": None,
+        "phase_timeout_minutes": None,
+        "last_player_activity": None,
         "day": 1,
         "flags": {},
         "objectives": [],
@@ -1098,6 +1101,7 @@ def _handle_mc_story(args: dict, **kwargs) -> str:
     story = _load_story()
 
     if action == "get_state":
+        import datetime as _dt
         lines = [
             f"Story: {story.get('title') or 'Untitled'}",
             f"Phase: {story.get('phase') or 'none'}",
@@ -1108,6 +1112,17 @@ def _handle_mc_story(args: dict, **kwargs) -> str:
         for obj in story.get("objectives", []):
             status = obj.get("status", "pending")
             lines.append(f"  [{status}] {obj.get('title', 'Untitled')}: {obj.get('description', '')}")
+        # Timeout info
+        timeout = story.get("phase_timeout_minutes")
+        started = story.get("phase_started_at")
+        last_act = story.get("last_player_activity")
+        if timeout and started:
+            elapsed = (_dt.datetime.now(_dt.timezone.utc) - _dt.datetime.fromisoformat(started)).total_seconds() / 60
+            remaining = timeout - elapsed
+            lines.append(f"Phase timeout: {max(0, remaining):.1f} minutes remaining")
+        if last_act:
+            ago = (_dt.datetime.now(_dt.timezone.utc) - _dt.datetime.fromisoformat(last_act)).total_seconds() / 60
+            lines.append(f"Last player activity: {ago:.1f} minutes ago")
         lines.append(f"Events ({len(story.get('events', []))}): {story.get('events', [])[-5:]}")
         return "\n".join(lines)
 
@@ -1124,10 +1139,59 @@ def _handle_mc_story(args: dict, **kwargs) -> str:
         phase = args.get("phase")
         if not phase:
             return "Error: phase is required for advance_phase"
+        import datetime as _dt
         story["phase"] = phase
+        story["phase_started_at"] = _dt.datetime.now(_dt.timezone.utc).isoformat()
+        timeout = args.get("timeout_minutes")
+        if timeout is not None:
+            story["phase_timeout_minutes"] = timeout
         story["events"].append(f"Advanced to phase: {phase}")
         _save_story(story)
         return f"Phase advanced to: {phase}"
+
+    if action == "record_activity":
+        import datetime as _dt
+        story["last_player_activity"] = _dt.datetime.now(_dt.timezone.utc).isoformat()
+        _save_story(story)
+        return "Player activity recorded"
+
+    if action == "check_timeout":
+        import datetime as _dt
+        phase = story.get("phase")
+        timeout = story.get("phase_timeout_minutes")
+        started = story.get("phase_started_at")
+        last_act = story.get("last_player_activity")
+        if not phase or not timeout:
+            return "No active phase with timeout"
+        # Use last_player_activity if available, otherwise phase_started_at
+        ref_time = last_act or started
+        if not ref_time:
+            return "No reference time for timeout check"
+        elapsed = (_dt.datetime.now(_dt.timezone.utc) - _dt.datetime.fromisoformat(ref_time)).total_seconds() / 60
+        if elapsed > timeout:
+            story["phase"] = None
+            story["phase_started_at"] = None
+            story["phase_timeout_minutes"] = None
+            # Reset objectives of abandoned phase
+            for obj in story.get("objectives", []):
+                if obj.get("status") == "pending":
+                    obj["status"] = "abandoned"
+            _save_story(story)
+            return f"Phase '{phase}' ABANDONED after {elapsed:.1f} minutes of inactivity. Objectives reset."
+        return f"Phase '{phase}' still active. {timeout - elapsed:.1f} minutes remaining."
+
+    if action == "reset_phase":
+        phase = args.get("phase")
+        if phase:
+            story["events"].append(f"Phase reset: {phase}")
+        story["phase"] = None
+        story["phase_started_at"] = None
+        story["phase_timeout_minutes"] = None
+        for obj in story.get("objectives", []):
+            if obj.get("status") in ("pending", "abandoned"):
+                obj["status"] = "pending"
+        _save_story(story)
+        return f"Phase reset. Current phase: none. Pending objectives restored."
 
     if action == "advance_day":
         story["day"] = story.get("day", 1) + 1
@@ -1228,7 +1292,7 @@ def _handle_mc_story(args: dict, **kwargs) -> str:
 
 MC_STORY_SCHEMA = {
     "name": "mc_story",
-    "description": "Narrative state tracker for Role Master mode. Tracks story phase, day counter, flags, objectives, events, and player choices across sessions. All data persists in a JSON file. No bot connection required.",
+    "description": "Narrative state tracker for Role Master mode. Tracks story phase, day counter, flags, objectives, events, and player choices across sessions. Supports phase timeouts and activity tracking for quest-like progression. All data persists in a JSON file. No bot connection required.",
     "parameters": {
         "type": "object",
         "properties": {
@@ -1239,12 +1303,14 @@ MC_STORY_SCHEMA = {
                     "add_objective", "complete_objective", "log_event",
                     "set_title", "record_choice", "reset",
                     "save_blueprint", "load_blueprint",
+                    "record_activity", "check_timeout", "reset_phase",
                 ],
                 "description": "Story management action",
             },
             "key": {"type": "string", "description": "Flag key (for set_flag)"},
             "value": {"type": ["string", "number", "boolean"], "description": "Flag value (for set_flag)"},
-            "phase": {"type": "string", "description": "Phase name (for advance_phase)"},
+            "phase": {"type": "string", "description": "Phase name (for advance_phase or reset_phase)"},
+            "timeout_minutes": {"type": "number", "description": "Minutes before phase is abandoned if no player activity (for advance_phase)"},
             "title": {"type": "string", "description": "Objective or story title"},
             "description": {"type": "string", "description": "Objective description"},
             "objective_id": {"type": "number", "description": "Objective index to complete"},

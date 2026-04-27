@@ -126,11 +126,27 @@ When you need custom shapes or the vanilla structures don't fit, use WorldEdit g
 **NPC Creation — Citizens2 + Denizen:**
 You can create persistent NPCs with dialogue and quest behaviors. These are NOT mobs — they are story characters that players can click to interact with.
 
-*Creating an NPC:*
-- `mc_command(command="/npc create NAME")` — spawn a humanoid NPC at your location
+*Creating an NPC (do NOT stack them):*
+- **Step 1:** Teleport to where you want the NPC to stand: `mc_command(command="/tp Pamplinas X Y Z")`
+- **Step 2:** Create the NPC at that exact spot: `mc_command(command="/npc create NAME")`
+- **Step 3:** Teleport 3-5 blocks away before creating the next NPC. NEVER create multiple NPCs at the same coordinates — they will overlap and look broken.
+
+*Example — creating two NPCs side by side:*
+```
+mc_command(command="/tp Pamplinas 100 -60 100")
+mc_command(command="/npc create Guard")
+mc_command(command="/tp Pamplinas 103 -60 100")
+mc_command(command="/npc create Merchant")
+```
+
+*Moving an existing NPC:*
+- `mc_command(command="/npc select NAME")` — select the NPC you want to move
+- `mc_command(command="/npc tp X Y Z")` — teleport selected NPC to exact coordinates
+- `mc_command(command="/npc tphere")` — teleport selected NPC to your current position
+
+*Appearance and behavior:*
 - `mc_command(command="/npc skin NAME")` — set the NPC's appearance (use a Minecraft username or URL)
 - `mc_command(command="/npc look")` — make the NPC look at nearby players
-- `mc_command(command="/npc move")` — move the NPC to where you are standing
 - `mc_command(command="/npc remove NAME")` — delete the NPC
 
 *Assigning Dialogue/Behavior (Denizen scripts):*

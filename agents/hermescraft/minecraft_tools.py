@@ -984,46 +984,41 @@ MC_PLAN_SCHEMA = {
 # ═══════════════════════════════════════════════════════════════════
 
 def _handle_mc_screenshot(args: dict, **kwargs) -> str:
-    """Take a ray-traced screenshot of the Minecraft world from the bot's perspective.
-    
-    This produces a high-quality rendered image with realistic lighting, shadows,
-    and reflections using CPU ray tracing. The image is saved to the bot server
-    and the path is returned.
+    """Take a screenshot of the Minecraft world from the bot's first-person perspective.
+
+    Uses prismarine-viewer (Three.js WebGL renderer) + puppeteer headless Chrome.
+    The image is saved as PNG to the bot server and the path is returned.
     """
     payload: Dict[str, Any] = {}
     if "width" in args:
         payload["width"] = args["width"]
     if "height" in args:
         payload["height"] = args["height"]
-    if "samples" in args:
-        payload["samples"] = args["samples"]
-    if "fov" in args:
-        payload["fov"] = args["fov"]
     if "file_name" in args:
-        payload["file_name"] = args["file_name"]
-    
+        fname = args["file_name"]
+        if not fname.endswith(".png"):
+            fname += ".png"
+        payload["file_name"] = fname
+
     resp = _api_post("/action/screenshot", payload, timeout=300)
     if not resp.get("ok", True):
         return f"Error: {resp.get('error', 'Screenshot failed')}"
-    
+
     path = resp.get("path", "unknown")
     width = resp.get("width", "?")
     height = resp.get("height", "?")
-    samples = resp.get("samples", "?")
-    return f"Screenshot saved to {path} ({width}x{height}, {samples} samples)"
+    return f"Screenshot saved to {path} ({width}x{height})"
 
 
 MC_SCREENSHOT_SCHEMA = {
     "name": "mc_screenshot",
-    "description": "Take a beautiful ray-traced screenshot of the Minecraft world from the bot's eyes. Produces a high-quality PNG with realistic lighting, shadows, and reflections. Specify width/height (max 1920x1080), samples (1-64, higher = better quality but slower), and optionally a custom file name. The image path is returned. If you need to SEE what is in the image, call vision_analyze with the returned path.",
+    "description": "Take a screenshot of the Minecraft world from the bot's eyes. Uses a WebGL renderer (prismarine-viewer) served on a local port and captured via headless Chrome. Produces a PNG image. Specify width/height (default 1280x720, max 1920x1080) and optionally a custom file_name. The returned path is an absolute PNG file path. If you need to SEE what is in the image, call vision_analyze with the returned path.",
     "parameters": {
         "type": "object",
         "properties": {
-            "width": {"type": "number", "description": "Image width in pixels (default: 854, max: 1920)"},
-            "height": {"type": "number", "description": "Image height in pixels (default: 480, max: 1080)"},
-            "samples": {"type": "number", "description": "Ray-tracing samples per pixel (default: 16, max: 64). Higher = better quality but slower."},
-            "fov": {"type": "number", "description": "Field of view in degrees (default: 90)"},
-            "file_name": {"type": "string", "description": "Custom filename for the screenshot (optional)"},
+            "width": {"type": "number", "description": "Image width in pixels (default: 1280, max: 1920)"},
+            "height": {"type": "number", "description": "Image height in pixels (default: 720, max: 1080)"},
+            "file_name": {"type": "string", "description": "Custom filename for the screenshot (optional). Will be saved as a .png file."},
         },
     },
 }

@@ -2864,19 +2864,13 @@ async collect({ block, count = 1 }) {
         waitUntil: 'networkidle2',
         timeout: 30000,
       });
-      // Increase FOV for wider context (default is 75)
-      await viewerPage.evaluate(() => {
-        if (window.u && window.u.camera) {
-          window.u.camera.fov = 95;
-          window.u.camera.updateProjectionMatrix();
-        }
-      });
       // Allow WebGL/Three.js to render a few frames
       await new Promise(r => setTimeout(r, 4000));
     }
 
     await viewerPage.setViewport({ width, height });
-    const fname = file_name || `screenshot_${config.mc.username}_${Date.now()}.png`;
+    let fname = file_name || `screenshot_${config.mc.username}_${Date.now()}.png`;
+    if (!fname.endsWith('.png')) fname += '.png';
     const outPath = path.join(SCREENSHOT_DIR, fname);
     await viewerPage.screenshot({ path: outPath, fullPage: false });
     log(`[Screenshot] Saved ${outPath}`);

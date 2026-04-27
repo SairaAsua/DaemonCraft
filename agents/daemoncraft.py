@@ -21,6 +21,7 @@ Each agent runs as two processes:
 """
 
 import argparse
+import json
 import os
 import shutil
 import signal
@@ -378,6 +379,7 @@ def start_agent(
     port: int,
     interval: int = 30,
     always_chat: bool = False,
+    max_chat_chars: int | None = None,
 ) -> int:
     """Start the Hermes agent using the native persistent loop. Returns PID."""
     profile_name = agent_name.lower().replace(" ", "-")
@@ -397,7 +399,6 @@ def start_agent(
     }
     if always_chat:
         env["MC_ALWAYS_CHAT"] = "1"
-    max_chat_chars = agent.get("max_chat_chars")
     if max_chat_chars:
         env["MC_MAX_CHAT_CHARS"] = str(max_chat_chars)
 
@@ -464,7 +465,8 @@ def cmd_start(cast_name: str, cast: dict, mc_host: str, mc_port: int):
 
         # 3. Start agent
         always_chat = agent.get("always_chat", False)
-        start_agent(cast_name, name, port, always_chat=always_chat)
+        max_chat_chars = agent.get("max_chat_chars")
+        start_agent(cast_name, name, port, always_chat=always_chat, max_chat_chars=max_chat_chars)
 
         time.sleep(2)  # Stagger to avoid resource spikes
 

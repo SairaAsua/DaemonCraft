@@ -1067,6 +1067,7 @@ import os
 from pathlib import Path
 
 _STORY_PATH = Path(os.getenv("DAEMONCRAFT_STORY_PATH", Path.home() / ".local" / "share" / "daemoncraft" / "story.json"))
+_BLUEPRINT_PATH = Path(os.getenv("DAEMONCRAFT_BLUEPRINT_PATH", Path.home() / ".local" / "share" / "daemoncraft" / "blueprint.json"))
 
 
 def _load_story() -> dict:
@@ -1200,6 +1201,28 @@ def _handle_mc_story(args: dict, **kwargs) -> str:
         })
         return "Story state reset"
 
+    if action == "save_blueprint":
+        blueprint = args.get("blueprint")
+        if not blueprint:
+            return "Error: blueprint JSON is required for save_blueprint"
+        if not isinstance(blueprint, dict):
+            return "Error: blueprint must be a JSON object"
+        _BLUEPRINT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _BLUEPRINT_PATH.write_text(json.dumps(blueprint, indent=2))
+        return f"Blueprint saved: {blueprint.get('metadata', {}).get('title', 'Untitled')}"
+
+    if action == "load_blueprint":
+        if not _BLUEPRINT_PATH.exists():
+            return "No blueprint saved yet"
+        try:
+            bp = json.loads(_BLUEPRINT_PATH.read_text())
+            title = bp.get("metadata", {}).get("title", "Untitled")
+            phases = len(bp.get("phases", []))
+            entities = len(bp.get("entities", []))
+            return f"Blueprint: {title}\nPhases: {phases}\nEntities: {entities}\nFlags: {json.dumps(bp.get('flags', {}))}"
+        except Exception as e:
+            return f"Error loading blueprint: {e}"
+
     return f"Error: unknown story action '{action}'"
 
 
@@ -1215,6 +1238,7 @@ MC_STORY_SCHEMA = {
                     "get_state", "set_flag", "advance_phase", "advance_day",
                     "add_objective", "complete_objective", "log_event",
                     "set_title", "record_choice", "reset",
+                    "save_blueprint", "load_blueprint",
                 ],
                 "description": "Story management action",
             },
@@ -1228,6 +1252,7 @@ MC_STORY_SCHEMA = {
             "player": {"type": "string", "description": "Player name (for record_choice)"},
             "choice": {"type": "string", "description": "Choice description (for record_choice)"},
             "optional": {"type": "boolean", "description": "Whether objective is optional"},
+            "blueprint": {"type": "object", "description": "Full adventure blueprint JSON (for save_blueprint)"},
         },
         "required": ["action"],
     },

@@ -197,6 +197,7 @@ _PERCEIVE_GET_ENDPOINTS = {
     "nearby": "/nearby",
     "look": "/look",
     "scene": "/scene",
+    "screenshot": "/screenshot",
     "map": "/map",
     "read_chat": "/chat",
     "overhear": "/overhear",
@@ -231,6 +232,10 @@ def _handle_mc_perceive(args: dict, **kwargs) -> str:
             path += f'?radius={args.get("radius", 16)}'
         elif ptype in ("read_chat", "overhear"):
             path += f'?count={args.get("count", 20)}'
+        elif ptype == "screenshot":
+            w = args.get("width", 1280)
+            h = args.get("height", 720)
+            path += f'?width={w}&height={h}'
         return _fmt(_api_get(path))
 
     if ptype in _PERCEIVE_POST_ENDPOINTS:

@@ -85,6 +85,8 @@ import {
   recipeIngredientCounts,
 } from './lib/action_feedback.js';
 import { Camera } from 'mine-photo';
+import { mineflayer as mineflayerViewer } from 'prismarine-viewer';
+import puppeteer from 'puppeteer';
 
 // Screenshot directory
 const SCREENSHOT_DIR = path.join('/tmp', 'daemoncraft-screenshots');
@@ -212,6 +214,11 @@ let activeFurnaces = [];
 let photoCamera = null;
 let photoScanReady = false;
 let photoScanPromise = null;
+
+// Prismarine-viewer + Puppeteer screenshot pipeline (replaces mine-photo)
+let viewerServer = null;
+let viewerBrowser = null;
+let viewerPage = null;
 
 // Local sneak state tracking (Mineflayer controlState is write-only)
 let isSneaking = false; // [{ x, y, z, input, count, startTime, estimatedDone }]
@@ -493,13 +500,17 @@ async function createBot() {
       });
 
       // Disconnect — auto-reconnect with backoff (handles both kicks and drops)
-      bot.once('end', (reason) => {
+      bot.once('end', async (reason) => {
         log(`Disconnected: ${reason}`);
         botReady = false;
         photoScanReady = false;
         photoScanPromise = null;
         photoCamera = null;
         positionHistory = []; // clear stuck detection history
+        // Close viewer and puppeteer resources (fire-and-forget)
+        try { viewerPage?.close().catch(() => {}); viewerPage = null; } catch {}
+        try { viewerBrowser?.close().catch(() => {}); viewerBrowser = null; } catch {}
+        try { viewerServer?.close(); viewerServer = null; } catch {}
         if (bot?._soundCheckInterval) { clearInterval(bot._soundCheckInterval); bot._soundCheckInterval = null; }
         
         // In hardcore mode, death = permanent. Don't reconnect.
@@ -555,6 +566,16 @@ async function createBot() {
       reconnectAttempts = 0;
       const locs = loadLocations(); if(!locs.spawn){locs.spawn={...posObj(),saved:new Date().toISOString()};saveLocations(locs);}
       log(`Connected! Spawned at ${fmt(bot.entity.position.x)}, ${fmt(bot.entity.position.y)}, ${fmt(bot.entity.position.z)}`);
+
+      // Start prismarine-viewer for screenshot capability
+      try {
+        const viewerPort = config.api.port + 1000;
+        viewerServer = mineflayerViewer(bot, { port: viewerPort, firstPerson: true });
+        log(`[Viewer] Serving at http://localhost:${viewerPort}`);
+      } catch (err) {
+        log(`[Viewer] Failed to start: ${err.message}`);
+      }
+
       resolve(bot);
     });
 
@@ -2814,52 +2835,50 @@ async collect({ block, count = 1 }) {
     return { result: `Assigned to team ${team} as ${role}. Teammates: ${teammates?.join(', ') || 'none'}` };
   },
 
-  // ═══════════════════════════════════════════════════════════════
-  // Screenshot — Ray-traced world rendering
-  // ═══════════════════════════════════════════════════════════════
+  // ──────────────────────────────────────────────────────────────────
+  // Screenshot — Prismarine-viewer + Puppeteer (replaces mine-photo)
+  // ──────────────────────────────────────────────────────────────────
 
-  async screenshot({ width = 854, height = 480, samples = 16, fov = 90, file_name }) {
-    const b = ensureBot();
-    if (!photoCamera) throw new Error('Camera not initialized yet. Wait for spawn.');
+  async screenshot({ width = 1280, height = 720, file_name }) {
+    ensureBot();
+    const viewerPort = config.api.port + 1000;
 
-    // Ensure scan is ready (wait if in progress)
-    if (!photoScanReady && photoScanPromise) {
-      log('[Photo] Waiting for scan to complete...');
-      await photoScanPromise;
+    // Lazy-init puppeteer browser (reuse across calls)
+    if (!viewerBrowser) {
+      log('[Screenshot] Launching puppeteer...');
+      viewerBrowser = await puppeteer.launch({
+        headless: 'new',
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--use-angle=swiftshader',
+        ],
+      });
     }
-    if (!photoScanReady) {
-      // Fallback: do a quick scan inline (slower but works)
-      log('[Photo] No scan ready, performing inline scan...');
-      await photoCamera.scan(32, 16, 32);
-      photoScanReady = true;
+
+    if (!viewerPage) {
+      viewerPage = await viewerBrowser.newPage();
+      await viewerPage.setViewport({ width, height });
+      log(`[Screenshot] Opening viewer at :${viewerPort}...`);
+      await viewerPage.goto(`http://localhost:${viewerPort}`, {
+        waitUntil: 'networkidle2',
+        timeout: 30000,
+      });
+      // Allow WebGL/Three.js to render a few frames
+      await new Promise(r => setTimeout(r, 4000));
     }
 
-    // Update camera settings from request
-    photoCamera.resize(Math.min(width, 1920), Math.min(height, 1080));
-    photoCamera.samplesPerPixel = Math.min(samples || 8, 64);
-    photoCamera.fov = fov;
-
-    // Position camera at bot eyes, looking where bot looks
-    const pos = b.entity.position;
-    const yaw = b.entity.yaw;
-    const pitch = b.entity.pitch;
-    photoCamera.position = pos.offset(0, b.entity.height * 0.85, 0);
-    // Forward vector from yaw/pitch
-    const dx = -Math.sin(yaw) * Math.cos(pitch);
-    const dy = -Math.sin(pitch);
-    const dz = -Math.cos(yaw) * Math.cos(pitch);
-    photoCamera.direction = [dx, dy, dz];
-
+    await viewerPage.setViewport({ width, height });
     const fname = file_name || `screenshot_${config.mc.username}_${Date.now()}.png`;
     const outPath = path.join(SCREENSHOT_DIR, fname);
-    await photoCamera.render(outPath);
+    await viewerPage.screenshot({ path: outPath, fullPage: false });
+    log(`[Screenshot] Saved ${outPath}`);
 
     return {
       result: `Screenshot saved: ${outPath}`,
       path: outPath,
-      width: photoCamera.width,
-      height: photoCamera.height,
-      samples: photoCamera.samplesPerPixel,
+      width,
+      height,
     };
   },
 
@@ -3028,6 +3047,14 @@ const httpServer = http.createServer(async (req, res) => {
       if (path === '/scene') {
         const range = parseInt(url.searchParams.get('range') || '16');
         return respond(res, 200, { ok: true, data: buildSceneSummary({ range: Math.min(range, 24) }) });
+      }
+
+      // Screenshot via prismarine-viewer + puppeteer
+      if (path === '/screenshot') {
+        const width = parseInt(url.searchParams.get('width') || '1280');
+        const height = parseInt(url.searchParams.get('height') || '720');
+        const result = await ACTIONS.screenshot({ width, height });
+        return respond(res, 200, { ok: true, data: result });
       }
 
       if (path === '/social') {

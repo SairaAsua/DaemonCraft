@@ -24,9 +24,8 @@ agents:
     provider: minimax
     base_url: https://api.minimax.chat/v1
     always_chat: true
-    # vision disabled: mine-photo screenshots are corrupted (noise/static)
-    # extra_toolsets:
-    #   - vision
+    extra_toolsets:
+      - vision
     gamemode: creative
     max_chat_chars: 480
     chat_format: say_lines

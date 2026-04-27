@@ -3163,18 +3163,37 @@ const httpServer = http.createServer(async (req, res) => {
       }
 
       // Send chat message from agent to Minecraft — POST /chat/send
+      // Optional body.as: "Server" | player_name — sends as that identity instead of the bot.
       if (path === '/chat/send') {
         const message = body?.message;
+        const sender = body?.as;
         if (!message || typeof message !== 'string') {
           return respond(res, 400, { ok: false, error: 'Missing or invalid "message" field' });
         }
         const b = ensureBot();
-        b.chat(message);
+        const botName = b.username;
+        let chatFrom = botName;
+
+        if (sender && typeof sender === 'string' && sender.toLowerCase() !== botName.toLowerCase()) {
+          // Send as someone else via /say (Server) or /tellraw (custom name)
+          if (sender.toLowerCase() === 'server') {
+            b.chat('/say ' + message);
+            chatFrom = 'Server';
+          } else {
+            // Use tellraw to simulate a named sender: "Name: message"
+            const tellrawCmd = `/tellraw @a ["",{"text":"${sender}: ","color":"yellow","bold":true},{"text":"${message}"}]`;
+            b.chat(tellrawCmd);
+            chatFrom = sender;
+          }
+        } else {
+          b.chat(message);
+        }
+
         // Also add to chatLog so it appears in read_chat history
-        chatLog.push({ time: Date.now(), from: b.username, message, self: true });
+        chatLog.push({ time: Date.now(), from: chatFrom, message, self: chatFrom.toLowerCase() === botName.toLowerCase() });
         if (chatLog.length > MAX_LOG) chatLog.shift();
         broadcastDashboard('chat', chatLog.slice(-30));
-        return respond(res, 200, { ok: true, result: 'Message sent.' });
+        return respond(res, 200, { ok: true, result: 'Message sent.', from: chatFrom });
       }
 
       // Background task system: POST /task/ACTION runs async, returns task_id

@@ -68,6 +68,48 @@ def send_heartbeat(next_turn_in: float | None = None, turn_in_progress: bool = F
         pass
 
 
+def _send_chat_chunks(text: str, max_len: int = 240):
+    """Split text into Minecraft-chat-sized chunks and send sequentially.
+
+    Minecraft chat has a hard limit of ~256 characters. We use 240 to stay
+    safely under the limit, including any formatting overhead.
+    """
+    text = text.strip()
+    if not text:
+        return
+
+    chunks = []
+    while len(text) > max_len:
+        # Try to break at a space or newline to avoid mid-word cuts
+        break_at = max_len
+        for i in range(max_len, max_len // 2, -1):
+            if text[i] in " \n":
+                break_at = i
+                break
+        chunks.append(text[:break_at].strip())
+        text = text[break_at:].strip()
+    if text:
+        chunks.append(text)
+
+    for i, chunk in enumerate(chunks):
+        try:
+            payload = json.dumps({"message": chunk}).encode("utf-8")
+            req = urllib.request.Request(
+                f"{MC_API_URL}/chat/send",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                pass
+            print(f"[loop] Auto-sent chunk {i+1}/{len(chunks)}: {chunk[:60]}...", flush=True)
+        except Exception as e:
+            print(f"[loop] Auto-chat chunk {i+1} failed: {e}", flush=True)
+        # Small delay between chunks so they arrive in order
+        if i < len(chunks) - 1:
+            time.sleep(0.3)
+
+
 def _safe_trim_history(messages: list, max_msgs: int = 20) -> list:
     """Trim conversation history without breaking tool_call chains.
 
@@ -475,23 +517,13 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
                 if is_budget_error:
                     print("[loop] Budget exhausted — tools executed but summary failed. Will retry next turn.", flush=True)
                     conversation_history = []
-                elif response and not mc_chat_used and (is_chat_triggered or os.getenv("MC_ALWAYS_CHAT", "").lower() in ("1", "true", "yes")):
+                elif response and (is_chat_triggered or os.getenv("MC_ALWAYS_CHAT", "").lower() in ("1", "true", "yes")):
+                    # Auto-send response text to Minecraft chat.
+                    # We send even if mc_chat was used, because the final response
+                    # may contain additional narrative text beyond what mc_chat sent.
                     chat_msg = response.strip()
-                    if len(chat_msg) > 300:
-                        chat_msg = chat_msg[:297] + "..."
-                    try:
-                        payload = json.dumps({"message": chat_msg}).encode("utf-8")
-                        req = urllib.request.Request(
-                            f"{MC_API_URL}/chat/send",
-                            data=payload,
-                            headers={"Content-Type": "application/json"},
-                            method="POST",
-                        )
-                        with urllib.request.urlopen(req, timeout=5) as resp:
-                            pass
-                        print(f"[loop] Auto-sent to chat: {chat_msg[:80]}...", flush=True)
-                    except Exception as e:
-                        print(f"[loop] Auto-chat failed: {e}", flush=True)
+                    if chat_msg:
+                        _send_chat_chunks(chat_msg)
 
                 if response and not is_budget_error:
                     print(f"[loop] Response: {response[:200]}", flush=True)

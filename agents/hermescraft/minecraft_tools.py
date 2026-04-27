@@ -1010,7 +1010,7 @@ def _handle_mc_screenshot(args: dict, **kwargs) -> str:
 
 MC_SCREENSHOT_SCHEMA = {
     "name": "mc_screenshot",
-    "description": "Take a beautiful ray-traced screenshot of the Minecraft world from the bot's eyes. Produces a high-quality PNG with realistic lighting, shadows, and reflections. Specify width/height (max 1920x1080), samples (1-64, higher = better quality but slower), and optionally a custom file name. The image path is returned so you can share it or analyze it visually.",
+    "description": "Take a beautiful ray-traced screenshot of the Minecraft world from the bot's eyes. Produces a high-quality PNG with realistic lighting, shadows, and reflections. Specify width/height (max 1920x1080), samples (1-64, higher = better quality but slower), and optionally a custom file name. The image path is returned. If you need to SEE what is in the image, call vision_analyze with the returned path.",
     "parameters": {
         "type": "object",
         "properties": {

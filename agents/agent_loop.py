@@ -73,10 +73,17 @@ def _send_chat_chunks(text: str, max_len: int = 240):
 
     Minecraft chat has a hard limit of ~256 characters. We use 240 to stay
     safely under the limit, including any formatting overhead.
+
+    Respects MC_MAX_CHAT_CHARS env var to limit total output per turn.
     """
     text = text.strip()
     if not text:
         return
+
+    # Hard cap on total characters per turn (configured per cast)
+    max_total = int(os.getenv("MC_MAX_CHAT_CHARS", "0") or 0)
+    if max_total > 0 and len(text) > max_total:
+        text = text[:max_total - 3].strip() + "..."
 
     chunks = []
     while len(text) > max_len:

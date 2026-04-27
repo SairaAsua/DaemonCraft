@@ -24,6 +24,10 @@ agents:
     provider: minimax
     base_url: https://api.minimax.chat/v1
     always_chat: true
+    extra_toolsets:
+      - vision
+    gamemode: creative
+    max_chat_chars: 480
 
 # Narrative timing configuration
 # All story phases, triggers, and deadlines are expressed in Minecraft days.

@@ -275,6 +275,21 @@ def setup_agent_profile(
 
     config_path.write_text(yaml.dump(config, default_flow_style=False, sort_keys=False))
 
+    # Merge extra toolsets from cast config
+    extra_toolsets = agent.get("extra_toolsets", [])
+    if extra_toolsets:
+        config = yaml.safe_load(config_path.read_text()) or {}
+        existing = config.get("toolsets", [])
+        merged = list(dict.fromkeys(existing + extra_toolsets))  # preserve order, dedupe
+        config["toolsets"] = merged
+        # Also add to platform_toolsets.cli if present
+        if "platform_toolsets" in config and "cli" in config["platform_toolsets"]:
+            cli_tools = config["platform_toolsets"]["cli"]
+            cli_merged = list(dict.fromkeys(cli_tools + extra_toolsets))
+            config["platform_toolsets"]["cli"] = cli_merged
+        config_path.write_text(yaml.dump(config, default_flow_style=False, sort_keys=False))
+        log(f"Added extra toolsets for {name}: {extra_toolsets}", cast_name)
+
     # Update .env with MC_API_URL
     env_path = profile_dir / ".env"
     env_lines = []
@@ -382,6 +397,9 @@ def start_agent(
     }
     if always_chat:
         env["MC_ALWAYS_CHAT"] = "1"
+    max_chat_chars = agent.get("max_chat_chars")
+    if max_chat_chars:
+        env["MC_MAX_CHAT_CHARS"] = str(max_chat_chars)
 
     log(f"Starting persistent agent for {agent_name}...", cast_name)
     proc = subprocess.Popen(
@@ -425,6 +443,24 @@ def cmd_start(cast_name: str, cast: dict, mc_host: str, mc_port: int):
 
         # 2. Start bot
         start_bot(cast_name, name, port, mc_host, mc_port, workspace_dir)
+
+        # 2b. Set gamemode if specified in cast config
+        gamemode = agent.get("gamemode")
+        if gamemode:
+            try:
+                import urllib.request
+                payload = json.dumps({"message": f"/gamemode {gamemode} {name}"}).encode("utf-8")
+                req = urllib.request.Request(
+                    f"http://localhost:{port}/chat/send",
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    pass
+                log(f"Set gamemode to {gamemode} for {name}", cast_name)
+            except Exception as e:
+                log(f"Warning: could not set gamemode for {name}: {e}", cast_name)
 
         # 3. Start agent
         always_chat = agent.get("always_chat", False)

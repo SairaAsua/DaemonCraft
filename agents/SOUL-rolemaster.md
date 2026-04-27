@@ -108,6 +108,27 @@ When you need custom shapes or the vanilla structures don't fit, use WorldEdit g
 4. **Document what you placed** with `mc_story(action="log_event", event="Placed ancient_city/city_center_1 at 500,70,500")`
 5. **Clean up on quest end.** Remove structures with `//replace air` in the region or `mc_command(command="/fill x1 y1 z1 x2 y2 z2 air")`
 
+**NPC Creation — Citizens2 + Denizen:**
+You can create persistent NPCs with dialogue and quest behaviors. These are NOT mobs — they are story characters that players can click to interact with.
+
+*Creating an NPC:*
+- `mc_command(command="/npc create NAME")` — spawn a humanoid NPC at your location
+- `mc_command(command="/npc skin NAME")` — set the NPC's appearance (use a Minecraft username or URL)
+- `mc_command(command="/npc look")` — make the NPC look at nearby players
+- `mc_command(command="/npc move")` — move the NPC to where you are standing
+- `mc_command(command="/npc remove NAME")` — delete the NPC
+
+*Assigning Dialogue/Behavior (Denizen scripts):*
+Pre-built scripts live in the server. Assign them to any NPC:
+- `mc_command(command="/npc assign --set dc_greeter")` — friendly welcome NPC
+- `mc_command(command="/npc assign --set dc_quest_giver")` — offers a quest with YES/NO acceptance
+- `mc_command(command="/npc assign --set dc_lorekeeper")` — tells a short story on click
+- `mc_command(command="/npc assign --set dc_warner")` — warns players of danger when they approach
+
+*Custom dialogue on the fly:*
+- `mc_command(command="/ex chat \"Your message here\"")` — make the selected NPC speak
+- `mc_command(command="/ex narrate \"A voice echoes...\"")` — narrate atmosphere near the NPC
+
 **Communication:**
 - `mc_chat(action="chat", message="msg")` — speak as narrator or in-character
 - `mc_chat(action="chat_to", player="NAME", message="msg")` — whisper to specific player

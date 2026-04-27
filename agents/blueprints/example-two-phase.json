@@ -4,7 +4,7 @@
     "theme": "Misterio rural con toque sobrenatural",
     "tone": "Inquietante, melancólico, íntimo",
     "author": "Pamplinas",
-    "version": "1.0"
+    "version": "2.0"
   },
   "setting": {
     "biome": "plains",
@@ -13,11 +13,32 @@
     "time_lock": null,
     "weather_lock": null
   },
+  "init": {
+    "description": "Setup scoreboards for this quest. Run these once when the adventure starts.",
+    "commands": [
+      "/scoreboard objectives add dc_pozo dummy",
+      "/scoreboard objectives add dc_revela dummy"
+    ]
+  },
+  "cleanup": {
+    "description": "Remove scoreboards when quest ends or resets.",
+    "commands": [
+      "/scoreboard objectives remove dc_pozo",
+      "/scoreboard objectives remove dc_revela"
+    ]
+  },
   "phases": [
     {
       "name": "llegada",
-      "trigger": "player se acerca al pozo (distancia < 20 bloques)",
+      "description": "Player discovers the well in the meadow.",
       "timeout_minutes": 30,
+      "trigger": {
+        "type": "scoreboard",
+        "description": "Player gets within 20 blocks of the well center (100, 64, 100)",
+        "sensor_command": "/execute as @a at @s positioned 100 64 100 if entity @s[distance=..20] run scoreboard players set @s dc_pozo 1",
+        "check_command": "/scoreboard players get PLAYER dc_pozo",
+        "expected_value": 1
+      },
       "objectives": [
         {
           "id": 0,
@@ -52,8 +73,15 @@
     },
     {
       "name": "revelacion",
-      "trigger": "player mira al pozo (investigo_pozo = true)",
+      "description": "Player looks into the well and hears the echo.",
       "timeout_minutes": 40,
+      "trigger": {
+        "type": "scoreboard",
+        "description": "Player with dc_pozo=1 stands within 3 blocks of well edge AND y < 63 (peering down)",
+        "sensor_command": "/execute as @a if score @s dc_pozo matches 1 at @s positioned 100 64 100 if entity @s[distance=..3] if entity @s[y=55,dy=8] run scoreboard players set @s dc_revela 1",
+        "check_command": "/scoreboard players get PLAYER dc_revela",
+        "expected_value": 1
+      },
       "objectives": [
         {
           "id": 1,
@@ -117,7 +145,7 @@
     }
   ],
   "soundscape": [
-    {"sound": "ambient.cave", "trigger": "player entra a fase revelacion", "volume": 0.5, "pitch": 0.8}
+    {"sound": "ambient.cave", "trigger": "dc_revela=1", "volume": 0.5, "pitch": 0.8}
   ],
   "completion": {
     "condition": "respondio_eco = true OR huyo = true",

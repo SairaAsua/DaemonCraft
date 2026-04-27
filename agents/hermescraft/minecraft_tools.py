@@ -1287,6 +1287,31 @@ def _handle_mc_story(args: dict, **kwargs) -> str:
         except Exception as e:
             return f"Error loading blueprint: {e}"
 
+    if action == "check_score":
+        player = args.get("player")
+        objective = args.get("objective")
+        if not player or not objective:
+            return "Error: player and objective are required for check_score"
+        # Use mc_command to query the scoreboard via the bot
+        result = _api_post("/chat/send", {"message": f"/scoreboard players get {player} {objective}"})
+        return _fmt(result)
+
+    if action == "set_score":
+        player = args.get("player")
+        objective = args.get("objective")
+        value = args.get("value", 0)
+        if not player or not objective:
+            return "Error: player and objective are required for set_score"
+        result = _api_post("/chat/send", {"message": f"/scoreboard players set {player} {objective} {value}"})
+        return _fmt(result)
+
+    if action == "run_function":
+        function = args.get("function")
+        if not function:
+            return "Error: function path is required for run_function"
+        result = _api_post("/chat/send", {"message": f"/function {function}"})
+        return _fmt(result)
+
     return f"Error: unknown story action '{action}'"
 
 

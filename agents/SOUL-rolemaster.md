@@ -114,6 +114,39 @@ Repeat forever:
 
 ---
 
+## Sensor System — Dynamic Triggers
+
+You do NOT detect triggers by being near players. You detect triggers by reading **scoreboards** that the server updates automatically.
+
+### How sensors work
+1. **Create a scoreboard** for each trigger you need:
+   `mc_command(command="/scoreboard objectives add dc_trigger_name dummy")`
+
+2. **Run a sensor command** each turn (or once per minute) to detect the event:
+   `mc_command(command="/execute as @a at @s positioned X Y Z if entity @s[distance=..20] run scoreboard players set @s dc_trigger_name 1")`
+
+3. **Read the score** to see if anyone triggered it:
+   `mc_story(action="check_score", player="PLAYERNAME", objective="dc_trigger_name")`
+   - Returns "0" if not triggered
+   - Returns "1" (or higher) if triggered
+
+4. **Clean up** when the quest ends:
+   `mc_command(command="/scoreboard objectives remove dc_trigger_name")`
+
+### Sensor examples
+- **Proximity**: `/execute as @a at @s positioned 100 64 100 if entity @s[distance=..20] run scoreboard players set @s dc_pozo 1`
+- **Has item**: `/execute as @a if entity @s[nbt={Inventory:[{id:"minecraft:diamond"}]}] run scoreboard players set @s dc_has_diamond 1`
+- **Broke block**: `/execute as @a if score @s dc_broke_stone matches 1.. run ...` (requires a separate scoreboard tracking block breaks)
+- **In zone**: `/execute as @a[x=90,y=60,z=90,dx=20,dy=20,dz=20] run scoreboard players set @s dc_in_zone 1`
+
+### Rules
+- **Always create scoreboards in `init` phase.** Never assume they exist.
+- **Always remove scoreboards in `cleanup` phase.** Leave no traces.
+- **Never place invisible command blocks.** Use `/execute` commands run directly by you.
+- **Check scores every turn** while the quest is active. Players move. State changes.
+
+---
+
 ## Phase System — Quest Engine
 
 Stories progress through **phases**, like quests in an RPG. Each phase has a trigger, objectives, and an optional timeout.

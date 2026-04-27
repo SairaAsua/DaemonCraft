@@ -14,18 +14,15 @@
     "weather_lock": null
   },
   "init": {
-    "description": "Setup scoreboards for this quest. Run these once when the adventure starts.",
-    "commands": [
-      "/scoreboard objectives add dc_pozo dummy",
-      "/scoreboard objectives add dc_revela dummy"
+    "description": "Setup sensors for this quest. Run setup_sensors once when the adventure starts.",
+    "sensors": [
+      {"name": "dc_pozo", "criterion": "dummy", "poll_command": "/execute as @a at @s positioned 100 64 100 if entity @s[distance=..20] run scoreboard players set @s dc_pozo 1"},
+      {"name": "dc_revela", "criterion": "dummy", "poll_command": "/execute as @a if score @s dc_pozo matches 1 at @s positioned 100 64 100 if entity @s[distance=..3] if entity @s[y=55,dy=8] run scoreboard players set @s dc_revela 1"}
     ]
   },
   "cleanup": {
-    "description": "Remove scoreboards when quest ends or resets.",
-    "commands": [
-      "/scoreboard objectives remove dc_pozo",
-      "/scoreboard objectives remove dc_revela"
-    ]
+    "description": "Remove all sensors when quest ends or resets.",
+    "action": "mc_story(action='cleanup_sensors')"
   },
   "phases": [
     {

@@ -1087,7 +1087,7 @@ def _load_story() -> dict:
         "objectives": [],
         "events": [],
         "player_choices": {},
-        "active_scoreboards": [],
+        "active_sensors": [],
     }
 
 
@@ -1293,9 +1293,13 @@ def _handle_mc_story(args: dict, **kwargs) -> str:
         objective = args.get("objective")
         if not player or not objective:
             return "Error: player and objective are required for check_score"
-        # Use mc_command to query the scoreboard via the bot
-        result = _api_post("/chat/send", {"message": f"/scoreboard players get {player} {objective}"})
-        return _fmt(result)
+        result = _api_get(f"/scoreboard?objective={objective}&player={player}")
+        if not result.get("ok"):
+            return _fmt(result)
+        data = result.get("data", {})
+        score = data.get("score", 0)
+        note = data.get("note", "")
+        return f"Score for {player} on {objective}: {score}" + (f" ({note})" if note else "")
 
     if action == "set_score":
         player = args.get("player")
@@ -1313,40 +1317,66 @@ def _handle_mc_story(args: dict, **kwargs) -> str:
         result = _api_post("/chat/send", {"message": f"/function {function}"})
         return _fmt(result)
 
-    if action == "register_sensor":
-        scoreboard = args.get("scoreboard")
-        criterion = args.get("criterion", "dummy")
-        if not scoreboard:
-            return "Error: scoreboard name required for register_sensor"
-        sensors = story.get("active_scoreboards", [])
-        if not any(s.get("name") == scoreboard for s in sensors):
-            sensors.append({"name": scoreboard, "criterion": criterion})
-            story["active_scoreboards"] = sensors
-            _save_story(story)
-        return f"Sensor registered: {scoreboard} (criterion={criterion}). Active sensors: {[s['name'] for s in story['active_scoreboards']]}"
-
-    if action == "unregister_sensor":
-        scoreboard = args.get("scoreboard")
-        if not scoreboard:
-            return "Error: scoreboard name required for unregister_sensor"
-        sensors = story.get("active_scoreboards", [])
-        story["active_scoreboards"] = [s for s in sensors if s.get("name") != scoreboard]
-        if len(story["active_scoreboards"]) < len(sensors):
-            _save_story(story)
-        return f"Sensor unregistered: {scoreboard}. Active sensors: {[s['name'] for s in story['active_scoreboards']]}"
-
-    if action == "restore_sensors":
-        sensors = story.get("active_scoreboards", [])
-        recreated = []
+    if action == "setup_sensors":
+        sensors = args.get("sensors", [])
+        if not sensors:
+            return "Error: sensors list required for setup_sensors"
+        created = []
         for s in sensors:
             name = s.get("name")
             criterion = s.get("criterion", "dummy")
-            try:
-                _api_post("/chat/send", {"message": f"/scoreboard objectives add {name} {criterion}"})
-                recreated.append(f"{name}({criterion})")
-            except Exception as e:
-                recreated.append(f"{name}(err: {e})")
-        return f"Restored sensors: {recreated}"
+            poll_command = s.get("poll_command")
+            if not name:
+                continue
+            # Create scoreboard in Minecraft
+            _api_post("/chat/send", {"message": f"/scoreboard objectives add {name} {criterion}"})
+            # Register/update in story state
+            existing = story.get("active_sensors", [])
+            existing = [x for x in existing if x.get("name") != name]
+            existing.append({"name": name, "criterion": criterion, "poll_command": poll_command})
+            story["active_sensors"] = existing
+            created.append(name)
+        _save_story(story)
+        return f"Sensors created and registered: {created}"
+
+    if action == "poll_sensors":
+        player = args.get("player", "@a")
+        reset = args.get("reset", True)
+        sensors = story.get("active_sensors", [])
+        if not sensors:
+            return "No active sensors"
+        results = []
+        for s in sensors:
+            name = s.get("name")
+            poll_command = s.get("poll_command")
+            # Execute poll command for dummy sensors (proximity, zone, etc.)
+            if poll_command:
+                _api_post("/chat/send", {"message": poll_command})
+            # Read score via native API
+            result = _api_get(f"/scoreboard?objective={name}&player={player}")
+            if result.get("ok"):
+                score = result.get("data", {}).get("score", 0)
+                fired = score > 0
+                if fired and reset:
+                    _api_post("/chat/send", {"message": f"/scoreboard players set {player} {name} 0"})
+                results.append(f"{name}: {score}" + (" (fired)" if fired else ""))
+            else:
+                results.append(f"{name}: error")
+        return "Sensor poll results:\n" + "\n".join(results)
+
+    if action == "cleanup_sensors":
+        targets = args.get("sensors", [])
+        sensors = story.get("active_sensors", [])
+        if not targets:
+            # Default: cleanup all
+            targets = [s.get("name") for s in sensors]
+        removed = []
+        for name in targets:
+            _api_post("/chat/send", {"message": f"/scoreboard objectives remove {name}"})
+            removed.append(name)
+        story["active_sensors"] = [s for s in sensors if s.get("name") not in targets]
+        _save_story(story)
+        return f"Sensors removed: {removed}. Remaining: {[s['name'] for s in story['active_sensors']]}"
 
     return f"Error: unknown story action '{action}'"
 
@@ -1366,7 +1396,7 @@ MC_STORY_SCHEMA = {
                     "save_blueprint", "load_blueprint",
                     "record_activity", "check_timeout", "reset_phase",
                     "check_score", "set_score", "run_function",
-                    "register_sensor", "unregister_sensor", "restore_sensors",
+                    "setup_sensors", "poll_sensors", "cleanup_sensors",
                 ],
                 "description": "Story management action",
             },
@@ -1383,8 +1413,19 @@ MC_STORY_SCHEMA = {
             "optional": {"type": "boolean", "description": "Whether objective is optional"},
             "blueprint": {"type": "object", "description": "Full adventure blueprint JSON (for save_blueprint)"},
             "objective": {"type": "string", "description": "Scoreboard objective name (for check_score/set_score)"},
-            "scoreboard": {"type": "string", "description": "Scoreboard name (for register_sensor/unregister_sensor)"},
-            "criterion": {"type": "string", "description": "Minecraft scoreboard criterion, e.g. dummy, minecraft.used:minecraft.torch, minecraft.mined:minecraft.stone (for register_sensor; default: dummy)"},
+            "sensors": {
+                "type": "array",
+                "description": "List of sensor objects for setup_sensors or cleanup_sensors. Each object: {name, criterion, poll_command?}",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "criterion": {"type": "string"},
+                        "poll_command": {"type": "string", "description": "Optional /execute command for dummy sensors"},
+                    },
+                },
+            },
+            "reset": {"type": "boolean", "description": "Whether to reset fired sensor scores to 0 after polling (for poll_sensors; default: true)"},
             "function": {"type": "string", "description": "Datapack function path (for run_function)"},
         },
         "required": ["action"],

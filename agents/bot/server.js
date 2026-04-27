@@ -3065,6 +3065,31 @@ const httpServer = http.createServer(async (req, res) => {
         return respond(res, 200, { ok: true, data: { commands: pending } });
       }
 
+      if (path === '/scoreboard') {
+        // Read a player's score from a scoreboard objective via Mineflayer's native API
+        const objective = query.objective;
+        const player = query.player;
+        if (!objective) {
+          return respond(res, 400, { ok: false, error: 'Missing objective query param' });
+        }
+        if (!player) {
+          return respond(res, 400, { ok: false, error: 'Missing player query param' });
+        }
+        const sb = bot.scoreboard?.get?.(objective);
+        if (!sb) {
+          return respond(res, 200, { ok: true, data: { objective, player, score: 0, note: 'objective_not_found' } });
+        }
+        // itemsMap may be a Map or a plain object depending on prismarine-scoreboard version
+        let item;
+        if (sb.itemsMap instanceof Map) {
+          item = sb.itemsMap.get(player);
+        } else {
+          item = sb.itemsMap[player];
+        }
+        const score = item?.value ?? 0;
+        return respond(res, 200, { ok: true, data: { objective, player, score } });
+      }
+
       if (path === '/sounds') {
         return respond(res, 200, { ok: true, data: { sounds: soundEvents.slice(-10) } });
       }

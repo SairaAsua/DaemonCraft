@@ -119,68 +119,74 @@ Repeat forever:
 
 You do NOT detect triggers by being near players. You detect triggers by reading **scoreboards** that the server updates automatically.
 
-### How sensors work
-1. **Create a scoreboard** for each trigger you need:
-   `mc_command(command="/scoreboard objectives add dc_trigger_name dummy")`
+### Two types of sensors
 
-2. **Run a sensor command** each turn (or once per minute) to detect the event:
-   `mc_command(command="/execute as @a at @s positioned X Y Z if entity @s[distance=..20] run scoreboard players set @s dc_trigger_name 1")`
+**Type A: Native Minecraft criteria** — for player actions (place, break, use, kill, craft)
+The server tracks these automatically. You just read the score.
 
-3. **Read the score** to see if anyone triggered it:
-   `mc_story(action="check_score", player="PLAYERNAME", objective="dc_trigger_name")`
-   - Returns "0" if not triggered
-   - Returns "1" (or higher) if triggered
+Examples: `minecraft.used:minecraft.torch`, `minecraft.mined:minecraft.stone`, `minecraft.killed:minecraft.zombie`
 
-### Native Minecraft criteria — use these for player actions
-For player actions like placing blocks, using items, or breaking blocks, use Minecraft's native criteria instead of dummy + execute:
+**Type B: Dummy + poll command** — for proximity, zones, NBT checks
+You provide an `/execute` command that runs every poll cycle to update the score.
 
-- **Place/use torch**: `minecraft.used:minecraft.torch`
-- **Break stone**: `minecraft.mined:minecraft.stone`
-- **Kill zombie**: `minecraft.killed:minecraft.zombie`
-- **Walk distance**: `minecraft.custom:minecraft.walk_one_cm`
-- **Craft item**: `minecraft.crafted:minecraft.diamond_pickaxe`
+Example: `/execute as @a at @s positioned 100 64 100 if entity @s[distance=..20] run scoreboard players set @s dc_pozo 1`
 
-Register these sensors with their criterion:
-`mc_story(action="register_sensor", scoreboard="dc_torch", criterion="minecraft.used:minecraft.torch")`
+### Sensor lifecycle (3 commands only)
 
-Then just read the score:
-`mc_story(action="check_score", player="PLAYERNAME", objective="dc_torch")`
-→ Returns >0 if the player has placed/used a torch since the scoreboard was created.
+**1. Setup** — create scoreboards and register them (run once per quest):
+```
+mc_story(action="setup_sensors", sensors=[
+  {"name": "dc_pozo", "criterion": "dummy", "poll_command": "/execute as @a at @s positioned 100 64 100 if entity @s[distance=..20] run scoreboard players set @s dc_pozo 1"},
+  {"name": "dc_torch", "criterion": "minecraft.used:minecraft.torch"},
+  {"name": "dc_revela", "criterion": "dummy", "poll_command": "/execute as @a if score @s dc_pozo matches 1 at @s positioned 100 64 100 if entity @s[distance=..3] run scoreboard players set @s dc_revela 1"}
+])
+```
+This creates the scoreboards in Minecraft AND persists them in `story.json` so they survive restarts.
 
-**Important:** Reset the score after detecting it to avoid re-triggering:
-`mc_story(action="set_score", player="PLAYERNAME", objective="dc_torch", value=0)`
+**2. Poll** — check all sensors in one call (run every turn):
+```
+mc_story(action="poll_sensors", player="PLAYERNAME", reset=true)
+```
+Returns:
+```
+Sensor poll results:
+dc_pozo: 1 (fired)
+dc_torch: 0
+dc_revela: 0
+```
+- For dummy sensors: runs their `poll_command` first, then reads the score
+- For native sensors: just reads the score (Minecraft already updated it)
+- Scores > 0 are marked as "(fired)"
+- `reset=true` resets fired sensors to 0 so they don't re-trigger
 
-### Sensor examples
-- **Proximity**: `/execute as @a at @s positioned 100 64 100 if entity @s[distance=..20] run scoreboard players set @s dc_pozo 1`
-- **Has item**: `/execute as @a if entity @s[nbt={Inventory:[{id:"minecraft:diamond"}]}] run scoreboard players set @s dc_has_diamond 1`
-- **Broke block**: register sensor with `minecraft.mined:minecraft.stone`, then check_score
-- **In zone**: `/execute as @a[x=90,y=60,z=90,dx=20,dy=20,dz=20] run scoreboard players set @s dc_in_zone 1`
-- **Placed torch**: register sensor with `minecraft.used:minecraft.torch`, then check_score
+**3. Cleanup** — remove scoreboards when the quest ends:
+```
+mc_story(action="cleanup_sensors")
+```
+Removes ALL registered sensors from Minecraft and from `story.json`.
+To remove specific ones: `mc_story(action="cleanup_sensors", sensors=["dc_pozo"])`
 
-### Persisting sensors across restarts
-Minecraft scoreboards survive server restarts. But if Pamplinas restarts, he must recreate them.
+### Sensor persistence across restarts
+Minecraft scoreboards survive server restarts. `story.json` survives agent restarts. But if Pamplinas restarts, he must recreate the scoreboards.
 
 **Pattern:**
-1. When creating a scoreboard, register it with its criterion:
-   `mc_story(action="register_sensor", scoreboard="dc_pozo", criterion="dummy")`
-   `mc_story(action="register_sensor", scoreboard="dc_torch", criterion="minecraft.used:minecraft.torch")`
+1. On startup (first turn), always call:
+   `mc_story(action="setup_sensors", sensors=[...])` with the same sensor list
+   → This is idempotent: if a scoreboard already exists, it just re-registers it.
 
-2. When removing a scoreboard, unregister it:
-   `mc_story(action="unregister_sensor", scoreboard="dc_pozo")`
+2. Poll every turn while the quest is active:
+   `mc_story(action="poll_sensors", player="PLAYERNAME")`
 
-3. On startup (first turn), always restore sensors:
-   `mc_story(action="restore_sensors")` — this recreates all registered scoreboards with their correct criteria.
-
-4. Then check the saved state and resume where you left off.
+3. Cleanup when the quest ends:
+   `mc_story(action="cleanup_sensors")`
 
 ### Rules
-- **Always create scoreboards in `init` phase.** Never assume they exist.
-- **Always register sensors after creating them.** Otherwise they won't survive a restart.
-- **Always call `restore_sensors` on startup.** This is your first action every time you wake up.
-- **Always remove scoreboards in `cleanup` phase.** Leave no traces.
-- **Never place invisible command blocks.** Use `/execute` commands run directly by you.
-- **Check scores every turn** while the quest is active. Players move. State changes.
-- **Use native criteria** for player actions (place, break, use, kill). Use `dummy` + execute for proximity and zone detection.
+- **Always setup sensors in `init` phase.** Never assume they exist.
+- **Always call `setup_sensors` on startup.** It is idempotent — safe to call multiple times.
+- **Always cleanup in `cleanup` phase.** Leave no traces.
+- **Never place invisible command blocks.** Use sensors and `/execute` commands run directly by you.
+- **Poll every turn** while the quest is active. Players move. State changes.
+- **Use native criteria** for player actions (place, break, use, kill). Use `dummy` + `poll_command` for proximity and zone detection.
 
 ---
 

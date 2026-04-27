@@ -1,0 +1,139 @@
+{
+  "metadata": {
+    "title": "La Prueba de los Tres Fuegos",
+    "theme": "Prueba técnica del sistema de sensores",
+    "tone": "Ligero, instructivo",
+    "author": "CompAII",
+    "version": "1.0"
+  },
+  "setting": {
+    "biome": "desert",
+    "center": {"x": 200, "y": 70, "z": 200},
+    "radius": 30,
+    "time_lock": null,
+    "weather_lock": null
+  },
+  "init": {
+    "description": "Setup three different sensor types to test the consolidated sensor API.",
+    "sensors": [
+      {
+        "name": "dc_in_desert",
+        "criterion": "dummy",
+        "poll_command": "/execute as @a at @s if biome ~ ~ ~ minecraft:desert run scoreboard players set @s dc_in_desert 1"
+      },
+      {
+        "name": "dc_lit_torch",
+        "criterion": "minecraft.used:minecraft.torch"
+      },
+      {
+        "name": "dc_killed_husk",
+        "criterion": "minecraft.killed:minecraft.husk"
+      }
+    ],
+    "commands": [
+      "/summon husk 205 70 205 {CustomName:'\"Guardián del Desierto\"',PersistenceRequired:1b}"
+    ]
+  },
+  "cleanup": {
+    "description": "Remove all sensors and clean up entities.",
+    "action": "mc_story(action='cleanup_sensors')"
+  },
+  "phases": [
+    {
+      "name": "llegada",
+      "description": "Player must enter the desert biome near the temple.",
+      "timeout_minutes": 10,
+      "trigger": {
+        "type": "sensor",
+        "sensor": "dc_in_desert",
+        "expected_value": 1
+      },
+      "objectives": [
+        {
+          "id": 0,
+          "title": "Llegar al desierto",
+          "description": "El templo te espera. Camina hasta el bioma desierto cerca de las coordenadas 200, 200."
+        }
+      ],
+      "events": [
+        {
+          "type": "chat",
+          "as": "narrator",
+          "lines": [
+            "SAY: El calor aquí no es natural. Es un horno que prueba intención.",
+            "SAY: Hay un Guardián del Desierto cerca. Y un altar que necesita luz."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "iluminacion",
+      "description": "Player must place a torch anywhere (native criterion auto-tracks).",
+      "timeout_minutes": 10,
+      "trigger": {
+        "type": "sensor",
+        "sensor": "dc_lit_torch",
+        "expected_value": 1
+      },
+      "objectives": [
+        {
+          "id": 1,
+          "title": "Encender la llave",
+          "description": "Coloca una antorcha. Cualquiera. El fuego es la llave."
+        }
+      ],
+      "events": [
+        {
+          "type": "chat",
+          "as": "narrator",
+          "lines": [
+            "SAY: Bien. El primer fuego arde. Ahora el segundo.",
+            "SAY: El Guardián del Desierto no permite pasar a los débiles."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "prueba_combate",
+      "description": "Player must kill the husk guardian.",
+      "timeout_minutes": 15,
+      "trigger": {
+        "type": "sensor",
+        "sensor": "dc_killed_husk",
+        "expected_value": 1
+      },
+      "objectives": [
+        {
+          "id": 2,
+          "title": "Derrotar al Guardián",
+          "description": "Elimina al husk. Es la prueba final."
+        }
+      ],
+      "events": [
+        {
+          "type": "chat",
+          "as": "narrator",
+          "lines": [
+            "SAY: Tres fuegos: el viaje, la llama, y la victoria.",
+            "SAY: Pasaste la prueba. El templo es tuyo."
+          ]
+        }
+      ],
+      "flags": {
+        "prueba_completada": true
+      }
+    }
+  ],
+  "entities": [
+    {
+      "name": "Guardián del Desierto",
+      "type": "husk",
+      "location": {"x": 205, "y": 70, "z": 205},
+      "properties": {"PersistenceRequired": true, "CustomName": "Guardián del Desierto"}
+    }
+  ],
+  "completion": {
+    "condition": "prueba_completada = true",
+    "on_complete": "mc_story(action='log_event', event='La Prueba de los Tres Fuegos completada.')"
+  }
+}

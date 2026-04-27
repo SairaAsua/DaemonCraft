@@ -332,6 +332,7 @@ def start_agent(
     env = {
         **os.environ,
         "MC_API_URL": f"http://localhost:{port}",
+        "MC_USERNAME": agent_name,
         # Enable send_message tool by telling Hermes we're on a messaging platform.
         "HERMES_SESSION_PLATFORM": "telegram",
     }

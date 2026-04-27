@@ -26,6 +26,7 @@ if str(HERMES_DIR) not in sys.path:
 from run_agent import AIAgent
 
 MC_API_URL = os.getenv("MC_API_URL", "http://localhost:3001")
+BOT_USERNAME = os.getenv("MC_USERNAME", "Steve").lower()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -215,7 +216,7 @@ def _ws_on_message(ws, message):
             new_msgs = [
                 m for m in msgs
                 if m.get("time", 0) > last_chat_time
-                and m.get("from", "").lower() != "steve"
+                and m.get("from", "").lower() != BOT_USERNAME
             ]
             if new_msgs:
                 with message_lock:

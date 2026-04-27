@@ -132,7 +132,6 @@ const config = {
     port: parseInt(process.env.MC_PORT || '25565'),
     username: process.env.MC_USERNAME || 'HermesBot',
     auth: process.env.MC_AUTH || 'offline',
-    hoverHeight: process.env.MC_HOVER ? parseFloat(process.env.MC_HOVER) : null,
   },
   api: {
     port: parseInt(process.env.API_PORT || '3001'),
@@ -401,12 +400,9 @@ async function createBot() {
       bot.loadPlugin(collectBlock);
       bot.loadPlugin(creativePlugin.default || creativePlugin);
 
-      // Enable creative flight + hover for daemon aesthetic
+      // Enable creative flight for daemon aesthetic
       if (bot.game?.gameMode === 'creative' || bot.player?.gamemode === 1) {
         bot.creative.startFlying();
-      }
-      if (config.mc.hoverHeight != null && config.mc.hoverHeight > 0) {
-        enableHover(bot, config.mc.hoverHeight);
       }
 
       // Auto-disguise as Allay — Pamplinas is always the daemoncito
@@ -607,48 +603,6 @@ async function createBot() {
 // ═══════════════════════════════════════════════════════════════════
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-// ═══════════════════════════════════════════════════════════════════
-// Daemon Hover — keep bot floating 1 block above ground
-// ═══════════════════════════════════════════════════════════════════
-
-function enableHover(bot, height = 1.0) {
-  const SPRING = 0.40;
-  const DAMPING = 0.82;
-  const GRAVITY_COMP = 0.08;  // counter residual gravity in creative flight
-  let hoverEnabled = true;
-
-  function hoverTick() {
-    if (!hoverEnabled || !bot || !bot.entity || !bot.entity.position) return;
-
-    const pos = bot.entity.position;
-    // Find solid ground below (scan down up to 20 blocks)
-    let groundY = pos.y - 20;
-    for (let dy = 0; dy > -20; dy--) {
-      const block = bot.blockAt(pos.offset(0, dy, 0));
-      if (block && block.boundingBox === 'block') {
-        groundY = block.position.y + 1;
-        break;
-      }
-    }
-
-    const targetY = groundY + height;
-    const error = targetY - pos.y;
-
-    // Spring-damper + gravity compensation for stable hover
-    bot.entity.velocity.y = bot.entity.velocity.y * DAMPING + error * SPRING + GRAVITY_COMP;
-  }
-
-  bot.on('physicsTick', hoverTick);
-  log(`Hover enabled: maintaining ${height} block(s) above ground`);
-
-  // Return disable function for cleanup
-  return () => {
-    hoverEnabled = false;
-    bot.off('physicsTick', hoverTick);
-    log('Hover disabled');
-  };
-}
 function fmt(v) { return typeof v === 'number' ? Math.round(v * 10) / 10 : v; }
 
 // List visible entities by type with distances

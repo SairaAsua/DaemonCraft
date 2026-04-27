@@ -402,7 +402,6 @@ def start_agent(
         env["MC_ALWAYS_CHAT"] = "1"
     if max_chat_chars:
         env["MC_MAX_CHAT_CHARS"] = str(max_chat_chars)
-    chat_format = agent.get("chat_format")
     if chat_format:
         env["MC_CHAT_FORMAT"] = chat_format
 

@@ -521,8 +521,9 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
                     # Auto-send response text to Minecraft chat.
                     # We send even if mc_chat was used, because the final response
                     # may contain additional narrative text beyond what mc_chat sent.
+                    # BUT: never leak framework interruption messages into the game.
                     chat_msg = response.strip()
-                    if chat_msg:
+                    if chat_msg and not chat_msg.startswith("Operation interrupted"):
                         _send_chat_chunks(chat_msg)
 
                 if response and not is_budget_error:

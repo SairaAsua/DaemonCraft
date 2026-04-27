@@ -322,6 +322,7 @@ def start_bot(
     mc_host: str = DEFAULT_MC_HOST,
     mc_port: int = DEFAULT_MC_PORT,
     workspace_dir: str | None = None,
+    hover: float | None = None,
 ) -> int:
     """Start the Mineflayer bot server. Returns PID."""
     lf = log_file(cast_name, agent_name, "bot")
@@ -338,6 +339,8 @@ def start_bot(
     if workspace_dir:
         env["WORKSPACE_DIR"] = workspace_dir
         Path(workspace_dir).mkdir(parents=True, exist_ok=True)
+    if hover is not None:
+        env["MC_HOVER"] = str(hover)
 
     log(f"Starting bot {agent_name} on port {port}...", cast_name)
     proc = subprocess.Popen(
@@ -449,7 +452,8 @@ def cmd_start(cast_name: str, cast: dict, mc_host: str, mc_port: int):
         workspace_dir = str(profile_dir / "workspace")
 
         # 2. Start bot
-        start_bot(cast_name, name, port, mc_host, mc_port, workspace_dir)
+        hover = agent.get("hover")
+        start_bot(cast_name, name, port, mc_host, mc_port, workspace_dir, hover)
 
         # 2b. Set gamemode if specified in cast config
         gamemode = agent.get("gamemode")

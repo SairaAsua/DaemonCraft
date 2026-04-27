@@ -75,31 +75,6 @@ services:
     command: python /broadcast.py
 
   # ---------------------------------------------------------------------------
-  # Geyser Standalone — Bedrock → Java bridge
-  # ---------------------------------------------------------------------------
-  geyser:
-    image: eclipse-temurin:17-jre-alpine
-    container_name: daemoncraft-geyser
-    restart: unless-stopped
-    depends_on:
-      minecraft:
-        condition: service_healthy
-    network_mode: host
-    environment:
-      TZ: "UTC"
-    volumes:
-      - ./server/geyser:/geyser
-    working_dir: /geyser
-    command: >
-      sh -c "
-        if [ ! -f Geyser.jar ]; then
-          echo 'Downloading Geyser Standalone...';
-          wget -q -O Geyser.jar https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/standalone;
-        fi &&
-        java -jar Geyser.jar
-      "
-
-  # ---------------------------------------------------------------------------
   # Agent Bridge — Python Control Plane
   # ---------------------------------------------------------------------------
   bridge:

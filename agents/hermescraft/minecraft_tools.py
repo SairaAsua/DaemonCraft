@@ -1087,6 +1087,7 @@ def _load_story() -> dict:
         "objectives": [],
         "events": [],
         "player_choices": {},
+        "active_scoreboards": [],
     }
 
 
@@ -1312,12 +1313,41 @@ def _handle_mc_story(args: dict, **kwargs) -> str:
         result = _api_post("/chat/send", {"message": f"/function {function}"})
         return _fmt(result)
 
+    if action == "register_sensor":
+        scoreboard = args.get("scoreboard")
+        if not scoreboard:
+            return "Error: scoreboard name required for register_sensor"
+        if scoreboard not in story.get("active_scoreboards", []):
+            story.setdefault("active_scoreboards", []).append(scoreboard)
+            _save_story(story)
+        return f"Sensor registered: {scoreboard}. Active sensors: {story['active_scoreboards']}"
+
+    if action == "unregister_sensor":
+        scoreboard = args.get("scoreboard")
+        if not scoreboard:
+            return "Error: scoreboard name required for unregister_sensor"
+        if scoreboard in story.get("active_scoreboards", []):
+            story["active_scoreboards"].remove(scoreboard)
+            _save_story(story)
+        return f"Sensor unregistered: {scoreboard}. Active sensors: {story['active_scoreboards']}"
+
+    if action == "restore_sensors":
+        sensors = story.get("active_scoreboards", [])
+        recreated = []
+        for sb in sensors:
+            try:
+                _api_post("/chat/send", {"message": f"/scoreboard objectives add {sb} dummy"})
+                recreated.append(sb)
+            except Exception as e:
+                recreated.append(f"{sb}(err: {e})")
+        return f"Restored sensors: {recreated}"
+
     return f"Error: unknown story action '{action}'"
 
 
 MC_STORY_SCHEMA = {
     "name": "mc_story",
-    "description": "Narrative state tracker for Role Master mode. Tracks story phase, day counter, flags, objectives, events, and player choices across sessions. Supports phase timeouts and activity tracking for quest-like progression. All data persists in a JSON file. No bot connection required.",
+    "description": "Narrative state tracker for Role Master mode. Tracks story phase, day counter, flags, objectives, events, player choices, and active scoreboard sensors across sessions. Supports phase timeouts, activity tracking, and sensor restoration for quest-like progression. All data persists in a JSON file. No bot connection required.",
     "parameters": {
         "type": "object",
         "properties": {
@@ -1329,6 +1359,8 @@ MC_STORY_SCHEMA = {
                     "set_title", "record_choice", "reset",
                     "save_blueprint", "load_blueprint",
                     "record_activity", "check_timeout", "reset_phase",
+                    "check_score", "set_score", "run_function",
+                    "register_sensor", "unregister_sensor", "restore_sensors",
                 ],
                 "description": "Story management action",
             },
@@ -1340,10 +1372,13 @@ MC_STORY_SCHEMA = {
             "description": {"type": "string", "description": "Objective description"},
             "objective_id": {"type": "number", "description": "Objective index to complete"},
             "event": {"type": "string", "description": "Event description to log"},
-            "player": {"type": "string", "description": "Player name (for record_choice)"},
+            "player": {"type": "string", "description": "Player name (for record_choice or check_score/set_score)"},
             "choice": {"type": "string", "description": "Choice description (for record_choice)"},
             "optional": {"type": "boolean", "description": "Whether objective is optional"},
             "blueprint": {"type": "object", "description": "Full adventure blueprint JSON (for save_blueprint)"},
+            "objective": {"type": "string", "description": "Scoreboard objective name (for check_score/set_score)"},
+            "scoreboard": {"type": "string", "description": "Scoreboard name (for register_sensor/unregister_sensor)"},
+            "function": {"type": "string", "description": "Datapack function path (for run_function)"},
         },
         "required": ["action"],
     },

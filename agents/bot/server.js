@@ -165,6 +165,7 @@ let hardcoreDead = false; // Once true, no reconnect — permanent death
 let lastHealth = 20;
 let reconnectAttempts = 0;
 let reconnectTimeout = null; // Track active reconnect timer to cancel stale ones
+let isConnecting = false; // Guard against concurrent createBot() calls
 const MAX_LOG = 100;
 const MAX_QUEUE = 20;
 
@@ -358,6 +359,24 @@ function log(msg) {
 }
 
 async function createBot() {
+  // Guard against concurrent reconnect attempts from stale timers
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+    reconnectTimeout = null;
+  }
+  if (isConnecting) {
+    log('createBot() called while already connecting — skipping duplicate');
+    return;
+  }
+  isConnecting = true;
+  try {
+    return await createBotImpl();
+  } finally {
+    isConnecting = false;
+  }
+}
+
+async function createBotImpl() {
   // Guard against concurrent reconnect attempts from stale timers
   if (reconnectTimeout) {
     clearTimeout(reconnectTimeout);

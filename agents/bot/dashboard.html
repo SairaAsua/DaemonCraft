@@ -169,6 +169,100 @@
   .adventure-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid #30363d; }
   .phase-list { list-style: none; margin-top: 8px; }
   .phase-item { padding: 6px 0; border-bottom: 1px solid #21262d; }
+  .bp-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .bp-meta-box {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 10px;
+  }
+  .bp-meta-box label {
+    display: block;
+    font-size: 0.7rem;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  .bp-meta-box value {
+    display: block;
+    color: #c9d1d9;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .bp-section-title {
+    font-weight: 600;
+    color: #8b949e;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 16px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #30363d;
+  }
+  .bp-phase-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding: 8px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    margin-bottom: 4px;
+  }
+  .bp-phase-header:hover { background: #21262d; }
+  .bp-phase-body {
+    padding: 10px 12px;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    margin-bottom: 10px;
+  }
+  .bp-phase-body.collapsed { display: none; }
+  .bp-command {
+    background: #0d1117;
+    border: 1px solid #21262d;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+    color: #d2a8ff;
+    margin: 4px 0;
+    word-break: break-all;
+  }
+  .bp-event-chat {
+    background: #161b22;
+    border-left: 3px solid #58a6ff;
+    padding: 6px 10px;
+    margin: 4px 0;
+    border-radius: 0 4px 4px 0;
+    font-size: 0.82rem;
+  }
+  .bp-tag {
+    display: inline-block;
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 0.72rem;
+    color: #8b949e;
+    margin-right: 4px;
+  }
+  .bp-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 900px) {
+    .bp-two-col { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -227,7 +321,7 @@
   </div>
 
   
-  <div class="panel">
+  <div class="panel" style="grid-column: 1 / -1; max-height: 700px;">
     <div class="panel-header" data-panel="adventures">Adventures<button class="panel-toggle">▼</button></div>
     <div class="panel-body" id="adventures-panel">
       <div class="empty">Loading blueprints...</div>
@@ -396,26 +490,153 @@ async function selectBlueprint(name) {
   }
 }
 function renderBlueprintHtml(data) {
-  let html = `<div style="margin-bottom:10px"><strong style="color:#e3b341">${escapeHtml(data.metadata?.title || 'Untitled')}</strong></div>`;
-  if (data.metadata?.theme) html += `<div class="adventure-meta">${escapeHtml(data.metadata.theme)}</div>`;
-  if (data.phases && data.phases.length > 0) {
-    html += `<div style="margin-top:12px;font-weight:600;color:#8b949e;font-size:0.8rem;text-transform:uppercase">Phases</div>`;
-    html += '<ul class="phase-list">';
-    for (const phase of data.phases) {
-      html += `<li class="phase-item"><strong>${escapeHtml(phase.name)}</strong>`;
-      html += `<div style="color:#8b949e;font-size:0.78rem">${escapeHtml(phase.description || '')}</div></li>`;
-    }
-    html += '</ul>';
+  const m = data.metadata || {};
+  let html = '<div class="bp-meta-grid">';
+  html += `<div class="bp-meta-box"><label>Title</label><value>${escapeHtml(m.title || 'Untitled')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Theme</label><value>${escapeHtml(m.theme || '—')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Tone</label><value>${escapeHtml(m.tone || '—')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Author</label><value>${escapeHtml(m.author || '—')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Version</label><value>${escapeHtml(m.version || '—')}</value></div>`;
+  html += '</div>';
+
+  // Setting
+  if (data.setting) {
+    const s = data.setting;
+    html += '<div class="bp-section-title">Setting</div>';
+    html += '<div class="bp-meta-grid">';
+    html += `<div class="bp-meta-box"><label>Biome</label><value>${escapeHtml(s.biome || '—')}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Center</label><value>${s.center?.x ?? '?'}, ${s.center?.y ?? '?'}, ${s.center?.z ?? '?'}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Radius</label><value>${s.radius ?? '—'}</value></div>`;
+    if (s.time_lock) html += `<div class="bp-meta-box"><label>Time Lock</label><value>${escapeHtml(s.time_lock)}</value></div>`;
+    if (s.weather_lock) html += `<div class="bp-meta-box"><label>Weather Lock</label><value>${escapeHtml(s.weather_lock)}</value></div>`;
+    html += '</div>';
   }
-  if (data.entities && data.entities.length > 0) {
-    html += `<div style="margin-top:12px;font-weight:600;color:#8b949e;font-size:0.8rem;text-transform:uppercase">Entities</div>`;
-    html += '<ul class="phase-list">';
+
+  // Init
+  if (data.init) {
+    html += '<div class="bp-section-title">Init Setup</div>';
+    if (data.init.description) html += `<div style="margin-bottom:8px;color:#c9d1d9;font-size:0.85rem">${escapeHtml(data.init.description)}</div>`;
+    if (data.init.sensors && data.init.sensors.length) {
+      html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin-bottom:4px">Sensors</div>';
+      for (const sen of data.init.sensors) {
+        html += `<div class="bp-command">${escapeHtml(sen.name)} — ${escapeHtml(sen.criterion)}${sen.poll_command ? ' (poll)' : ''}</div>`;
+      }
+    }
+    if (data.init.commands && data.init.commands.length) {
+      html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin-bottom:4px">Commands</div>';
+      for (const cmd of data.init.commands) {
+        html += `<div class="bp-command">${escapeHtml(cmd)}</div>`;
+      }
+    }
+  }
+
+  // Phases
+  if (data.phases && data.phases.length) {
+    html += '<div class="bp-section-title">Phases</div>';
+    for (let i = 0; i < data.phases.length; i++) {
+      const ph = data.phases[i];
+      html += `<div class="bp-phase-header" onclick="togglePhase(this)">`;
+      html += `<span><strong>${i+1}. ${escapeHtml(ph.name)}</strong> <span class="bp-tag">${ph.timeout_minutes ?? '?'} min</span></span>`;
+      html += `<span style="color:#8b949e;font-size:0.75rem">▼</span>`;
+      html += '</div>';
+      html += `<div class="bp-phase-body collapsed">`;
+      if (ph.description) html += `<div style="margin-bottom:8px">${escapeHtml(ph.description)}</div>`;
+      
+      // Trigger
+      if (ph.trigger) {
+        html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Trigger</div>';
+        html += `<div class="bp-meta-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px">`;
+        html += `<div class="bp-meta-box" style="padding:6px"><label>Type</label><value>${escapeHtml(ph.trigger.type)}</value></div>`;
+        if (ph.trigger.sensor) html += `<div class="bp-meta-box" style="padding:6px"><label>Sensor</label><value>${escapeHtml(ph.trigger.sensor)}</value></div>`;
+        if (ph.trigger.expected_value != null) html += `<div class="bp-meta-box" style="padding:6px"><label>Expected</label><value>${ph.trigger.expected_value}</value></div>`;
+        html += '</div>';
+      }
+      
+      // Objectives
+      if (ph.objectives && ph.objectives.length) {
+        html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Objectives</div>';
+        html += '<ul class="phase-list">';
+        for (const obj of ph.objectives) {
+          html += `<li class="phase-item"><strong>${escapeHtml(obj.title)}</strong><div style="color:#8b949e;font-size:0.78rem">${escapeHtml(obj.description || '')}</div></li>`;
+        }
+        html += '</ul>';
+      }
+      
+      // Events
+      if (ph.events && ph.events.length) {
+        html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Events</div>';
+        for (const ev of ph.events) {
+          if (ev.type === 'chat' && ev.lines) {
+            for (const line of ev.lines) {
+              html += `<div class="bp-event-chat">${escapeHtml(line)}</div>`;
+            }
+          } else {
+            html += `<div class="bp-event-chat">${escapeHtml(JSON.stringify(ev))}</div>`;
+          }
+        }
+      }
+      
+      // Flags
+      if (ph.flags) {
+        html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Flags</div>';
+        html += `<div class="bp-command">${escapeHtml(JSON.stringify(ph.flags))}</div>`;
+      }
+      
+      html += '</div>';
+    }
+  }
+
+  // Entities
+  if (data.entities && data.entities.length) {
+    html += '<div class="bp-section-title">Entities</div>';
+    html += '<div class="bp-two-col">';
     for (const ent of data.entities) {
-      html += `<li class="phase-item">${escapeHtml(ent.name || ent.type)} <span style="color:#484f58">at ${ent.location?.x ?? '?'},${ent.location?.y ?? '?'},${ent.location?.z ?? '?'}</span></li>`;
+      html += '<div class="bp-meta-box">';
+      html += `<label>${escapeHtml(ent.name || ent.type)}</label>`;
+      html += `<value>${escapeHtml(ent.type)} at ${ent.location?.x ?? '?'}, ${ent.location?.y ?? '?'}, ${ent.location?.z ?? '?'}</value>`;
+      if (ent.properties) html += `<div class="bp-command" style="margin-top:6px">${escapeHtml(JSON.stringify(ent.properties))}</div>`;
+      html += '</div>';
     }
-    html += '</ul>';
+    html += '</div>';
   }
+
+  // Objects
+  if (data.objects && data.objects.length) {
+    html += '<div class="bp-section-title">Objects</div>';
+    html += '<div class="bp-two-col">';
+    for (const obj of data.objects) {
+      html += '<div class="bp-meta-box">';
+      html += `<label>${escapeHtml(obj.name || 'Object')}</label>`;
+      html += `<value>${escapeHtml(obj.type || '')}</value>`;
+      if (obj.lore) html += `<div style="margin-top:4px;color:#8b949e;font-size:0.78rem">${escapeHtml(obj.lore)}</div>`;
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Completion
+  if (data.completion) {
+    html += '<div class="bp-section-title">Completion</div>';
+    html += `<div class="bp-meta-box"><label>Condition</label><value>${escapeHtml(data.completion.condition || '—')}</value></div>`;
+    if (data.completion.on_complete) html += `<div class="bp-command">${escapeHtml(data.completion.on_complete)}</div>`;
+  }
+
+  // Cleanup
+  if (data.cleanup) {
+    html += '<div class="bp-section-title">Cleanup</div>';
+    if (data.cleanup.description) html += `<div style="margin-bottom:6px">${escapeHtml(data.cleanup.description)}</div>`;
+    if (data.cleanup.action) html += `<div class="bp-command">${escapeHtml(data.cleanup.action)}</div>`;
+  }
+
   return html;
+}
+
+function togglePhase(header) {
+  const body = header.nextElementSibling;
+  if (!body) return;
+  body.classList.toggle('collapsed');
+  const arrow = header.querySelector('span:last-child');
+  if (arrow) arrow.textContent = body.classList.contains('collapsed') ? '▼' : '▲';
 }
 
 initPanelToggles();
@@ -726,26 +947,153 @@ async function selectBlueprint(name) {
   }
 }
 function renderBlueprintHtml(data) {
-  let html = `<div style="margin-bottom:10px"><strong style="color:#e3b341">${escapeHtml(data.metadata?.title || 'Untitled')}</strong></div>`;
-  if (data.metadata?.theme) html += `<div class="adventure-meta">${escapeHtml(data.metadata.theme)}</div>`;
-  if (data.phases && data.phases.length > 0) {
-    html += `<div style="margin-top:12px;font-weight:600;color:#8b949e;font-size:0.8rem;text-transform:uppercase">Phases</div>`;
-    html += '<ul class="phase-list">';
-    for (const phase of data.phases) {
-      html += `<li class="phase-item"><strong>${escapeHtml(phase.name)}</strong>`;
-      html += `<div style="color:#8b949e;font-size:0.78rem">${escapeHtml(phase.description || '')}</div></li>`;
-    }
-    html += '</ul>';
+  const m = data.metadata || {};
+  let html = '<div class="bp-meta-grid">';
+  html += `<div class="bp-meta-box"><label>Title</label><value>${escapeHtml(m.title || 'Untitled')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Theme</label><value>${escapeHtml(m.theme || '—')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Tone</label><value>${escapeHtml(m.tone || '—')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Author</label><value>${escapeHtml(m.author || '—')}</value></div>`;
+  html += `<div class="bp-meta-box"><label>Version</label><value>${escapeHtml(m.version || '—')}</value></div>`;
+  html += '</div>';
+
+  // Setting
+  if (data.setting) {
+    const s = data.setting;
+    html += '<div class="bp-section-title">Setting</div>';
+    html += '<div class="bp-meta-grid">';
+    html += `<div class="bp-meta-box"><label>Biome</label><value>${escapeHtml(s.biome || '—')}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Center</label><value>${s.center?.x ?? '?'}, ${s.center?.y ?? '?'}, ${s.center?.z ?? '?'}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Radius</label><value>${s.radius ?? '—'}</value></div>`;
+    if (s.time_lock) html += `<div class="bp-meta-box"><label>Time Lock</label><value>${escapeHtml(s.time_lock)}</value></div>`;
+    if (s.weather_lock) html += `<div class="bp-meta-box"><label>Weather Lock</label><value>${escapeHtml(s.weather_lock)}</value></div>`;
+    html += '</div>';
   }
-  if (data.entities && data.entities.length > 0) {
-    html += `<div style="margin-top:12px;font-weight:600;color:#8b949e;font-size:0.8rem;text-transform:uppercase">Entities</div>`;
-    html += '<ul class="phase-list">';
+
+  // Init
+  if (data.init) {
+    html += '<div class="bp-section-title">Init Setup</div>';
+    if (data.init.description) html += `<div style="margin-bottom:8px;color:#c9d1d9;font-size:0.85rem">${escapeHtml(data.init.description)}</div>`;
+    if (data.init.sensors && data.init.sensors.length) {
+      html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin-bottom:4px">Sensors</div>';
+      for (const sen of data.init.sensors) {
+        html += `<div class="bp-command">${escapeHtml(sen.name)} — ${escapeHtml(sen.criterion)}${sen.poll_command ? ' (poll)' : ''}</div>`;
+      }
+    }
+    if (data.init.commands && data.init.commands.length) {
+      html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin-bottom:4px">Commands</div>';
+      for (const cmd of data.init.commands) {
+        html += `<div class="bp-command">${escapeHtml(cmd)}</div>`;
+      }
+    }
+  }
+
+  // Phases
+  if (data.phases && data.phases.length) {
+    html += '<div class="bp-section-title">Phases</div>';
+    for (let i = 0; i < data.phases.length; i++) {
+      const ph = data.phases[i];
+      html += `<div class="bp-phase-header" onclick="togglePhase(this)">`;
+      html += `<span><strong>${i+1}. ${escapeHtml(ph.name)}</strong> <span class="bp-tag">${ph.timeout_minutes ?? '?'} min</span></span>`;
+      html += `<span style="color:#8b949e;font-size:0.75rem">▼</span>`;
+      html += '</div>';
+      html += `<div class="bp-phase-body collapsed">`;
+      if (ph.description) html += `<div style="margin-bottom:8px">${escapeHtml(ph.description)}</div>`;
+      
+      // Trigger
+      if (ph.trigger) {
+        html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Trigger</div>';
+        html += `<div class="bp-meta-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px">`;
+        html += `<div class="bp-meta-box" style="padding:6px"><label>Type</label><value>${escapeHtml(ph.trigger.type)}</value></div>`;
+        if (ph.trigger.sensor) html += `<div class="bp-meta-box" style="padding:6px"><label>Sensor</label><value>${escapeHtml(ph.trigger.sensor)}</value></div>`;
+        if (ph.trigger.expected_value != null) html += `<div class="bp-meta-box" style="padding:6px"><label>Expected</label><value>${ph.trigger.expected_value}</value></div>`;
+        html += '</div>';
+      }
+      
+      // Objectives
+      if (ph.objectives && ph.objectives.length) {
+        html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Objectives</div>';
+        html += '<ul class="phase-list">';
+        for (const obj of ph.objectives) {
+          html += `<li class="phase-item"><strong>${escapeHtml(obj.title)}</strong><div style="color:#8b949e;font-size:0.78rem">${escapeHtml(obj.description || '')}</div></li>`;
+        }
+        html += '</ul>';
+      }
+      
+      // Events
+      if (ph.events && ph.events.length) {
+        html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Events</div>';
+        for (const ev of ph.events) {
+          if (ev.type === 'chat' && ev.lines) {
+            for (const line of ev.lines) {
+              html += `<div class="bp-event-chat">${escapeHtml(line)}</div>`;
+            }
+          } else {
+            html += `<div class="bp-event-chat">${escapeHtml(JSON.stringify(ev))}</div>`;
+          }
+        }
+      }
+      
+      // Flags
+      if (ph.flags) {
+        html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Flags</div>';
+        html += `<div class="bp-command">${escapeHtml(JSON.stringify(ph.flags))}</div>`;
+      }
+      
+      html += '</div>';
+    }
+  }
+
+  // Entities
+  if (data.entities && data.entities.length) {
+    html += '<div class="bp-section-title">Entities</div>';
+    html += '<div class="bp-two-col">';
     for (const ent of data.entities) {
-      html += `<li class="phase-item">${escapeHtml(ent.name || ent.type)} <span style="color:#484f58">at ${ent.location?.x ?? '?'},${ent.location?.y ?? '?'},${ent.location?.z ?? '?'}</span></li>`;
+      html += '<div class="bp-meta-box">';
+      html += `<label>${escapeHtml(ent.name || ent.type)}</label>`;
+      html += `<value>${escapeHtml(ent.type)} at ${ent.location?.x ?? '?'}, ${ent.location?.y ?? '?'}, ${ent.location?.z ?? '?'}</value>`;
+      if (ent.properties) html += `<div class="bp-command" style="margin-top:6px">${escapeHtml(JSON.stringify(ent.properties))}</div>`;
+      html += '</div>';
     }
-    html += '</ul>';
+    html += '</div>';
   }
+
+  // Objects
+  if (data.objects && data.objects.length) {
+    html += '<div class="bp-section-title">Objects</div>';
+    html += '<div class="bp-two-col">';
+    for (const obj of data.objects) {
+      html += '<div class="bp-meta-box">';
+      html += `<label>${escapeHtml(obj.name || 'Object')}</label>`;
+      html += `<value>${escapeHtml(obj.type || '')}</value>`;
+      if (obj.lore) html += `<div style="margin-top:4px;color:#8b949e;font-size:0.78rem">${escapeHtml(obj.lore)}</div>`;
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Completion
+  if (data.completion) {
+    html += '<div class="bp-section-title">Completion</div>';
+    html += `<div class="bp-meta-box"><label>Condition</label><value>${escapeHtml(data.completion.condition || '—')}</value></div>`;
+    if (data.completion.on_complete) html += `<div class="bp-command">${escapeHtml(data.completion.on_complete)}</div>`;
+  }
+
+  // Cleanup
+  if (data.cleanup) {
+    html += '<div class="bp-section-title">Cleanup</div>';
+    if (data.cleanup.description) html += `<div style="margin-bottom:6px">${escapeHtml(data.cleanup.description)}</div>`;
+    if (data.cleanup.action) html += `<div class="bp-command">${escapeHtml(data.cleanup.action)}</div>`;
+  }
+
   return html;
+}
+
+function togglePhase(header) {
+  const body = header.nextElementSibling;
+  if (!body) return;
+  body.classList.toggle('collapsed');
+  const arrow = header.querySelector('span:last-child');
+  if (arrow) arrow.textContent = body.classList.contains('collapsed') ? '▼' : '▲';
 }
 
 initPanelToggles();

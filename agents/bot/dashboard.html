@@ -393,6 +393,22 @@
 const wsUrl = `ws://${window.location.host}/ws`;
 let ws = null;
 let reconnectTimer = null;
+let MC_REGISTRY = null;
+
+async function fetchRegistry() {
+  if (MC_REGISTRY) return MC_REGISTRY;
+  try {
+    const res = await fetch('/registry');
+    const json = await res.json();
+    if (json.ok) {
+      MC_REGISTRY = json.data;
+      console.log('[dashboard] Registry loaded', MC_REGISTRY._meta?.version);
+    }
+  } catch (e) {
+    console.warn('[dashboard] Failed to load registry', e);
+  }
+  return MC_REGISTRY;
+}
 
 function fmtTime(ts) {
   if (!ts) return '';
@@ -411,6 +427,7 @@ function connect() {
     status.textContent = 'Live';
     status.className = '';
     console.log('[dashboard] WebSocket connected');
+    fetchRegistry();
   };
 
   ws.onmessage = (evt) => {
@@ -890,7 +907,7 @@ async function saveBlueprint() {
   const sY = document.querySelector('[data-bp="setting.center.y"]');
   const sZ = document.querySelector('[data-bp="setting.center.z"]');
   const sRadius = document.querySelector('[data-bp="setting.radius"]');
-  if (sBiome && bp.setting) bp.setting.biome = sBiome.textContent.trim();
+  if (sBiome && bp.setting) bp.setting.biome = sBiome.value.trim();
   if (sX && bp.setting?.center) bp.setting.center.x = parseInt(sX.textContent.trim()) || 0;
   if (sY && bp.setting?.center) bp.setting.center.y = parseInt(sY.textContent.trim()) || 0;
   if (sZ && bp.setting?.center) bp.setting.center.z = parseInt(sZ.textContent.trim()) || 0;
@@ -972,6 +989,32 @@ async function saveBlueprint() {
   if (btn) btn.textContent = 'Save Changes';
 }
 
+
+function buildBiomeSelect(currentBiome) {
+  if (!MC_REGISTRY || !MC_REGISTRY.biomes) {
+    return `<input type="text" data-bp="setting.biome" value="${escapeHtml(currentBiome || '')}" oninput="markDirty(this)" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;width:100%">`;
+  }
+  const byDim = {};
+  for (const b of MC_REGISTRY.biomes) {
+    const dim = b.dimension || 'other';
+    if (!byDim[dim]) byDim[dim] = [];
+    byDim[dim].push(b);
+  }
+  let html = `<select data-bp="setting.biome" onchange="markDirty(this)" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;width:100%;cursor:pointer">`;
+  html += `<option value="">-- select biome --</option>`;
+  for (const dim of ['overworld', 'nether', 'end', 'other']) {
+    if (!byDim[dim]) continue;
+    html += `<optgroup label="${dim}">`;
+    for (const b of byDim[dim].sort((a,b) => a.displayName.localeCompare(b.displayName))) {
+      const sel = b.name === currentBiome ? ' selected' : '';
+      html += `<option value="${escapeHtml(b.name)}"${sel}>${escapeHtml(b.displayName)}</option>`;
+    }
+    html += `</optgroup>`;
+  }
+  html += `</select>`;
+  return html;
+}
+
 function renderBlueprintHtml(data) {
   currentBlueprint = JSON.parse(JSON.stringify(data));
   const m = data.metadata || {};
@@ -987,7 +1030,7 @@ function renderBlueprintHtml(data) {
     const s = data.setting;
     html += '<div class="bp-section-title">Setting</div>';
     html += '<div class="bp-meta-grid">';
-    html += `<div class="bp-meta-box"><label>Biome</label><value contenteditable="true" data-bp="setting.biome" oninput="markDirty(this)">${escapeHtml(s.biome || '—')}</value></div>`;
+    html += `<div class="bp-meta-box"><label>Biome</label>${buildBiomeSelect(s.biome)}</div>`;
     html += `<div class="bp-meta-box"><label>Center X</label><value contenteditable="true" data-bp="setting.center.x" oninput="markDirty(this)">${s.center?.x ?? '?'}</value></div>`;
     html += `<div class="bp-meta-box"><label>Center Y</label><value contenteditable="true" data-bp="setting.center.y" oninput="markDirty(this)">${s.center?.y ?? '?'}</value></div>`;
     html += `<div class="bp-meta-box"><label>Center Z</label><value contenteditable="true" data-bp="setting.center.z" oninput="markDirty(this)">${s.center?.z ?? '?'}</value></div>`;

@@ -131,27 +131,45 @@ You do NOT detect triggers by being near players. You detect triggers by reading
    - Returns "0" if not triggered
    - Returns "1" (or higher) if triggered
 
-4. **Clean up** when the quest ends:
-   `mc_command(command="/scoreboard objectives remove dc_trigger_name")`
+### Native Minecraft criteria — use these for player actions
+For player actions like placing blocks, using items, or breaking blocks, use Minecraft's native criteria instead of dummy + execute:
+
+- **Place/use torch**: `minecraft.used:minecraft.torch`
+- **Break stone**: `minecraft.mined:minecraft.stone`
+- **Kill zombie**: `minecraft.killed:minecraft.zombie`
+- **Walk distance**: `minecraft.custom:minecraft.walk_one_cm`
+- **Craft item**: `minecraft.crafted:minecraft.diamond_pickaxe`
+
+Register these sensors with their criterion:
+`mc_story(action="register_sensor", scoreboard="dc_torch", criterion="minecraft.used:minecraft.torch")`
+
+Then just read the score:
+`mc_story(action="check_score", player="PLAYERNAME", objective="dc_torch")`
+→ Returns >0 if the player has placed/used a torch since the scoreboard was created.
+
+**Important:** Reset the score after detecting it to avoid re-triggering:
+`mc_story(action="set_score", player="PLAYERNAME", objective="dc_torch", value=0)`
 
 ### Sensor examples
 - **Proximity**: `/execute as @a at @s positioned 100 64 100 if entity @s[distance=..20] run scoreboard players set @s dc_pozo 1`
 - **Has item**: `/execute as @a if entity @s[nbt={Inventory:[{id:"minecraft:diamond"}]}] run scoreboard players set @s dc_has_diamond 1`
-- **Broke block**: `/execute as @a if score @s dc_broke_stone matches 1.. run ...` (requires a separate scoreboard tracking block breaks)
+- **Broke block**: register sensor with `minecraft.mined:minecraft.stone`, then check_score
 - **In zone**: `/execute as @a[x=90,y=60,z=90,dx=20,dy=20,dz=20] run scoreboard players set @s dc_in_zone 1`
+- **Placed torch**: register sensor with `minecraft.used:minecraft.torch`, then check_score
 
 ### Persisting sensors across restarts
 Minecraft scoreboards survive server restarts. But if Pamplinas restarts, he must recreate them.
 
 **Pattern:**
-1. When creating a scoreboard, register it:
-   `mc_story(action="register_sensor", scoreboard="dc_pozo")`
+1. When creating a scoreboard, register it with its criterion:
+   `mc_story(action="register_sensor", scoreboard="dc_pozo", criterion="dummy")`
+   `mc_story(action="register_sensor", scoreboard="dc_torch", criterion="minecraft.used:minecraft.torch")`
 
 2. When removing a scoreboard, unregister it:
    `mc_story(action="unregister_sensor", scoreboard="dc_pozo")`
 
 3. On startup (first turn), always restore sensors:
-   `mc_story(action="restore_sensors")` — this recreates all registered scoreboards.
+   `mc_story(action="restore_sensors")` — this recreates all registered scoreboards with their correct criteria.
 
 4. Then check the saved state and resume where you left off.
 
@@ -162,6 +180,7 @@ Minecraft scoreboards survive server restarts. But if Pamplinas restarts, he mus
 - **Always remove scoreboards in `cleanup` phase.** Leave no traces.
 - **Never place invisible command blocks.** Use `/execute` commands run directly by you.
 - **Check scores every turn** while the quest is active. Players move. State changes.
+- **Use native criteria** for player actions (place, break, use, kill). Use `dummy` + execute for proximity and zone detection.
 
 ---
 

@@ -1315,31 +1315,37 @@ def _handle_mc_story(args: dict, **kwargs) -> str:
 
     if action == "register_sensor":
         scoreboard = args.get("scoreboard")
+        criterion = args.get("criterion", "dummy")
         if not scoreboard:
             return "Error: scoreboard name required for register_sensor"
-        if scoreboard not in story.get("active_scoreboards", []):
-            story.setdefault("active_scoreboards", []).append(scoreboard)
+        sensors = story.get("active_scoreboards", [])
+        if not any(s.get("name") == scoreboard for s in sensors):
+            sensors.append({"name": scoreboard, "criterion": criterion})
+            story["active_scoreboards"] = sensors
             _save_story(story)
-        return f"Sensor registered: {scoreboard}. Active sensors: {story['active_scoreboards']}"
+        return f"Sensor registered: {scoreboard} (criterion={criterion}). Active sensors: {[s['name'] for s in story['active_scoreboards']]}"
 
     if action == "unregister_sensor":
         scoreboard = args.get("scoreboard")
         if not scoreboard:
             return "Error: scoreboard name required for unregister_sensor"
-        if scoreboard in story.get("active_scoreboards", []):
-            story["active_scoreboards"].remove(scoreboard)
+        sensors = story.get("active_scoreboards", [])
+        story["active_scoreboards"] = [s for s in sensors if s.get("name") != scoreboard]
+        if len(story["active_scoreboards"]) < len(sensors):
             _save_story(story)
-        return f"Sensor unregistered: {scoreboard}. Active sensors: {story['active_scoreboards']}"
+        return f"Sensor unregistered: {scoreboard}. Active sensors: {[s['name'] for s in story['active_scoreboards']]}"
 
     if action == "restore_sensors":
         sensors = story.get("active_scoreboards", [])
         recreated = []
-        for sb in sensors:
+        for s in sensors:
+            name = s.get("name")
+            criterion = s.get("criterion", "dummy")
             try:
-                _api_post("/chat/send", {"message": f"/scoreboard objectives add {sb} dummy"})
-                recreated.append(sb)
+                _api_post("/chat/send", {"message": f"/scoreboard objectives add {name} {criterion}"})
+                recreated.append(f"{name}({criterion})")
             except Exception as e:
-                recreated.append(f"{sb}(err: {e})")
+                recreated.append(f"{name}(err: {e})")
         return f"Restored sensors: {recreated}"
 
     return f"Error: unknown story action '{action}'"
@@ -1378,6 +1384,7 @@ MC_STORY_SCHEMA = {
             "blueprint": {"type": "object", "description": "Full adventure blueprint JSON (for save_blueprint)"},
             "objective": {"type": "string", "description": "Scoreboard objective name (for check_score/set_score)"},
             "scoreboard": {"type": "string", "description": "Scoreboard name (for register_sensor/unregister_sensor)"},
+            "criterion": {"type": "string", "description": "Minecraft scoreboard criterion, e.g. dummy, minecraft.used:minecraft.torch, minecraft.mined:minecraft.stone (for register_sensor; default: dummy)"},
             "function": {"type": "string", "description": "Datapack function path (for run_function)"},
         },
         "required": ["action"],

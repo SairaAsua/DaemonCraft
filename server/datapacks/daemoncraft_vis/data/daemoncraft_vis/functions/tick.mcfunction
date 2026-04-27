@@ -18,7 +18,7 @@ team join stevie Stevie
 team join moss Moss
 team join reed Reed
 team join flint Flint
-team join ember Ember
+team join pamplinas Pamplinas
 
 # Permanent glowing effect for all players (so you can see them through walls)
 effect give @a minecraft:glowing 999999 0 true

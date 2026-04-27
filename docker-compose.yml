@@ -25,7 +25,6 @@ services:
       CREATE_CONSOLE_IN_PIPE: "true"
       ALLOW_FLIGHT: "true"
       ENABLE_COMMAND_BLOCK: "true"
-      LEVEL_TYPE: "FLAT"
       SPAWN_PROTECTION: "0"
       MAX_PLAYERS: "20"
       VIEW_DISTANCE: "10"

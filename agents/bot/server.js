@@ -409,6 +409,12 @@ async function createBot() {
         enableHover(bot, config.mc.hoverHeight);
       }
 
+      // Auto-disguise as Allay — Pamplinas is always the daemoncito
+      setTimeout(() => {
+        bot.chat('/disguise allay');
+        log('Auto-disguised as Allay');
+      }, 3000);
+
       // Configure pathfinder
       const moves = new Movements(bot);
       moves.allowSprinting = true;
@@ -607,8 +613,9 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 // ═══════════════════════════════════════════════════════════════════
 
 function enableHover(bot, height = 1.0) {
-  const SPRING = 0.15;
-  const DAMPING = 0.85;
+  const SPRING = 0.40;
+  const DAMPING = 0.82;
+  const GRAVITY_COMP = 0.08;  // counter residual gravity in creative flight
   let hoverEnabled = true;
 
   function hoverTick() {
@@ -628,8 +635,8 @@ function enableHover(bot, height = 1.0) {
     const targetY = groundY + height;
     const error = targetY - pos.y;
 
-    // Spring-damper: smooth approach to target height
-    bot.entity.velocity.y = bot.entity.velocity.y * DAMPING + error * SPRING;
+    // Spring-damper + gravity compensation for stable hover
+    bot.entity.velocity.y = bot.entity.velocity.y * DAMPING + error * SPRING + GRAVITY_COMP;
   }
 
   bot.on('physicsTick', hoverTick);

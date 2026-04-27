@@ -9,8 +9,8 @@ services:
     environment:
       # --- Core Server Settings ---
       EULA: "true"
-      TYPE: "FORGE"
-      VERSION: "1.20.1"
+      TYPE: "PURPUR"
+      VERSION: "1.21.11"
       SERVER_NAME: "DaemonCraft-Dev"
       MOTD: "\\u00A72DaemonCraft\\u00A7r Development Server"
 

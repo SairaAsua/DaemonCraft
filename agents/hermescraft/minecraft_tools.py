@@ -1236,6 +1236,12 @@ def _handle_mc_story(args: dict, **kwargs) -> str:
         _save_story(story)
         return f"Event logged: {event}"
 
+    if action == "get_events":
+        count = args.get("count", 10)
+        events = story.get("events", [])
+        recent = events[-count:] if events else []
+        return "Recent events:\n" + "\n".join(f"  {i+1}. {e}" for i, e in enumerate(recent)) if recent else "No events recorded yet."
+
     if action == "set_title":
         title = args.get("title")
         if not title:
@@ -1391,7 +1397,7 @@ MC_STORY_SCHEMA = {
                 "type": "string",
                 "enum": [
                     "get_state", "set_flag", "advance_phase", "advance_day",
-                    "add_objective", "complete_objective", "log_event",
+                    "add_objective", "complete_objective", "log_event", "get_events",
                     "set_title", "record_choice", "reset",
                     "save_blueprint", "load_blueprint",
                     "record_activity", "check_timeout", "reset_phase",
@@ -1408,6 +1414,7 @@ MC_STORY_SCHEMA = {
             "description": {"type": "string", "description": "Objective description"},
             "objective_id": {"type": "number", "description": "Objective index to complete"},
             "event": {"type": "string", "description": "Event description to log"},
+            "count": {"type": "number", "description": "Number of recent events to retrieve (for get_events; default: 10)"},
             "player": {"type": "string", "description": "Player name (for record_choice or check_score/set_score)"},
             "choice": {"type": "string", "description": "Choice description (for record_choice)"},
             "optional": {"type": "boolean", "description": "Whether objective is optional"},

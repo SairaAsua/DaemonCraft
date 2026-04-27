@@ -28,6 +28,7 @@ agents:
       - vision
     gamemode: creative
     max_chat_chars: 480
+    chat_format: say_lines
 
 # Narrative timing configuration
 # All story phases, triggers, and deadlines are expressed in Minecraft days.

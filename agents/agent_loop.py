@@ -117,6 +117,22 @@ def _send_chat_chunks(text: str, max_len: int = 240):
             time.sleep(0.3)
 
 
+def _extract_say_lines(text: str) -> list[str]:
+    """Parse SAY: formatted lines from agent responses.
+
+    Format: 'SAY: <message>' — one per line. Only the text after 'SAY: ' is sent.
+    Lines without SAY: prefix are ignored (internal monologue, reasoning, etc.).
+    """
+    lines = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if line.upper().startswith("SAY:"):
+            msg = line[4:].strip()
+            if msg:
+                lines.append(msg)
+    return lines
+
+
 def _safe_trim_history(messages: list, max_msgs: int = 20) -> list:
     """Trim conversation history without breaking tool_call chains.
 
@@ -531,7 +547,16 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
                     # BUT: never leak framework interruption messages into the game.
                     chat_msg = response.strip()
                     if chat_msg and not chat_msg.startswith("Operation interrupted"):
-                        _send_chat_chunks(chat_msg)
+                        chat_format = os.getenv("MC_CHAT_FORMAT", "").lower()
+                        if chat_format == "say_lines":
+                            say_lines = _extract_say_lines(chat_msg)
+                            if say_lines:
+                                for line in say_lines:
+                                    _send_chat_chunks(line, max_len=240)
+                            else:
+                                print("[loop] No SAY: lines found in response — nothing sent to chat.", flush=True)
+                        else:
+                            _send_chat_chunks(chat_msg)
 
                 if response and not is_budget_error:
                     print(f"[loop] Response: {response[:200]}", flush=True)

@@ -4,7 +4,7 @@
 name: landfolk
 description: 5 villagers working together to build a settlement
 mode: landfolk
-soul_file: ../SOUL-landfolk.md
+soul_file: SOUL-landfolk.md
 
 agents:
   - name: Stevie

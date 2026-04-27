@@ -4,7 +4,7 @@
 name: companion
 description: A single companion agent that plays alongside the human player
 mode: companion
-soul_file: ../SOUL-minecraft.md
+soul_file: SOUL-minecraft.md
 
 agents:
   - name: Steve

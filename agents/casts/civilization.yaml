@@ -4,7 +4,7 @@
 name: civilization
 description: 7 characters with unique personalities in a hardcore survival world
 mode: civilization
-soul_file: ../SOUL-civilization.md
+soul_file: SOUL-civilization.md
 
 agents:
   - name: Marcus

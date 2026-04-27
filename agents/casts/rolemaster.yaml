@@ -12,7 +12,7 @@ description: |
   Stories breathe to the rhythm of sunrises and sunsets.
 
 mode: rolemaster
-soul_file: ../SOUL-rolemaster.md
+soul_file: SOUL-rolemaster.md
 
 # Pamplinas defines the cast he needs per-adventure in his blueprint JSON.
 # This top-level cast is just the director.

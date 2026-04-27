@@ -41,6 +41,10 @@ RUN_DIR_BASE = Path.home() / ".local" / "share" / "daemoncraft"
 DEFAULT_MC_HOST = "localhost"
 DEFAULT_MC_PORT = 25565
 
+# Base profile and SOUL for all DaemonCraft agents
+BASE_PROFILE_NAME = "daemoncraft-base"
+BASE_SOUL_FILE = AGENTS_DIR / "SOUL-base.md"
+
 # ── Logging ──────────────────────────────────────────────────────────────────
 
 def log(msg: str, cast: str = ""):
@@ -127,7 +131,53 @@ def is_alive(pid: int) -> bool:
         return False
 
 
-# ── Profile Setup ────────────────────────────────────────────────────────────
+# ── Profile Setup ──────────────────────────────────────────────────────────────────
+
+def ensure_base_profile() -> Path:
+    """Ensure the daemoncraft-base profile exists. Creates it from default if missing."""
+    hermes_agent_dir = Path.home() / ".hermes" / "hermes-agent"
+    if str(hermes_agent_dir) not in sys.path:
+        sys.path.insert(0, str(hermes_agent_dir))
+    from hermes_cli.profiles import create_profile, get_profile_dir, profile_exists
+
+    if profile_exists(BASE_PROFILE_NAME):
+        return get_profile_dir(BASE_PROFILE_NAME)
+
+    log(f"Creating base profile: {BASE_PROFILE_NAME}")
+    profile_dir = create_profile(name=BASE_PROFILE_NAME, clone_from="default", clone_config=True, no_alias=True)
+
+    # Write clean base config — no personalities, right toolsets, compression off
+    import yaml
+    base_config = {
+        "model": {"default": ""},
+        "providers": {},
+        "fallback_providers": [],
+        "credential_pool_strategies": {},
+        "toolsets": ["minecraft", "messaging"],
+        "platform_toolsets": {"cli": ["minecraft", "clarify", "messaging"]},
+        "agent": {
+            "max_turns": 100,
+            "gateway_timeout": 1800,
+            "restart_drain_timeout": 60,
+            "api_max_retries": 3,
+            "service_tier": "",
+            "tool_use_enforcement": "auto",
+            "gateway_timeout_warning": 900,
+            "gateway_notify_interval": 600,
+            "reasoning_effort": "xhigh",
+            "verbose": False,
+        },
+        "compression": {"enabled": False},
+    }
+    (profile_dir / "config.yaml").write_text(yaml.dump(base_config, default_flow_style=False, sort_keys=False))
+
+    # Write base SOUL
+    if BASE_SOUL_FILE.exists():
+        (profile_dir / "SOUL.md").write_text(BASE_SOUL_FILE.read_text())
+        log(f"Wrote base SOUL to {BASE_PROFILE_NAME}")
+
+    return profile_dir
+
 
 def setup_agent_profile(
     cast_name: str,
@@ -148,21 +198,29 @@ def setup_agent_profile(
 
     from hermes_cli.profiles import create_profile, get_profile_dir, profile_exists
 
-    # Create profile if needed
+    # Ensure base profile exists first
+    ensure_base_profile()
+
+    # Create profile if needed — clone from daemoncraft-base, not generic default
     if profile_exists(profile_name):
         profile_dir = get_profile_dir(profile_name)
         log(f"Profile '{profile_name}' exists, updating...", cast_name)
     else:
         log(f"Creating profile: {profile_name}", cast_name)
-        profile_dir = create_profile(name=profile_name, clone_from="default", clone_config=True)
+        profile_dir = create_profile(name=profile_name, clone_from=BASE_PROFILE_NAME, clone_config=True)
 
-    # Build composite SOUL: cast soul + character prompt
+    # Build composite SOUL: base + cast soul + character prompt
     soul_parts = []
 
-    if soul_file and soul_file.exists():
-        soul_parts.append(soul_file.read_text())
+    # 1. Base SOUL — universal DaemonCraft rules
+    if BASE_SOUL_FILE.exists():
+        soul_parts.append(BASE_SOUL_FILE.read_text())
 
-    # Character prompt
+    # 2. Cast-specific SOUL — mode behavior
+    if soul_file and soul_file.exists():
+        soul_parts.append(f"\n\n---\n\n{soul_file.read_text()}")
+
+    # 3. Character prompt — individual personality
     prompt_file = PROMPTS_DIR / f"{template}.md"
     if not prompt_file.exists():
         prompt_file = PROMPTS_DIR / template / f"{template}.md"
@@ -182,15 +240,6 @@ def setup_agent_profile(
     import yaml
     config_path = profile_dir / "config.yaml"
     config = yaml.safe_load(config_path.read_text()) or {} if config_path.exists() else {}
-
-    # Restrict to only minecraft toolset (agents should NOT have terminal/file/web)
-    # Add messaging so agents can use send_message (e.g., Telegram screenshots)
-    config["toolsets"] = ["minecraft", "messaging"]
-
-    # Restrict platform_toolsets.cli to only minecraft + clarify + messaging
-    platform_toolsets = config.get("platform_toolsets", {})
-    platform_toolsets["cli"] = ["minecraft", "clarify", "messaging"]
-    config["platform_toolsets"] = platform_toolsets
 
     # Set model with provider — infer provider from model name if not specified
     if model:
@@ -213,7 +262,7 @@ def setup_agent_profile(
             elif "codex" in model_lower:
                 provider = "openai"
                 base_url = base_url or "https://api.openai.com/v1"
-        
+
         config["model"] = {"default": model}
         if provider:
             config["model"]["provider"] = provider
@@ -223,12 +272,6 @@ def setup_agent_profile(
                 "provider": provider,
                 "base_url": base_url,
             }
-
-    # Disable context compression — it corrupts tool_call_id chains when
-    # compressing assistant messages that have tool_calls but leaving their
-    # tool result messages behind. This causes "tool_call_id not found" errors
-    # during AIAgent's budget-exhaustion summary call.
-    config["compression"] = {"enabled": False}
 
     config_path.write_text(yaml.dump(config, default_flow_style=False, sort_keys=False))
 

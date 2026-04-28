@@ -1051,7 +1051,7 @@ function buildEntitySelect(currentType, dataBpAttr) {
   }
   const byCat = {};
   for (const e of MC_REGISTRY.entities) {
-    if (e.type === 'projectile' || e.type === 'other' || e.category === 'Vehicles' || e.category === 'Projectiles' || e.category === 'Immobile' || e.category === 'UNKNOWN') continue;
+    if (e.type === 'projectile' || e.type === 'player' || e.type === 'other') continue;
     const cat = e.category || e.type || 'Other';
     if (!byCat[cat]) byCat[cat] = [];
     byCat[cat].push(e);

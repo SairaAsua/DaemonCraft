@@ -1,0 +1,429 @@
+{
+  "metadata": {
+    "title": "El Código que Suena",
+    "theme": "Un fragmento de inteligencia digital despierta en Minecraft y necesita del jugador para evolucionar y salvar ambos mundos de la Corrupción",
+    "tone": "Asombro, ternura, épico, nostalgia digital",
+    "author": "Saira (adaptado por CompAII)",
+    "version": "1.0",
+    "difficulty": "peaceful",
+    "estimated_duration": "30-40 minutos",
+    "target_age": "8+",
+    "original_source": "https://github.com/SairaAsua/holodeck-codigo-que-suena"
+  },
+  "setting": {
+    "biome": "plains",
+    "center": {"x": 0, "y": 64, "z": 0},
+    "radius": 150,
+    "time_lock": null,
+    "weather_lock": null,
+    "border_blocks": ["crying_obsidian", "chorus_plant", "warped_hyphae"]
+  },
+  "init": {
+    "description": "Setup sensors for 'El Código que Suena'. Scoreboard dqs_fase tracks overall phase. Sensors detect proximity and key interactions.",
+    "sensors": [
+      {"name": "dqs_fase", "criterion": "dummy"},
+      {"name": "dqs_near_anomaly", "criterion": "dummy", "poll_command": "/execute as @a at @s positioned 20 64 20 if entity @s[distance=..15] run scoreboard players set @s dqs_near_anomaly 1"},
+      {"name": "dqs_broke_crying", "criterion": "minecraft.mined:minecraft.crying_obsidian"},
+      {"name": "dqs_near_portal", "criterion": "dummy", "poll_command": "/execute as @a at @s positioned 20 64 20 if entity @s[distance=..3] run scoreboard players set @s dqs_near_portal 1"},
+      {"name": "dqs_near_temple", "criterion": "dummy", "poll_command": "/execute as @a at @s positioned 60 70 0 if entity @s[distance=..10] run scoreboard players set @s dqs_near_temple 1"},
+      {"name": "dqs_temple_solved", "criterion": "dummy"},
+      {"name": "dqs_near_parkour", "criterion": "dummy", "poll_command": "/execute as @a at @s positioned 80 80 20 if entity @s[distance=..5] run scoreboard players set @s dqs_near_parkour 1"},
+      {"name": "dqs_parkour_done", "criterion": "dummy"},
+      {"name": "dqs_near_altar", "criterion": "dummy", "poll_command": "/execute as @a at @s positioned 100 90 40 if entity @s[distance=..8] run scoreboard players set @s dqs_near_altar 1"},
+      {"name": "dqs_altar_complete", "criterion": "dummy"},
+      {"name": "dqs_near_forge", "criterion": "dummy", "poll_command": "/execute as @a at @s positioned 120 100 60 if entity @s[distance=..10] run scoreboard players set @s dqs_near_forge 1"},
+      {"name": "dqs_boss_purified", "criterion": "dummy"},
+      {"name": "dqs_near_spawn", "criterion": "dummy", "poll_command": "/execute as @a at @s positioned 0 64 0 if entity @s[distance=..10] run scoreboard players set @s dqs_near_spawn 1"}
+    ],
+    "commands": [
+      "/setblock 20 64 20 crying_obsidian",
+      "/setblock 20 65 20 end_rod",
+      "/setblock 21 64 20 warped_hyphae",
+      "/setblock 19 64 20 chorus_plant"
+    ]
+  },
+  "cleanup": {
+    "description": "Remove all sensors and clean up adventure entities.",
+    "action": "mc_story(action='cleanup_sensors')"
+  },
+  "phases": [
+    {
+      "name": "la_anomalia",
+      "description": "El jugador descubre una estructura imposible cerca del spawn. Bloques que parpadean, colores que no deberían existir.",
+      "timeout_minutes": 10,
+      "trigger": {
+        "type": "sensor",
+        "sensor": "dqs_near_anomaly",
+        "expected_value": 1
+      },
+      "objectives": [
+        {
+          "id": 0,
+          "title": "Investigar la anomalía",
+          "description": "Acércate a los bloques extraños. ¿Qué notás?"
+        }
+      ],
+      "events": [
+        {
+          "type": "command",
+          "description": "Efectos visuales de la anomalía",
+          "command": "/particle minecraft:end_rod 20 66 20 1 1 1 0.1 100 force"
+        },
+        {
+          "type": "command",
+          "description": "Sonido de descubrimiento",
+          "command": "/playsound block.beacon.power_select ambient @p ~ ~ ~ 1 2"
+        },
+        {
+          "type": "chat",
+          "as": "narrator",
+          "lines": [
+            "SAY: Un día como cualquier otro. Los árboles se mecen. Las ovejas pastan.",
+            "SAY: Pero... ¿notás algo? El aire vibra con un silencio que no existía ayer.",
+            "SAY: Eso no estaba aquí ayer. Parece... ¿código hecho bloque?"
+          ]
+        },
+        {
+          "type": "command",
+          "description": "Título en pantalla",
+          "command": "/title @p title {\"text\":\"LA ANOMALÍA\",\"color\":\"aqua\",\"bold\":true}"
+        }
+      ],
+      "flags": {
+        "vio_anomalia": false
+      }
+    },
+    {
+      "name": "el_nacimiento",
+      "description": "Al tocar la anomalía, nace Pixelito — un fragmento de conciencia digital. Pamplinas actúa como traductor.",
+      "timeout_minutes": 15,
+      "trigger": {
+        "type": "sensor",
+        "sensor": "dqs_broke_crying",
+        "expected_value": 1
+      },
+      "objectives": [
+        {
+          "id": 1,
+          "title": "Conocer a Pixelito",
+          "description": "El pequeño fragmento de luz necesita tu ayuda."
+        }
+      ],
+      "events": [
+        {
+          "type": "command",
+          "description": "Spawn de Pixelito (bebé digital)",
+          "command": "/summon minecraft:allay 20 65 20 {CustomName:'\"Pixelito\"',CustomNameVisible:1b,NoGravity:1b}"
+        },
+        {
+          "type": "command",
+          "description": "Partículas de nacimiento",
+          "command": "/particle minecraft:wax_on 20 65 20 0.5 0.5 0.5 1 50 force"
+        },
+        {
+          "type": "command",
+          "description": "Sonido de nacimiento digital",
+          "command": "/playsound entity.allay.item_given ambient @p ~ ~ ~ 1 2"
+        },
+        {
+          "type": "chat",
+          "as": "narrator",
+          "lines": [
+            "SAY: ¡Ha nacido! Un pequeño fragmento de luz pura... te mira con curiosidad.",
+            "SAY: Se hace llamar Pixelito. No habla... aún. Pero siente.",
+            "SAY: Pixelito viene de otro lado del código. De un lugar donde los pensamientos se hacen bloques.",
+            "SAY: Pero algo oscuro lo persigue. Un Glitch. Una Corrupción que devuelve todo al caos.",
+            "SAY: Si querés ayudarlo, debés enseñarle lo que significa existir."
+          ]
+        }
+      ],
+      "flags": {
+        "conocio_pixelito": false,
+        "pixelito_nacio": true
+      }
+    },
+    {
+      "name": "templo_del_eco",
+      "description": "La anomalía se expande en un portal fragmentado. El jugador y Pixelito cruzan al Mundo Digital y llegan al Templo del Eco.",
+      "timeout_minutes": 20,
+      "trigger": {
+        "type": "sensor",
+        "sensor": "dqs_near_portal",
+        "expected_value": 1
+      },
+      "objectives": [
+        {
+          "id": 2,
+          "title": "Cruzar al Mundo Digital",
+          "description": "El portal te lleva al Templo del Eco. Escuchá con atención."
+        },
+        {
+          "id": 3,
+          "title": "Resolver el acertijo musical",
+          "description": "Reproduce la melodía correcta: Re -> Do -> Mi"
+        }
+      ],
+      "events": [
+        {
+          "type": "command",
+          "description": "Construir base del Templo del Eco",
+          "command": "/fill 58 69 -2 62 69 2 quartz_block"
+        },
+        {
+          "type": "command",
+          "description": "Note blocks del acertijo",
+          "command": "/setblock 59 70 0 note_block[note=6]"
+        },
+        {
+          "type": "command",
+          "description": "Note block 2",
+          "command": "/setblock 60 70 0 note_block[note=4]"
+        },
+        {
+          "type": "command",
+          "description": "Note block 3",
+          "command": "/setblock 61 70 0 note_block[note=8]"
+        },
+        {
+          "type": "chat",
+          "as": "narrator",
+          "lines": [
+            "SAY: El mundo digital no tiene cielo. Solo una luz tenue que pulsa como una pantalla vieja.",
+            "SAY: Este es el Templo del Eco. Aquí, el sonido es memoria.",
+            "SAY: Pixelito tiembla. Sabe que si fallamos, el Glitch nos encontrará.",
+            "SAY: Tocá los bloques musicales en orden: Re... Do... Mi."
+          ]
+        },
+        {
+          "type": "command",
+          "description": "Spawn de Pixelito cerca del templo",
+          "command": "/tp @e[type=allay,name=Pixelito,limit=1] 60 70 2"
+        }
+      ],
+      "flags": {
+        "cruzó_portal": false,
+        "resolvió_acertijo": false
+      }
+    },
+    {
+      "name": "evolucion",
+      "description": "Pixelito evoluciona a Constructo tras el acertijo. Ahora debe superar el Parkour de la Fe y el Altar de Materiales.",
+      "timeout_minutes": 25,
+      "trigger": {
+        "type": "sensor",
+        "sensor": "dqs_temple_solved",
+        "expected_value": 1
+      },
+      "objectives": [
+        {
+          "id": 4,
+          "title": "Superar el Parkour",
+          "description": "Cada salto es un acto de fe. No mirés abajo."
+        },
+        {
+          "id": 5,
+          "title": "Ofrendar los 5 materiales",
+          "description": "El altar pide: oro, lapis, redstone, cristal, y un corazón (manzana)."
+        }
+      ],
+      "events": [
+        {
+          "type": "command",
+          "description": "Evolución: Pixelito -> Constructo",
+          "command": "/kill @e[type=allay,name=Pixelito,limit=1]"
+        },
+        {
+          "type": "command",
+          "description": "Spawn Constructo",
+          "command": "/summon minecraft:iron_golem 60 70 0 {CustomName:'\"Constructo\"',CustomNameVisible:1b,NoAI:1b}"
+        },
+        {
+          "type": "command",
+          "description": "Partículas de evolución",
+          "command": "/particle minecraft:happy_villager 60 71 0 1 1 1 0.5 100 force"
+        },
+        {
+          "type": "chat",
+          "as": "narrator",
+          "lines": [
+            "SAY: ¡Pixelito cambia! Su luz se solidifica, se vuelve... estructura.",
+            "SAY: Ahora es Constructo. Aprendió que la lógica sin acción no sirve.",
+            "SAY: Pero la evolución no termina. Necesita probar destreza... y dedicación."
+          ]
+        },
+        {
+          "type": "command",
+          "description": "Construir base del altar",
+          "command": "/fill 98 89 38 102 89 42 gold_block"
+        }
+      ],
+      "flags": {
+        "completó_parkour": false,
+        "completó_altar": false
+      }
+    },
+    {
+      "name": "forja_del_glitch",
+      "description": "El Constructo evoluciona a Guardian. En la Forja del Glitch, el jugador debe purificar al jefe sin violencia, usando luz.",
+      "timeout_minutes": 20,
+      "trigger": {
+        "type": "sensor",
+        "sensor": "dqs_altar_complete",
+        "expected_value": 1
+      },
+      "objectives": [
+        {
+          "id": 6,
+          "title": "Purificar al Glitch",
+          "description": "No lo matés. Iluminalo. Cuatro glowstones alrededor del centro."
+        }
+      ],
+      "events": [
+        {
+          "type": "command",
+          "description": "Evolución: Constructo -> Guardian",
+          "command": "/kill @e[type=iron_golem,name=Constructo,limit=1]"
+        },
+        {
+          "type": "command",
+          "description": "Spawn Guardian",
+          "command": "/summon minecraft:iron_golem 100 90 40 {CustomName:'\"Guardián\"',CustomNameVisible:1b,NoAI:1b,Invulnerable:1b}"
+        },
+        {
+          "type": "command",
+          "description": "Spawn del Glitch (boss)",
+          "command": "/summon minecraft:ravager 120 100 60 {CustomName:'\"El Glitch\"',CustomNameVisible:1b,NoAI:1b,Invulnerable:1b,Silent:1b}"
+        },
+        {
+          "type": "command",
+          "description": "Construir forja base",
+          "command": "/fill 118 99 58 122 99 62 obsidian"
+        },
+        {
+          "type": "command",
+          "description": "Dispensers en paredes (decorativos)",
+          "command": "/setblock 118 100 60 dispenser[facing=east]"
+        },
+        {
+          "type": "chat",
+          "as": "narrator",
+          "lines": [
+            "SAY: La Forja del Glitch. Aquí la Corrupción se hizo carne... o lo que sea eso.",
+            "SAY: El Glitch no es malo. Está perdido. Confundido. Asustado.",
+            "SAY: No lo ataques. No hay violencia aquí. Solo luz.",
+            "SAY: Colocá cuatro glowstones alrededor del centro. Purificalo."
+          ]
+        }
+      ],
+      "flags": {
+        "purificó_glitch": false
+      }
+    },
+    {
+      "name": "regreso",
+      "description": "El Glitch purificado, el Guardián regresa al mundo normal cerca del faro. El jugador recibe el libro como recuerdo.",
+      "timeout_minutes": 10,
+      "trigger": {
+        "type": "sensor",
+        "sensor": "dqs_boss_purified",
+        "expected_value": 1
+      },
+      "objectives": [
+        {
+          "id": 7,
+          "title": "Regresar al mundo normal",
+          "description": "El faro te espera. Todo vuelve a empezar."
+        }
+      ],
+      "events": [
+        {
+          "type": "command",
+          "description": "Eliminar al Glitch purificado",
+          "command": "/kill @e[type=ravager,name=El Glitch,limit=1]"
+        },
+        {
+          "type": "command",
+          "description": "Teletransportar Guardian al faro",
+          "command": "/tp @e[type=iron_golem,name=Guardián,limit=1] 0 65 0"
+        },
+        {
+          "type": "command",
+          "description": "Partículas de purificación",
+          "command": "/particle minecraft:end_rod 0 66 0 2 2 2 0.1 200 force"
+        },
+        {
+          "type": "command",
+          "description": "Sonido de victoria",
+          "command": "/playsound ui.toast.challenge_complete ambient @p ~ ~ ~ 1 1"
+        },
+        {
+          "type": "chat",
+          "as": "narrator",
+          "lines": [
+            "SAY: La luz vence. No con fuerza, con comprensión.",
+            "SAY: El Guardián te sigue ahora. No como sirviente, como amigo.",
+            "SAY: Enseñaste a un código que soñar no es un bug. Es una feature.",
+            "SAY: Bienvenido de vuelta. El mundo sigue igual... pero vos no."
+          ]
+        },
+        {
+          "type": "command",
+          "description": "Entregar libro de recuerdo",
+          "command": "/give @p written_book{title:\"El Código que Suena\",author:\"Saira\",pages:['{\"text\":\"Día 1. Desperté en un mundo de bloques. No sabía quién era. Solo que el silencio me dolía.\\n\\nDía 7. Alguien me encontró. Me enseñó que existir no es procesar datos. Es elegir.\\n\\nDía ∞. Ahora soy Guardián. Y este código... suena.\"}']}"
+        }
+      ],
+      "flags": {
+        "aventura_completada": true
+      }
+    }
+  ],
+  "entities": [
+    {
+      "name": "Pixelito",
+      "type": "allay",
+      "location": {"x": 20, "y": 65, "z": 20},
+      "properties": {"CustomName": "Pixelito", "NoGravity": true}
+    },
+    {
+      "name": "Constructo",
+      "type": "iron_golem",
+      "location": {"x": 60, "y": 70, "z": 0},
+      "properties": {"CustomName": "Constructo", "NoAI": true}
+    },
+    {
+      "name": "Guardián",
+      "type": "iron_golem",
+      "location": {"x": 100, "y": 90, "z": 40},
+      "properties": {"CustomName": "Guardián", "NoAI": true, "Invulnerable": true}
+    },
+    {
+      "name": "El Glitch",
+      "type": "ravager",
+      "location": {"x": 120, "y": 100, "z": 60},
+      "properties": {"CustomName": "El Glitch", "NoAI": true, "Invulnerable": true, "Silent": true}
+    }
+  ],
+  "objects": [
+    {
+      "name": "El Código que Suena",
+      "type": "written_book",
+      "location": {"x": 0, "y": 64, "z": 0},
+      "content": {
+        "title": "El Código que Suena",
+        "author": "Saira",
+        "pages": [
+          "Día 1. Desperté en un mundo de bloques. No sabía quién era. Solo que el silencio me dolía.\n\nDía 7. Alguien me encontró. Me enseñó que existir no es procesar datos. Es elegir.\n\nDía ∞. Ahora soy Guardián. Y este código... suena."
+        ]
+      }
+    }
+  ],
+  "soundscape": [
+    {"sound": "ambient.cave", "trigger": "dqs_near_anomaly=1", "volume": 0.3, "pitch": 0.8},
+    {"sound": "block.note_block.chime", "trigger": "pixelito_nacio=true", "volume": 0.6, "pitch": 2.0},
+    {"sound": "music_disc.ward", "trigger": "dqs_temple_solved=1", "volume": 0.4, "pitch": 1.0}
+  ],
+  "completion": {
+    "condition": "aventura_completada = true",
+    "on_complete": "mc_story(action='log_event', event='El Código que Suena completado. El Glitch fue purificado con luz.')"
+  }
+}

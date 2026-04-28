@@ -320,6 +320,15 @@ def _ws_on_message(ws, message):
                         print("[ws] Chat arrived during turn — interrupting to respond now", flush=True)
                     except Exception:
                         pass
+        elif msg_type == "blueprint_updated":
+            bp_name = data.get("data", {}).get("name", "unknown")
+            with message_lock:
+                pending_messages.append({
+                    "from": "Dashboard",
+                    "message": f"Blueprint '{bp_name}' was updated via the dashboard. Run mc_story(action='load_blueprint', name='{bp_name}') to reload the latest version.",
+                    "time": int(time.time() * 1000),
+                })
+            chat_event.set()
         elif msg_type == "status":
             pass
         else:

@@ -3385,6 +3385,8 @@ const httpServer = http.createServer(async (req, res) => {
           // Write atomically: stringify first, then write
           const json = JSON.stringify(body, null, 2);
           fs.writeFileSync(filePath, json, 'utf8');
+          // Notify all connected dashboard clients and the agent
+          broadcastDashboard('blueprint_updated', { name, saved_at: Date.now() });
           return respond(res, 200, { ok: true, result: `Blueprint '${name}' saved.` });
         } catch (err) {
           return respond(res, 500, { ok: false, error: 'Failed to save blueprint: ' + err.message });

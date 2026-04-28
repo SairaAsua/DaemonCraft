@@ -1068,6 +1068,8 @@ from pathlib import Path
 
 _STORY_PATH = Path(os.getenv("DAEMONCRAFT_STORY_PATH", Path.home() / ".local" / "share" / "daemoncraft" / "story.json"))
 _BLUEPRINT_PATH = Path(os.getenv("DAEMONCRAFT_BLUEPRINT_PATH", Path.home() / ".local" / "share" / "daemoncraft" / "blueprint.json"))
+# Shared blueprints directory used by the dashboard and mc_story
+_BLUEPRINTS_DIR = Path(__file__).parent.parent / "blueprints"
 
 
 def _load_story() -> dict:
@@ -1274,19 +1276,30 @@ def _handle_mc_story(args: dict, **kwargs) -> str:
 
     if action == "save_blueprint":
         blueprint = args.get("blueprint")
+        name = args.get("name")
         if not blueprint:
             return "Error: blueprint JSON is required for save_blueprint"
         if not isinstance(blueprint, dict):
             return "Error: blueprint must be a JSON object"
-        _BLUEPRINT_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _BLUEPRINT_PATH.write_text(json.dumps(blueprint, indent=2))
+        if name:
+            target = _BLUEPRINTS_DIR / f"{name}.json"
+            _BLUEPRINTS_DIR.mkdir(parents=True, exist_ok=True)
+        else:
+            target = _BLUEPRINT_PATH
+            target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(blueprint, indent=2))
         return f"Blueprint saved: {blueprint.get('metadata', {}).get('title', 'Untitled')}"
 
     if action == "load_blueprint":
-        if not _BLUEPRINT_PATH.exists():
-            return "No blueprint saved yet"
+        name = args.get("name")
+        if name:
+            target = _BLUEPRINTS_DIR / f"{name}.json"
+        else:
+            target = _BLUEPRINT_PATH
+        if not target.exists():
+            return f"No blueprint found: {target.name}"
         try:
-            bp = json.loads(_BLUEPRINT_PATH.read_text())
+            bp = json.loads(target.read_text())
             title = bp.get("metadata", {}).get("title", "Untitled")
             phases = len(bp.get("phases", []))
             entities = len(bp.get("entities", []))

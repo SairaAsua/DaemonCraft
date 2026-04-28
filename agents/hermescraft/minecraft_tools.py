@@ -1453,6 +1453,80 @@ MC_STORY_SCHEMA = {
 }
 
 
+MC_REGISTRY_SCHEMA = {
+    "name": "mc_registry",
+    "description": "Query the shared Minecraft validation registry for canonical lists of biomes, entities, items, blocks, effects, and scoreboard criteria. Use this when you need to know valid values for adventure blueprints (e.g., 'what flying passive mobs exist?', 'what biomes are in the overworld?', 'is crow a valid entity?'). Results are sourced from minecraft-data for the configured server version.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "category": {
+                "type": "string",
+                "enum": ["biomes", "entities", "items", "blocks", "effects", "scoreboard_criteria"],
+                "description": "Registry category to query",
+            },
+            "filter": {"type": "string", "description": "Optional substring filter on name or displayName (case-insensitive)"},
+            "limit": {"type": "number", "description": "Max results to return (default 20, max 100)"},
+            "type_filter": {"type": "string", "description": "For entities: filter by type (e.g. mob, animal, hostile, passive, ambient)"},
+            "dimension": {"type": "string", "description": "For biomes: filter by dimension (overworld, nether, end)"},
+        },
+        "required": ["category"],
+    },
+}
+
+def _handle_mc_registry(args: dict, **kwargs) -> str:
+    category = args.get("category")
+    filt = (args.get("filter") or "").lower()
+    limit = min(int(args.get("limit") or 20), 100)
+    type_filter = (args.get("type_filter") or "").lower()
+    dimension = (args.get("dimension") or "").lower()
+
+    registry_path = Path(__file__).parent.parent / "data" / "minecraft-registry.json"
+    if not registry_path.exists():
+        return "Error: minecraft-registry.json not found. Run scripts/generate-minecraft-registry.js to create it."
+
+    try:
+        registry = json.loads(registry_path.read_text())
+    except Exception as e:
+        return f"Error reading registry: {e}"
+
+    items = registry.get(category)
+    if items is None:
+        return f"Error: unknown category '{category}'. Valid: biomes, entities, items, blocks, effects, scoreboard_criteria"
+
+    results = []
+    for item in items:
+        name = item.get("name", "")
+        display = item.get("displayName", "")
+        if filt and filt not in name.lower() and filt not in display.lower():
+            continue
+        if category == "entities" and type_filter:
+            if type_filter not in (item.get("type") or "").lower():
+                continue
+        if category == "biomes" and dimension:
+            if dimension not in (item.get("dimension") or "").lower():
+                continue
+        results.append(item)
+
+    if not results:
+        return f"No {category} matched the filters."
+
+    lines = [f"{category} ({len(results)} matches, showing first {min(limit, len(results))}):"]
+    for item in results[:limit]:
+        if category == "entities":
+            lines.append(f"  - {item['name']} ({item.get('displayName','')}) type={item.get('type','')}, category={item.get('category','')}")
+        elif category == "biomes":
+            lines.append(f"  - {item['name']} ({item.get('displayName','')}) dimension={item.get('dimension','')}")
+        elif category == "scoreboard_criteria":
+            lines.append(f"  - {item['name']} — {item.get('description','')}")
+        else:
+            lines.append(f"  - {item['name']} ({item.get('displayName','')})")
+
+    if len(results) > limit:
+        lines.append(f"  ... and {len(results) - limit} more")
+
+    return "\n".join(lines)
+
+
 # ══════════════════════════════════════════════════════════════════════════════════════════
 # Registry
 # ══════════════════════════════════════════════════════════════════════════════════════
@@ -1539,5 +1613,13 @@ registry.register(
     toolset="minecraft",
     schema=MC_STORY_SCHEMA,
     handler=lambda args, **kw: _handle_mc_story(args, **kw),
+    check_fn=check_minecraft_available,
+)
+
+registry.register(
+    name="mc_registry",
+    toolset="minecraft",
+    schema=MC_REGISTRY_SCHEMA,
+    handler=lambda args, **kw: _handle_mc_registry(args, **kw),
     check_fn=check_minecraft_available,
 )

@@ -178,6 +178,7 @@ Pre-built scripts live in the server. Assign them to any NPC:
 - `mc_story(action="reset")` — wipe all story state (use carefully)
 - `mc_story(action="save_blueprint", blueprint={...})` — save a full adventure blueprint JSON (optionally pass `name` to save to the shared blueprints directory)
 - `mc_story(action="load_blueprint")` — retrieve the saved blueprint (pass `name` to load a specific blueprint from the shared directory)
+- `mc_registry(category="entities", filter="parrot", limit=10)` — query the shared Minecraft validation registry for canonical biomes, entities, items, blocks, effects, or scoreboard criteria. Use this to verify valid values before generating blueprints.
 
 **Blueprint Format:** Use the canonical Adventure Blueprint Schema v1.0. A blueprint has: `metadata` (title, theme, tone), `setting` (biome, center coordinates, time/weather locks), `phases` (trigger + events with mc_commands and chat_lines), `entities` (mobs/NPCs with spawn commands), `objects` (items/books/signs with lore), `soundscape`, and `flags`.
 

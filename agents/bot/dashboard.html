@@ -915,7 +915,22 @@ async function saveBlueprint() {
   
   const initDesc = document.querySelector('[data-bp="init.description"]');
   if (initDesc && bp.init) bp.init.description = initDesc.textContent.trim();
-  
+  if (bp.init && bp.init.sensors) {
+    for (let i = 0; i < bp.init.sensors.length; i++) {
+      const senName = document.querySelector(`[data-bp="init.sensors.${i}.name"]`);
+      const senCrit = document.querySelector(`[data-bp="init.sensors.${i}.criterion"]`);
+      const senPoll = document.querySelector(`[data-bp="init.sensors.${i}.poll_command"]`);
+      if (senName) bp.init.sensors[i].name = senName.textContent.trim();
+      if (senCrit) bp.init.sensors[i].criterion = senCrit.value.trim();
+      if (senPoll) bp.init.sensors[i].poll_command = senPoll.value.trim();
+    }
+  }
+  if (bp.init && bp.init.commands) {
+    for (let i = 0; i < bp.init.commands.length; i++) {
+      const cmdEl = document.querySelector(`[data-bp="init.commands.${i}"]`);
+      if (cmdEl) bp.init.commands[i] = cmdEl.value.trim();
+    }
+  }
   if (bp.phases) {
     for (let i = 0; i < bp.phases.length; i++) {
       const phName = document.querySelector(`[data-bp="phases.${i}.name"]`);
@@ -924,6 +939,12 @@ async function saveBlueprint() {
       if (phName) bp.phases[i].name = phName.textContent.trim();
       if (phDesc) bp.phases[i].description = phDesc.textContent.trim();
       if (phTimeout) bp.phases[i].timeout_minutes = parseInt(phTimeout.textContent.trim()) || 10;
+      const phSensorCmd = document.querySelector(`[data-bp="phases.${i}.trigger.sensor_command"]`);
+      const phCheckCmd = document.querySelector(`[data-bp="phases.${i}.trigger.check_command"]`);
+      const phExpected = document.querySelector(`[data-bp="phases.${i}.trigger.expected_value"]`);
+      if (phSensorCmd && bp.phases[i].trigger) bp.phases[i].trigger.sensor_command = phSensorCmd.value.trim();
+      if (phCheckCmd && bp.phases[i].trigger) bp.phases[i].trigger.check_command = phCheckCmd.value.trim();
+      if (phExpected && bp.phases[i].trigger) bp.phases[i].trigger.expected_value = parseInt(phExpected.textContent.trim()) || 0;
       
       if (bp.phases[i].objectives) {
         for (let j = 0; j < bp.phases[i].objectives.length; j++) {
@@ -942,6 +963,10 @@ async function saveBlueprint() {
               if (evLine) bp.phases[i].events[j].lines[k] = evLine.textContent.trim();
             }
           }
+          if (bp.phases[i].events[j].type === 'command') {
+            const evCmd = document.querySelector(`[data-bp="phases.${i}.events.${j}.command"]`);
+            if (evCmd) bp.phases[i].events[j].command = evCmd.value.trim();
+          }
         }
       }
     }
@@ -953,7 +978,9 @@ async function saveBlueprint() {
       const entX = document.querySelector(`[data-bp="entities.${i}.location.x"]`);
       const entY = document.querySelector(`[data-bp="entities.${i}.location.y"]`);
       const entZ = document.querySelector(`[data-bp="entities.${i}.location.z"]`);
+      const entType = document.querySelector(`[data-bp="entities.${i}.type"]`);
       if (entName) bp.entities[i].name = entName.textContent.trim();
+      if (entType) bp.entities[i].type = entType.value.trim();
       if (entX) bp.entities[i].location.x = parseInt(entX.textContent.trim()) || 0;
       if (entY) bp.entities[i].location.y = parseInt(entY.textContent.trim()) || 0;
       if (entZ) bp.entities[i].location.z = parseInt(entZ.textContent.trim()) || 0;
@@ -964,7 +991,9 @@ async function saveBlueprint() {
     for (let i = 0; i < bp.objects.length; i++) {
       const objName = document.querySelector(`[data-bp="objects.${i}.name"]`);
       const objLore = document.querySelector(`[data-bp="objects.${i}.lore"]`);
+      const objType = document.querySelector(`[data-bp="objects.${i}.type"]`);
       if (objName) bp.objects[i].name = objName.textContent.trim();
+      if (objType) bp.objects[i].type = objType.value.trim();
       if (objLore) bp.objects[i].lore = objLore.textContent.trim();
     }
   }
@@ -1015,6 +1044,57 @@ function buildBiomeSelect(currentBiome) {
   return html;
 }
 
+
+function buildEntitySelect(currentType, dataBpAttr) {
+  if (!MC_REGISTRY || !MC_REGISTRY.entities) {
+    return `<input type="text" ${dataBpAttr} value="${escapeHtml(currentType || '')}" oninput="markDirty(this)" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;width:100%">`;
+  }
+  const byCat = {};
+  for (const e of MC_REGISTRY.entities) {
+    if (e.type === 'projectile' || e.type === 'other' || e.category === 'Vehicles' || e.category === 'Projectiles' || e.category === 'Immobile' || e.category === 'UNKNOWN') continue;
+    const cat = e.category || e.type || 'Other';
+    if (!byCat[cat]) byCat[cat] = [];
+    byCat[cat].push(e);
+  }
+  let html = `<select ${dataBpAttr} onchange="markDirty(this)" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;width:100%;cursor:pointer">`;
+  html += `<option value="">-- select entity --</option>`;
+  for (const cat of Object.keys(byCat).sort()) {
+    html += `<optgroup label="${escapeHtml(cat)}">`;
+    for (const e of byCat[cat].sort((a,b) => a.displayName.localeCompare(b.displayName))) {
+      const sel = e.name === currentType ? ' selected' : '';
+      html += `<option value="${escapeHtml(e.name)}"${sel}>${escapeHtml(e.displayName)}</option>`;
+    }
+    html += `</optgroup>`;
+  }
+  html += `</select>`;
+  return html;
+}
+
+function buildItemSelect(currentType, dataBpAttr) {
+  const inputHtml = `<input type="text" ${dataBpAttr} value="${escapeHtml(currentType || '')}" oninput="markDirty(this)" list="bp-item-datalist" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;width:100%">`;
+  if (!MC_REGISTRY || !MC_REGISTRY.items) return inputHtml;
+  let dl = '<datalist id="bp-item-datalist">';
+  for (const it of MC_REGISTRY.items) {
+    dl += `<option value="${escapeHtml(it.name)}">${escapeHtml(it.displayName)}</option>`;
+  }
+  dl += '</datalist>';
+  return inputHtml + dl;
+}
+
+function buildCriterionSelect(currentCriterion, dataBpAttr) {
+  if (!MC_REGISTRY || !MC_REGISTRY.scoreboard_criteria) {
+    return `<input type="text" ${dataBpAttr} value="${escapeHtml(currentCriterion || '')}" oninput="markDirty(this)" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;width:100%">`;
+  }
+  let html = `<select ${dataBpAttr} onchange="markDirty(this)" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;width:100%;cursor:pointer">`;
+  html += `<option value="">-- select criterion --</option>`;
+  for (const c of MC_REGISTRY.scoreboard_criteria) {
+    const sel = c.name === currentCriterion ? ' selected' : '';
+    html += `<option value="${escapeHtml(c.name)}"${sel}>${escapeHtml(c.name)} — ${escapeHtml(c.description)}</option>`;
+  }
+  html += `</select>`;
+  return html;
+}
+
 function renderBlueprintHtml(data) {
   currentBlueprint = JSON.parse(JSON.stringify(data));
   const m = data.metadata || {};
@@ -1045,14 +1125,20 @@ function renderBlueprintHtml(data) {
     if (data.init.description) html += `<div contenteditable="true" data-bp="init.description" oninput="markDirty(this)" style="margin-bottom:8px;color:#c9d1d9;font-size:0.85rem">${escapeHtml(data.init.description)}</div>`;
     if (data.init.sensors && data.init.sensors.length) {
       html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin-bottom:4px">Sensors</div>';
-      for (const sen of data.init.sensors) {
-        html += `<div class="bp-command">${escapeHtml(sen.name)} — ${escapeHtml(sen.criterion)}${sen.poll_command ? ' (poll)' : ''}</div>`;
+      for (let sidx = 0; sidx < data.init.sensors.length; sidx++) {
+        const sen = data.init.sensors[sidx];
+        html += `<div class="bp-meta-box" style="margin-bottom:6px">`;
+        html += `<label contenteditable="true" data-bp="init.sensors.${sidx}.name" oninput="markDirty(this)">${escapeHtml(sen.name)}</label>`;
+        html += `<value>Criterion: ${buildCriterionSelect(sen.criterion, 'data-bp="init.sensors.${sidx}.criterion"')}</value>`;
+        if (sen.poll_command) html += `<textarea data-bp="init.sensors.${sidx}.poll_command" oninput="markDirty(this)" rows="2" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;margin-top:4px;font-family:monospace;font-size:0.78rem">${escapeHtml(sen.poll_command)}</textarea>`;
+        html += `</div>`;
       }
     }
     if (data.init.commands && data.init.commands.length) {
       html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin-bottom:4px">Commands</div>';
-      for (const cmd of data.init.commands) {
-        html += `<div class="bp-command">${escapeHtml(cmd)}</div>`;
+      for (let cidx = 0; cidx < data.init.commands.length; cidx++) {
+        const cmd = data.init.commands[cidx];
+        html += `<textarea data-bp="init.commands.${cidx}" oninput="markDirty(this)" rows="2" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;margin-bottom:4px;font-family:monospace;font-size:0.78rem">${escapeHtml(cmd)}</textarea>`;
       }
     }
   }
@@ -1077,7 +1163,9 @@ function renderBlueprintHtml(data) {
         html += `<div class="bp-meta-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px">`;
         html += `<div class="bp-meta-box" style="padding:6px"><label>Type</label><value>${escapeHtml(ph.trigger.type)}</value></div>`;
         if (ph.trigger.sensor) html += `<div class="bp-meta-box" style="padding:6px"><label>Sensor</label><value>${escapeHtml(ph.trigger.sensor)}</value></div>`;
-        if (ph.trigger.expected_value != null) html += `<div class="bp-meta-box" style="padding:6px"><label>Expected</label><value>${ph.trigger.expected_value}</value></div>`;
+        if (ph.trigger.expected_value != null) html += `<div class="bp-meta-box" style="padding:6px"><label>Expected</label><value contenteditable="true" data-bp="phases.${i}.trigger.expected_value" oninput="markDirty(this)">${ph.trigger.expected_value}</value></div>`;
+        if (ph.trigger.sensor_command) html += `<div style="margin-top:4px"><label style="font-size:0.7rem;color:#8b949e">Sensor Command</label><textarea data-bp="phases.${i}.trigger.sensor_command" oninput="markDirty(this)" rows="2" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;font-family:monospace;font-size:0.78rem">${escapeHtml(ph.trigger.sensor_command)}</textarea></div>`;
+        if (ph.trigger.check_command) html += `<div style="margin-top:4px"><label style="font-size:0.7rem;color:#8b949e">Check Command</label><textarea data-bp="phases.${i}.trigger.check_command" oninput="markDirty(this)" rows="2" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;font-family:monospace;font-size:0.78rem">${escapeHtml(ph.trigger.check_command)}</textarea></div>`;
         html += '</div>';
       }
       
@@ -1100,7 +1188,11 @@ function renderBlueprintHtml(data) {
               html += `<div class="bp-event-chat" contenteditable="true" data-bp="phases.${i}.events.${j}.lines.${k}" oninput="markDirty(this)">${escapeHtml(ev.lines[k])}</div>`;
             }
           } else {
+            if (ev.type === 'command' && ev.command) {
+            html += `<div style="margin-bottom:4px"><label style="font-size:0.7rem;color:#8b949e">${escapeHtml(ev.description || 'Command')}</label><textarea data-bp="phases.${i}.events.${j}.command" oninput="markDirty(this)" rows="2" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;font-family:monospace;font-size:0.78rem">${escapeHtml(ev.command)}</textarea></div>`;
+          } else {
             html += `<div class="bp-event-chat">${escapeHtml(JSON.stringify(ev))}</div>`;
+          }
           }
         }
       }
@@ -1121,7 +1213,7 @@ function renderBlueprintHtml(data) {
       const ent = data.entities[i];
       html += '<div class="bp-meta-box">';
       html += `<label contenteditable="true" data-bp="entities.${i}.name" oninput="markDirty(this)">${escapeHtml(ent.name || ent.type)}</label>`;
-      html += `<value>${escapeHtml(ent.type)} at <span contenteditable="true" data-bp="entities.${i}.location.x" oninput="markDirty(this)">${ent.location?.x ?? '?'}</span>, <span contenteditable="true" data-bp="entities.${i}.location.y" oninput="markDirty(this)">${ent.location?.y ?? '?'}</span>, <span contenteditable="true" data-bp="entities.${i}.location.z" oninput="markDirty(this)">${ent.location?.z ?? '?'}</span></value>`;
+      html += `<value>Type: ${buildEntitySelect(ent.type, 'data-bp="entities.${i}.type"')} at <span contenteditable="true" data-bp="entities.${i}.location.x" oninput="markDirty(this)">${ent.location?.x ?? '?'}</span>, <span contenteditable="true" data-bp="entities.${i}.location.y" oninput="markDirty(this)">${ent.location?.y ?? '?'}</span>, <span contenteditable="true" data-bp="entities.${i}.location.z" oninput="markDirty(this)">${ent.location?.z ?? '?'}</span></value>`;
       if (ent.properties) html += `<div class="bp-command" style="margin-top:6px">${escapeHtml(JSON.stringify(ent.properties))}</div>`;
       html += '</div>';
     }
@@ -1135,7 +1227,7 @@ function renderBlueprintHtml(data) {
       const obj = data.objects[i];
       html += '<div class="bp-meta-box">';
       html += `<label contenteditable="true" data-bp="objects.${i}.name" oninput="markDirty(this)">${escapeHtml(obj.name || 'Object')}</label>`;
-      html += `<value>${escapeHtml(obj.type || '')}</value>`;
+      html += `<value>Type: ${buildItemSelect(obj.type, 'data-bp="objects.${i}.type"')}</value>`;
       if (obj.lore) html += `<div contenteditable="true" data-bp="objects.${i}.lore" oninput="markDirty(this)" style="margin-top:4px;color:#8b949e;font-size:0.78rem">${escapeHtml(obj.lore)}</div>`;
       html += '</div>';
     }

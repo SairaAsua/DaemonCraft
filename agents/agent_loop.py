@@ -329,6 +329,22 @@ def _ws_on_message(ws, message):
                     "time": int(time.time() * 1000),
                 })
             chat_event.set()
+        elif msg_type == "quest_event":
+            event_data = data.get("data", {})
+            with message_lock:
+                pending_messages.append({
+                    "from": "QuestEngine",
+                    "message": event_data.get("message", "A quest event occurred."),
+                    "time": int(time.time() * 1000),
+                })
+            chat_event.set()
+            if turn_in_progress.is_set() and current_agent is not None:
+                try:
+                    cancel_event.set()
+                    current_agent._interrupt_requested = True
+                    print("[ws] Quest event arrived during turn — interrupting to respond now", flush=True)
+                except Exception:
+                    pass
         elif msg_type == "status":
             pass
         else:
@@ -409,6 +425,369 @@ def start_countdown(interval: int):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# QuestEngine — background sensor polling + auto phase advancement
+# ═══════════════════════════════════════════════════════════════════════════════
+
+QUEST_ENGINE_INTERVAL = 1  # seconds between polls
+
+
+def _quest_engine_loop():
+    """Background thread that polls sensors and auto-advances quest phases.
+
+    Flow:
+      1. Read story.json → get active blueprint + current phase
+      2. Read blueprint JSON → find current phase + next phase
+      3. Evaluate next phase's trigger condition
+      4. If triggered: advance phase in story.json + notify Pamplinas via /quest/notify
+    """
+    import time as _time
+    import urllib.request
+    from pathlib import Path
+
+    def get_story_state():
+        story_path = Path.home() / ".local" / "share" / "daemoncraft" / "rolemaster" / "story.json"
+        try:
+            return json.loads(story_path.read_text())
+        except Exception:
+            return {}
+
+    def load_blueprint(name):
+        bp_path = Path.home() / "Projects" / "DaemonCraft" / "agents" / "blueprints" / name
+        try:
+            return json.loads(bp_path.read_text())
+        except Exception:
+            return None
+
+    def read_scoreboard(objective, player="@a"):
+        """Read scoreboard via RCON. If player is '@a', query all online players and return max score."""
+        import re
+        import subprocess
+
+        def _get_score(p):
+            try:
+                result = subprocess.run(
+                    ["docker", "exec", "--user", "1000", "daemoncraft-minecraft", "rcon-cli",
+                     f"scoreboard players get {p} {objective}"],
+                    capture_output=True, text=True, timeout=3
+                )
+                match = re.search(r"has\s+(\d+)\s+\[", result.stdout)
+                return int(match.group(1)) if match else 0
+            except Exception:
+                return 0
+
+        try:
+            if player != "@a":
+                return _get_score(player)
+
+            # Get online players from /list
+            result = subprocess.run(
+                ["docker", "exec", "--user", "1000", "daemoncraft-minecraft", "rcon-cli", "list"],
+                capture_output=True, text=True, timeout=3
+            )
+            list_output = result.stdout.strip()
+            # Parse: "There are N of a max of M players online: player1, player2"
+            match = re.search(r"online:\s*(.+)$", list_output)
+            if not match:
+                return 0
+            players = [p.strip() for p in match.group(1).split(",")]
+            scores = [_get_score(p) for p in players]
+            return max(scores) if scores else 0
+        except Exception:
+            return 0
+
+    def execute_poll_command(sensor_name, story):
+        """Execute poll_command for a dummy sensor before reading its score."""
+        sensors = story.get("active_sensors", [])
+        sensor = next((s for s in sensors if s.get("name") == sensor_name), None)
+        if not sensor:
+            return
+        poll_cmd = sensor.get("poll_command")
+        if not poll_cmd:
+            return
+        try:
+            payload = json.dumps({"message": poll_cmd}).encode("utf-8")
+            req = urllib.request.Request(
+                f"{MC_API_URL}/chat/send",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            urllib.request.urlopen(req, timeout=3)
+        except Exception:
+            pass
+
+    def send_quest_notify(message, event_type="phase_transition", from_phase=None, to_phase=None):
+        try:
+            payload = json.dumps({
+                "message": message,
+                "event_type": event_type,
+                "from_phase": from_phase,
+                "to_phase": to_phase,
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                f"{MC_API_URL}/quest/notify",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            urllib.request.urlopen(req, timeout=3)
+        except Exception as e:
+            print(f"[quest_engine] Notify failed: {e}", flush=True)
+
+    def advance_phase_in_story(new_phase, story_path):
+        try:
+            story = json.loads(story_path.read_text())
+            old_phase = story.get("phase")
+            if old_phase == new_phase:
+                return None
+            story["phase"] = new_phase
+            story["phase_started_at"] = int(_time.time() * 1000)
+            story_path.write_text(json.dumps(story, indent=2))
+            return old_phase
+        except Exception:
+            return None
+
+    print("[quest_engine] Background thread started", flush=True)
+
+    while True:
+        _time.sleep(QUEST_ENGINE_INTERVAL)
+        try:
+            story = get_story_state()
+            if not story:
+                continue
+
+            active_bp = story.get("active_blueprint")
+            current_phase = story.get("phase")
+            if not active_bp or not current_phase:
+                continue
+
+            blueprint = load_blueprint(active_bp)
+            if not blueprint:
+                continue
+
+            phases = blueprint.get("phases", [])
+            if not phases:
+                continue
+
+            # Find current phase index
+            current_idx = None
+            for i, ph in enumerate(phases):
+                if ph.get("name") == current_phase:
+                    current_idx = i
+                    break
+
+            if current_idx is None or current_idx >= len(phases) - 1:
+                continue  # Last phase or not found
+
+            # Evaluate next phase trigger
+            next_ph = phases[current_idx + 1]
+            trigger = next_ph.get("trigger", {})
+            if not trigger:
+                continue
+
+            trigger_type = trigger.get("type")
+            triggered = False
+            reason = ""
+
+            if trigger_type == "score":
+                scoreboard = trigger.get("scoreboard")
+                expected = trigger.get("value", 1)
+                if scoreboard:
+                    execute_poll_command(scoreboard, story)
+                    score = read_scoreboard(scoreboard, "@a")
+                    if score >= expected:
+                        triggered = True
+                        reason = f"{scoreboard} = {score} (expected >= {expected})"
+
+            elif trigger_type == "sensor":
+                sensor_name = trigger.get("sensor")
+                if sensor_name:
+                    execute_poll_command(sensor_name, story)
+                    score = read_scoreboard(sensor_name, "@a")
+                    if score > 0:
+                        triggered = True
+                        reason = f"{sensor_name} fired (score = {score})"
+
+            elif trigger_type == "flag":
+                flag_name = trigger.get("flag")
+                expected = trigger.get("value", True)
+                flags = story.get("flags", {})
+                if flags.get(flag_name) == expected:
+                    triggered = True
+                    reason = f"flag {flag_name} = {expected}"
+
+            if triggered:
+                next_phase_name = next_ph.get("name")
+                story_path = Path.home() / ".local" / "share" / "daemoncraft" / "rolemaster" / "story.json"
+                old_phase = advance_phase_in_story(next_phase_name, story_path)
+
+                if old_phase:
+                    msg = (
+                        f"Phase transition: '{old_phase}' -> '{next_phase_name}'. "
+                        f"Reason: {reason}. "
+                        f"Please narrate this transition to the players."
+                    )
+                    send_quest_notify(msg, "phase_transition", old_phase, next_phase_name)
+                    print(
+                        f"[quest_engine] Advanced: {old_phase} -> {next_phase_name} ({reason})",
+                        flush=True,
+                    )
+
+        except Exception as e:
+            print(f"[quest_engine] Error: {e}", flush=True)
+
+
+def start_quest_engine():
+    t = threading.Thread(target=_quest_engine_loop, daemon=True)
+    t.start()
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+# Daemon Guardian — keep Pamplinas in creative + invulnerable
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+DAEMON_GUARDIAN_INTERVAL = 5  # seconds
+_GODMODE_FILE = Path.home() / ".local" / "share" / "daemoncraft" / "rolemaster" / "godmode"
+
+
+def _daemon_guardian_loop():
+    """Background thread that keeps the bot in creative mode and invulnerable.
+
+    Pamplinas is a Daemon — he does not walk, he does not drown, he does not die.
+    If the server, a plugin, or a bug switches him to survival, this guardian
+    immediately switches him back.
+
+    Respects the godmode state file:
+      - "on"  (default) → guardian is active
+      - "off" → guardian sleeps, allowing manual survival/testing
+    """
+    import time as _time
+    import urllib.request
+
+    print("[daemon_guardian] Background thread started", flush=True)
+
+    def _godmode_enabled() -> bool:
+        try:
+            return _GODMODE_FILE.read_text().strip().lower() != "off"
+        except Exception:
+            return True  # default ON
+
+    def _bot_command(cmd: str) -> str:
+        """Execute a command as the bot and return the server response."""
+        try:
+            payload = json.dumps({"command": cmd}).encode("utf-8")
+            req = urllib.request.Request(
+                f"{MC_API_URL}/command",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data.get("output", "")
+        except Exception:
+            return ""
+
+    def _get_bot_gamemode() -> str:
+        """Query the bot's current gamemode via the bot API."""
+        try:
+            with urllib.request.urlopen(f"{MC_API_URL}/bot/gamemode", timeout=3) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data.get("data", {}).get("gamemode", "unknown")
+        except Exception:
+            return "unknown"
+
+    def _get_bot_effects() -> dict:
+        """Query the bot's active effects via the bot API."""
+        try:
+            with urllib.request.urlopen(f"{MC_API_URL}/bot/effects", timeout=3) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data.get("data", {})
+        except Exception:
+            return {}
+
+    def _check_gamemode() -> bool:
+        """Returns True if already in creative mode."""
+        return _get_bot_gamemode().lower() == "creative"
+
+    def _check_effects() -> dict:
+        """Returns which guardian effects are currently active."""
+        effects = _get_bot_effects()
+        return {
+            "resistance": any("resistance" in k.lower() for k in effects),
+            "fire_resistance": any("fire" in k.lower() and "resistance" in k.lower() for k in effects),
+            "water_breathing": any("water" in k.lower() and "breathing" in k.lower() for k in effects),
+        }
+
+    while True:
+        _time.sleep(DAEMON_GUARDIAN_INTERVAL)
+        try:
+            if not _godmode_enabled():
+                continue
+
+            # Enforce creative mode ONLY if not already creative
+            if not _check_gamemode():
+                payload = json.dumps({"message": f"/gamemode creative {BOT_USERNAME}"}).encode("utf-8")
+                req = urllib.request.Request(
+                    f"{MC_API_URL}/chat/send",
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                urllib.request.urlopen(req, timeout=3)
+                print("[daemon_guardian] Restored creative mode", flush=True)
+
+            # Check which effects are missing, apply only those
+            effects = _check_effects()
+            if not effects["resistance"]:
+                payload = json.dumps({
+                    "message": f"/effect give {BOT_USERNAME} minecraft:resistance 999999 255 true"
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    f"{MC_API_URL}/chat/send",
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                urllib.request.urlopen(req, timeout=3)
+                print("[daemon_guardian] Applied resistance", flush=True)
+
+            if not effects["fire_resistance"]:
+                payload = json.dumps({
+                    "message": f"/effect give {BOT_USERNAME} minecraft:fire_resistance 999999 0 true"
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    f"{MC_API_URL}/chat/send",
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                urllib.request.urlopen(req, timeout=3)
+                print("[daemon_guardian] Applied fire_resistance", flush=True)
+
+            if not effects["water_breathing"]:
+                payload = json.dumps({
+                    "message": f"/effect give {BOT_USERNAME} minecraft:water_breathing 999999 0 true"
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    f"{MC_API_URL}/chat/send",
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                urllib.request.urlopen(req, timeout=3)
+                print("[daemon_guardian] Applied water_breathing", flush=True)
+
+        except Exception:
+            pass
+
+
+def start_daemon_guardian():
+    t = threading.Thread(target=_daemon_guardian_loop, daemon=True)
+    t.start()
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Main loop
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -472,6 +851,8 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
 
     start_ws_listener()
     start_countdown(interval)
+    start_quest_engine()
+    start_daemon_guardian()
 
     try:
         while True:

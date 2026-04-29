@@ -47,7 +47,6 @@ import path from 'path';
 import http from 'http';
 import { URL } from 'url';
 import mineflayer from 'mineflayer';
-import creativePlugin from 'mineflayer/lib/plugins/creative.js';
 import pathfinderPkg from 'mineflayer-pathfinder';
 const { pathfinder, Movements, goals } = pathfinderPkg;
 // pvp plugin disabled — its deprecated physicTick event breaks pathfinder
@@ -433,25 +432,19 @@ async function createBotImpl() {
       bot.loadPlugin(armorManager);
       bot.loadPlugin(autoEatLoader);
       bot.loadPlugin(collectBlock);
-      bot.loadPlugin(creativePlugin.default || creativePlugin);
-
-      // Enable creative flight for daemon aesthetic
-      if (bot.game?.gameMode === 'creative' || bot.player?.gamemode === 1) {
-        bot.creative.startFlying();
-      }
-
-      // Auto-disguise as Allay — Pamplinas is always the daemoncito
-      setTimeout(() => {
-        bot.chat('/disguise allay');
-        log('Auto-disguised as Allay');
-      }, 3000);
 
       // Configure pathfinder
       const moves = new Movements(bot);
-      moves.allowSprinting = true;
+      moves.allowSprinting = false;
       moves.canDig = true;
       moves.allowParkour = true;
       bot.pathfinder.setMovements(moves);
+
+      // Auto-disguise as Allay — Pamplinas is always the daemoncito
+      // setTimeout(() => {
+      //   bot.chat('/disguise allay');
+      //   log('Auto-disguised as Allay');
+      // }, 3000);
 
       // Configure auto-eat
       bot.autoEat.options = {
@@ -2042,6 +2035,46 @@ async collect({ block, count = 1 }) {
     return { result: `Placed ${placed}/${openPositions.length} ${blockName} blocks (${hollow ? 'hollow' : 'solid'})${suffix}` };
   },
 
+  async place_sign({ block: blockName = 'oak_sign', x, y, z, lines = '' }) {
+    const b = ensureBot();
+    const item = b.inventory.items().find(i => i.name === blockName);
+    if (!item) {
+      const hint = inventoryHint(b.inventory.items());
+      throw new Error(`No ${blockName} in inventory. ${hint} Collect, craft, or pick up ${blockName} first.`);
+    }
+
+    const targetPos = new Vec3(x, y, z);
+    const existing = b.blockAt(targetPos);
+    if (existing && existing.name !== 'air' && existing.name !== 'cave_air') {
+      throw new Error(`Can't place sign at ${x}, ${y}, ${z}: target space is occupied by ${existing.name}. Dig that block first or choose an empty adjacent space.`);
+    }
+
+    await b.equip(item, 'hand');
+
+    // Approach if far
+    if (b.entity.position.distanceTo(targetPos) > 4.5) {
+      await b.pathfinder.goto(new goals.GoalNear(x, y, z, 3));
+    }
+
+    // Find reference block to place against
+    const offsets = [[0, -1, 0], [0, 1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]];
+    for (const [dx, dy, dz] of offsets) {
+      const ref = b.blockAt(targetPos.offset(dx, dy, dz));
+      if (ref && ref.name !== 'air' && ref.name !== 'cave_air') {
+        await b.placeBlock(ref, new Vec3(-dx, -dy, -dz));
+        // Wait a tick for the sign to be placed server-side
+        await new Promise(r => setTimeout(r, 150));
+        const signBlock = b.blockAt(targetPos);
+        if (signBlock && signBlock.name.includes('sign')) {
+          const text = Array.isArray(lines) ? lines.join('\n') : String(lines);
+          b.updateSign(signBlock, text);
+        }
+        return { result: `Placed ${blockName} at ${x}, ${y}, ${z}` };
+      }
+    }
+    throw new Error(`Can't place sign at ${x}, ${y}, ${z}: no solid adjacent block to place against. Choose an empty space next to/above an existing block, or place a support block first.`);
+  },
+
   async interact({ x, y, z }) {
     const b = ensureBot();
     const block = b.blockAt(new Vec3(x, y, z));
@@ -3073,6 +3106,31 @@ const httpServer = http.createServer(async (req, res) => {
         return respond(res, 200, { ok: true, data: getFullState() });
       }
 
+      if (path === '/bot/effects') {
+        const b = ensureBot();
+        const effects = {};
+        const effs = b.entity && b.entity.effects;
+        if (effs) {
+          const entries = effs instanceof Map ? [...effs.entries()] : Object.entries(effs);
+          for (const [id, eff] of entries) {
+            const effectInfo = mcData && mcData.effects && mcData.effects[id];
+            const name = effectInfo ? effectInfo.name : String(id);
+            effects[name] = {
+              id: eff.id,
+              name: name,
+              amplifier: eff.amplifier,
+              duration: eff.duration,
+            };
+          }
+        }
+        return respond(res, 200, { ok: true, data: effects });
+      }
+
+      if (path === '/bot/gamemode') {
+        const b = ensureBot();
+        return respond(res, 200, { ok: true, data: { gamemode: b.game?.gameMode || 'unknown' } });
+      }
+
       if (path === '/inventory') {
         return respond(res, 200, { ok: true, data: getInventory() });
       }
@@ -3143,8 +3201,8 @@ const httpServer = http.createServer(async (req, res) => {
 
       if (path === '/scoreboard') {
         // Read a player's score from a scoreboard objective via Mineflayer's native API
-        const objective = query.objective;
-        const player = query.player;
+        const objective = url.searchParams.get('objective');
+        const player = url.searchParams.get('player');
         if (!objective) {
           return respond(res, 400, { ok: false, error: 'Missing objective query param' });
         }
@@ -3152,18 +3210,43 @@ const httpServer = http.createServer(async (req, res) => {
           return respond(res, 400, { ok: false, error: 'Missing player query param' });
         }
         const sb = bot.scoreboard?.get?.(objective);
-        if (!sb) {
-          return respond(res, 200, { ok: true, data: { objective, player, score: 0, note: 'objective_not_found' } });
-        }
-        // itemsMap may be a Map or a plain object depending on prismarine-scoreboard version
-        let item;
-        if (sb.itemsMap instanceof Map) {
-          item = sb.itemsMap.get(player);
+        let score = 0;
+        let note = '';
+        if (sb) {
+          // itemsMap may be a Map or a plain object depending on prismarine-scoreboard version
+          let item;
+          if (sb.itemsMap instanceof Map) {
+            item = sb.itemsMap.get(player);
+          } else {
+            item = sb.itemsMap[player];
+          }
+          score = item?.value ?? 0;
         } else {
-          item = sb.itemsMap[player];
+          // Fallback: query via server command and parse chat response
+          note = 'using_command_fallback';
+          try {
+            const b = ensureBot();
+            const cmd = `/scoreboard players get ${player} ${objective}`;
+            // Send command and wait for the chat response
+            const chatBefore = chatLog.length;
+            b.chat(cmd);
+            // Wait up to 500ms for the response to appear in chatLog
+            await new Promise(r => setTimeout(r, 500));
+            const responses = chatLog.slice(chatBefore).filter(m => m.message && m.message.includes(objective));
+            for (const resp of responses) {
+              // Parse: "[objective] for PLAYER: SCORE"
+              const match = resp.message.match(/for\s+\S+:\s*(\d+)/);
+              if (match) {
+                score = parseInt(match[1], 10);
+                note = 'command_ok';
+                break;
+              }
+            }
+          } catch {
+            note = 'command_failed';
+          }
         }
-        const score = item?.value ?? 0;
-        return respond(res, 200, { ok: true, data: { objective, player, score } });
+        return respond(res, 200, { ok: true, data: { objective, player, score, note } });
       }
 
       if (path === '/sounds') {
@@ -3308,6 +3391,55 @@ const httpServer = http.createServer(async (req, res) => {
         };
         broadcastDashboard('heartbeat', agentHeartbeat);
         return respond(res, 200, { ok: true });
+      }
+
+      // QuestEngine notification — POST /quest/notify
+      // Broadcasts a quest_event to all WebSocket clients (agent loop + dashboard).
+      if (path === '/quest/notify') {
+        const { message, event_type, from_phase, to_phase } = body || {};
+        broadcastDashboard('quest_event', { message, event_type, from_phase, to_phase });
+        return respond(res, 200, { ok: true });
+      }
+
+      // Execute a command as the bot and return the server response
+      if (path === '/command') {
+        const command = body?.command;
+        if (!command || typeof command !== 'string') {
+          return respond(res, 400, { ok: false, error: 'Missing or invalid "command" field' });
+        }
+        const b = ensureBot();
+
+        const responses = [];
+        const onMessage = (msg) => {
+          const text = msg.toString ? msg.toString() : String(msg);
+          if (text) responses.push(text);
+        };
+        const onSystemChat = (packet) => {
+          try {
+            let text = '';
+            if (typeof packet.content === 'string') {
+              const parsed = JSON.parse(packet.content);
+              text = parsed.text || (parsed.extra && parsed.extra.map(e => e.text || '').join('')) || '';
+            } else if (packet.content) {
+              text = packet.content.text || (packet.content.extra && packet.content.extra.map(e => e.text || '').join('')) || '';
+            }
+            if (text) responses.push(text);
+          } catch (e) {
+            if (packet.content) responses.push(String(packet.content));
+          }
+        };
+        b.on('message', onMessage);
+        b._client.on('system_chat', onSystemChat);
+        b.chat(command);
+
+        await new Promise(r => setTimeout(r, 1500));
+        b.removeListener('message', onMessage);
+        b._client.removeListener('system_chat', onSystemChat);
+
+        return respond(res, 200, {
+          ok: true,
+          output: responses.join('\n'),
+        });
       }
 
       // Send chat message from agent to Minecraft — POST /chat/send

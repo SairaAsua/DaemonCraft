@@ -27,6 +27,7 @@ agents:
     extra_toolsets:
       - vision
     gamemode: creative
+    immortal: true          # Daemon Guardian enforces creative + resistance/fire_resist/water_breathing every 5s
     max_chat_chars: 480
     chat_format: say_lines
 

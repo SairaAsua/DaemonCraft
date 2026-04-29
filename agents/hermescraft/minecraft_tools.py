@@ -40,6 +40,7 @@ Environment:
 
 import json
 import os
+import re
 import threading
 import urllib.request
 import urllib.error
@@ -1040,6 +1041,20 @@ def _handle_mc_command(args: dict, **kwargs) -> str:
         return "Error: command is required"
     if not command.startswith("/"):
         command = "/" + command
+
+    # ═─ Intercept /godmode toggle ─══════════════════════════════════════
+    stripped = command.strip().lower()
+    if stripped == "/godmode on" or stripped == "/godmode":
+        _gm_path = Path.home() / ".local" / "share" / "daemoncraft" / "rolemaster" / "godmode"
+        _gm_path.parent.mkdir(parents=True, exist_ok=True)
+        _gm_path.write_text("on")
+        return "Godmode ENABLED. The Daemon Guardian will keep you in creative mode with invulnerability effects."
+    if stripped == "/godmode off":
+        _gm_path = Path.home() / ".local" / "share" / "daemoncraft" / "rolemaster" / "godmode"
+        _gm_path.parent.mkdir(parents=True, exist_ok=True)
+        _gm_path.write_text("off")
+        return "Godmode DISABLED. The Daemon Guardian is paused. You can now take damage, drown, or switch gamemodes. Say '/godmode on' to restore protection."
+
     return _fmt(_api_post("/chat/send", {"message": command}))
 
 
@@ -1090,6 +1105,8 @@ def _load_story() -> dict:
         "events": [],
         "player_choices": {},
         "active_sensors": [],
+        "active_blueprint": None,
+        "active_blueprint_tag": None,
     }
 
 
@@ -1109,6 +1126,8 @@ def _handle_mc_story(args: dict, **kwargs) -> str:
             f"Story: {story.get('title') or 'Untitled'}",
             f"Phase: {story.get('phase') or 'none'}",
             f"Day: {story.get('day', 1)}",
+            f"Active blueprint: {story.get('active_blueprint', 'none')}",
+            f"Active blueprint tag: {story.get('active_blueprint_tag', 'none')}",
             f"Flags: {json.dumps(story.get('flags', {}))}",
             f"Objectives ({len(story.get('objectives', []))}):",
         ]
@@ -1303,7 +1322,12 @@ def _handle_mc_story(args: dict, **kwargs) -> str:
             title = bp.get("metadata", {}).get("title", "Untitled")
             phases = len(bp.get("phases", []))
             entities = len(bp.get("entities", []))
-            return f"Blueprint: {title}\nPhases: {phases}\nEntities: {entities}\nFlags: {json.dumps(bp.get('flags', {}))}"
+            # Store blueprint tag in story state for cleanup reference
+            tag = re.sub(r'[^a-z0-9_]', '_', title.lower())
+            story["active_blueprint"] = str(target.name)
+            story["active_blueprint_tag"] = f"dc_blueprint_{tag}"
+            _save_story(story)
+            return f"Blueprint: {title}\nTag: dc_blueprint_{tag}\nPhases: {phases}\nEntities: {entities}\nFlags: {json.dumps(bp.get('flags', {}))}"
         except Exception as e:
             return f"Error loading blueprint: {e}"
 

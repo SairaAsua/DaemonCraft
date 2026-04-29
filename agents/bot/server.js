@@ -195,7 +195,7 @@ let agentHeartbeat = { nextTurnIn: null, turnInProgress: false }; // countdown f
 // Fair Play Mode — perception constraints for realistic gameplay
 // ════════════════════════════════════════════════════════════════════════════════════════════
 
-let fairPlayMode = process.env.FAIR_PLAY !== 'false'; // on by default
+let fairPlayMode = false; // off by default for DaemonCraft profiles
 const FAIR_PLAY = {
   LOS_ENTITY_RANGE: 48,       // max entity detection range with LOS
   SNEAK_DETECT_RANGE: 8,      // sneaking players only detected this close

@@ -317,19 +317,28 @@ def _ws_on_message(ws, message):
             ]
             if new_msgs:
                 # Classify messages: urgent (@mention from human) vs normal (everything else)
+                # Also filter: bot messages without @mention are silently dropped entirely.
                 urgent_msgs = []
+                accepted_msgs = []
                 for m in new_msgs:
                     from_user = m.get("from", "").lower()
                     msg_text = m.get("message", "")
                     is_bot = from_user in KNOWN_BOTS
                     mentions_bot = f"@{BOT_USERNAME.lower()}" in msg_text.lower()
+                    
+                    # Bots only get a response if they @mention us. Humans always get a response.
+                    if is_bot and not mentions_bot:
+                        continue  # Silently drop bot spam that doesn't mention us
+                    
+                    accepted_msgs.append(m)
+                    
                     # Only humans can interrupt with @mention. Bots never interrupt,
                     # even if they @mention each other.
                     if mentions_bot and not is_bot:
                         urgent_msgs.append(m)
 
                 with message_lock:
-                    pending_messages.extend(new_msgs)
+                    pending_messages.extend(accepted_msgs)
                     last_chat_time = max(m.get("time", 0) for m in new_msgs)
                 chat_event.set()
 
@@ -342,9 +351,12 @@ def _ws_on_message(ws, message):
                         print(f"[ws] Urgent @mention from {senders} — interrupting to respond now", flush=True)
                     except Exception:
                         pass
-                elif new_msgs:
-                    senders = ", ".join({m.get("from", "Player") for m in new_msgs})
+                elif accepted_msgs:
+                    senders = ", ".join({m.get("from", "Player") for m in accepted_msgs})
                     print(f"[ws] Chat from {senders} queued — will respond after current action", flush=True)
+                elif new_msgs:
+                    # All messages were bot spam without @mention
+                    print(f"[ws] Ignored {len(new_msgs)} bot message(s) without @mention", flush=True)
         elif msg_type == "blueprint_updated":
             bp_name = data.get("data", {}).get("name", "unknown")
             with message_lock:

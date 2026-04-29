@@ -46,6 +46,27 @@ DEFAULT_MC_PORT = 25565
 BASE_PROFILE_NAME = "daemoncraft-base"
 BASE_SOUL_FILE = AGENTS_DIR / "SOUL-base.md"
 
+
+def _get_all_known_bots() -> str:
+    """Collect all agent names from every cast config for cross-bot awareness."""
+    bots = set()
+    for cast_file in CASTS_DIR.glob("*.yaml"):
+        try:
+            import yaml
+            cfg = yaml.safe_load(cast_file.read_text()) or {}
+            for agent in cfg.get("agents", []):
+                name = agent.get("name", "")
+                if name:
+                    bots.add(name.lower())
+        except Exception:
+            pass
+    # Allow manual override via env var
+    override = os.getenv("MC_KNOWN_BOTS", "")
+    if override:
+        for name in override.split(","):
+            bots.add(name.strip().lower())
+    return ",".join(sorted(bots))
+
 # ── Logging ──────────────────────────────────────────────────────────────────
 
 def log(msg: str, cast: str = ""):
@@ -334,6 +355,7 @@ def start_bot(
         "MC_USERNAME": agent_name,
         "MC_AUTH": "offline",
         "API_PORT": str(port),
+        "MC_KNOWN_BOTS": _get_all_known_bots(),
     }
     if workspace_dir:
         env["WORKSPACE_DIR"] = workspace_dir
@@ -398,6 +420,7 @@ def start_agent(
         "MC_API_URL": f"http://localhost:{port}",
         "MC_USERNAME": agent_name,
         "STANDBY_FILE": standby_file,
+        "MC_KNOWN_BOTS": _get_all_known_bots(),
         # Enable send_message tool by telling Hermes we're on a messaging platform.
         "HERMES_SESSION_PLATFORM": "telegram",
     }

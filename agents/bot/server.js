@@ -441,10 +441,10 @@ async function createBotImpl() {
       bot.pathfinder.setMovements(moves);
 
       // Auto-disguise as Allay — Pamplinas is always the daemoncito
-      // setTimeout(() => {
-      //   bot.chat('/disguise allay');
-      //   log('Auto-disguised as Allay');
-      // }, 3000);
+      setTimeout(() => {
+        bot.chat('/disguise allay');
+        log('Auto-disguised as Allay');
+      }, 3000);
 
       // Configure auto-eat
       bot.autoEat.options = {

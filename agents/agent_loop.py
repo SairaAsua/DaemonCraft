@@ -28,6 +28,13 @@ from run_agent import AIAgent
 
 MC_API_URL = os.getenv("MC_API_URL", "http://localhost:3001")
 BOT_USERNAME = os.getenv("MC_USERNAME", "Steve").lower()
+# Comma-separated list of bot usernames (e.g., "eko,pamplinas,steve")
+# Used to identify bot-to-bot messages and prevent cross-bot interruptions.
+KNOWN_BOTS = set(
+    u.strip().lower()
+    for u in os.getenv("MC_KNOWN_BOTS", BOT_USERNAME).split(",")
+    if u.strip()
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -309,17 +316,35 @@ def _ws_on_message(ws, message):
                 and m.get("from", "").lower() != BOT_USERNAME
             ]
             if new_msgs:
+                # Classify messages: urgent (@mention from human) vs normal (everything else)
+                urgent_msgs = []
+                for m in new_msgs:
+                    from_user = m.get("from", "").lower()
+                    msg_text = m.get("message", "")
+                    is_bot = from_user in KNOWN_BOTS
+                    mentions_bot = f"@{BOT_USERNAME.lower()}" in msg_text.lower()
+                    # Only humans can interrupt with @mention. Bots never interrupt,
+                    # even if they @mention each other.
+                    if mentions_bot and not is_bot:
+                        urgent_msgs.append(m)
+
                 with message_lock:
                     pending_messages.extend(new_msgs)
                     last_chat_time = max(m.get("time", 0) for m in new_msgs)
                 chat_event.set()
-                if turn_in_progress.is_set() and current_agent is not None:
+
+                # Interrupt ONLY for urgent human @mentions
+                if urgent_msgs and turn_in_progress.is_set() and current_agent is not None:
                     try:
                         cancel_event.set()
                         current_agent._interrupt_requested = True
-                        print("[ws] Chat arrived during turn — interrupting to respond now", flush=True)
+                        senders = ", ".join({m.get("from", "Player") for m in urgent_msgs})
+                        print(f"[ws] Urgent @mention from {senders} — interrupting to respond now", flush=True)
                     except Exception:
                         pass
+                elif new_msgs:
+                    senders = ", ".join({m.get("from", "Player") for m in new_msgs})
+                    print(f"[ws] Chat from {senders} queued — will respond after current action", flush=True)
         elif msg_type == "blueprint_updated":
             bp_name = data.get("data", {}).get("name", "unknown")
             with message_lock:
@@ -338,6 +363,7 @@ def _ws_on_message(ws, message):
                     "time": int(time.time() * 1000),
                 })
             chat_event.set()
+            # Quest events can still interrupt (they are system-generated, not chat)
             if turn_in_progress.is_set() and current_agent is not None:
                 try:
                     cancel_event.set()

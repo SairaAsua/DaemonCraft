@@ -84,7 +84,7 @@ import {
   recipeDiagnostics,
   recipeIngredientCounts,
 } from './lib/action_feedback.js';
-import { Camera } from 'mine-photo';
+// import { Camera } from 'mine-photo'; // DISABLED: mine-photo bug on Node 24
 import { mineflayer as mineflayerViewer } from 'prismarine-viewer';
 import puppeteer from 'puppeteer';
 
@@ -583,22 +583,8 @@ async function createBotImpl() {
 
       // Initialize ray-tracing camera for screenshots
       try {
-        photoCamera = new Camera(bot);
-        photoCamera.resize(854, 480);
-        photoCamera.samplesPerPixel = 8;        // default 8 (was 16)
-        photoCamera.renderDistance = 48;
-        photoCamera.maxBounces = 2;
-        photoCamera.fov = 90;
+        log(`[Photo] Camera DISABLED due to mine-photo bug on Node 24`);
         photoScanReady = false;
-        log('[Photo] Starting initial world scan...');
-        photoScanPromise = photoCamera.scan(48, 24, 48).then(() => {
-          photoScanReady = true;
-          log(`[Photo] Camera scan complete — screenshots ready`);
-        }).catch(err => {
-          log(`[Photo] Camera scan failed: ${err.message}`);
-          photoScanReady = false;
-        });
-        log(`[Photo] Camera initialized, background scan started...`);
       } catch (err) {
         log(`[Photo] Camera init failed: ${err.message}`);
       }

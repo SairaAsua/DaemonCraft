@@ -8,13 +8,13 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: 'Segoe UI', system-ui, sans-serif;
-    background: #1a0a2e;
-    color: #f0e6ff;
+    background: #0d1117;
+    color: #c9d1d9;
     line-height: 1.5;
   }
   header {
-    background: #2d1b4e;
-    border-bottom: 1px solid #5a4a7a;
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
     padding: 12px 20px;
     display: flex;
     align-items: center;
@@ -23,12 +23,12 @@
     top: 0;
     z-index: 10;
   }
-  header h1 { font-size: 1.2rem; color: #d4a5ff; }
+  header h1 { font-size: 1.2rem; color: #58a6ff; }
   #conn-status {
     font-size: 0.75rem;
     padding: 4px 10px;
     border-radius: 12px;
-    background: #7b68ee;
+    background: #238636;
     color: white;
     transition: background 0.3s;
   }
@@ -43,8 +43,8 @@
     .grid { grid-template-columns: 1fr; }
   }
   .panel {
-    background: #2d1b4e;
-    border: 1px solid #5a4a7a;
+    background: #161b22;
+    border: 1px solid #30363d;
     border-radius: 8px;
     overflow: hidden;
     display: flex;
@@ -52,14 +52,14 @@
     max-height: 420px;
   }
   .panel-header {
-    background: #3d2b5e;
+    background: #21262d;
     padding: 10px 14px;
     font-size: 0.8rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #b8a9d9;
-    border-bottom: 1px solid #5a4a7a;
+    color: #8b949e;
+    border-bottom: 1px solid #30363d;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -74,101 +74,101 @@
     display: flex;
     justify-content: space-between;
     padding: 4px 0;
-    border-bottom: 1px solid #3d2b5e;
+    border-bottom: 1px solid #21262d;
   }
   .stat-row:last-child { border-bottom: none; }
-  .stat-label { color: #b8a9d9; }
-  .stat-value { color: #f0e6ff; font-weight: 500; }
-  .health { color: #a5ffa5; }
-  .health.low { color: #ff7eb3; }
+  .stat-label { color: #8b949e; }
+  .stat-value { color: #c9d1d9; font-weight: 500; }
+  .health { color: #3fb950; }
+  .health.low { color: #f85149; }
   .task-list { list-style: none; }
   .task-list li {
     padding: 5px 0;
-    border-bottom: 1px solid #3d2b5e;
+    border-bottom: 1px solid #21262d;
     display: flex;
     align-items: flex-start;
     gap: 8px;
   }
   .task-list li:last-child { border-bottom: none; }
   .task-sym { font-size: 0.9rem; width: 1.2em; text-align: center; }
-  .task-sym.done { color: #a5ffa5; }
-  .task-sym.active { color: #d4a5ff; }
-  .task-sym.blocked { color: #ff7eb3; }
+  .task-sym.done { color: #3fb950; }
+  .task-sym.active { color: #58a6ff; }
+  .task-sym.blocked { color: #f85149; }
   .chat-msg {
     padding: 5px 0;
-    border-bottom: 1px solid #3d2b5e;
+    border-bottom: 1px solid #21262d;
   }
   .chat-msg:last-child { border-bottom: none; }
-  .chat-from { color: #d4a5ff; font-weight: 600; }
-  .chat-time { color: #7a6a9a; font-size: 0.7rem; margin-left: 6px; }
-  .chat-body { color: #f0e6ff; margin-top: 2px; word-break: break-word; }
+  .chat-from { color: #58a6ff; font-weight: 600; }
+  .chat-time { color: #484f58; font-size: 0.7rem; margin-left: 6px; }
+  .chat-body { color: #c9d1d9; margin-top: 2px; word-break: break-word; }
   .action-row {
     padding: 4px 0;
-    border-bottom: 1px solid #3d2b5e;
+    border-bottom: 1px solid #21262d;
     font-family: ui-monospace, SFMono-Regular, monospace;
     font-size: 0.78rem;
   }
   .action-row:last-child { border-bottom: none; }
-  .action-time { color: #7a6a9a; }
-  .action-name { color: #e0b0ff; }
-  .action-ok { color: #a5ffa5; }
-  .action-err { color: #ff7eb3; }
-  .goal-text { color: #ffd700; font-weight: 600; margin-bottom: 8px; }
+  .action-time { color: #484f58; }
+  .action-name { color: #d2a8ff; }
+  .action-ok { color: #3fb950; }
+  .action-err { color: #f85149; }
+  .goal-text { color: #e3b341; font-weight: 600; margin-bottom: 8px; }
   .progress-bar {
     height: 6px;
-    background: #3d2b5e;
+    background: #21262d;
     border-radius: 3px;
     overflow: hidden;
     margin-bottom: 10px;
   }
   .progress-fill {
     height: 100%;
-    background: #7b68ee;
+    background: #238636;
     transition: width 0.3s;
   }
-  .empty { color: #7a6a9a; font-style: italic; }
+  .empty { color: #484f58; font-style: italic; }
   .inventory-grid {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
   }
   .inv-item {
-    background: #3d2b5e;
-    border: 1px solid #5a4a7a;
+    background: #21262d;
+    border: 1px solid #30363d;
     border-radius: 4px;
     padding: 4px 8px;
     font-size: 0.75rem;
   }
-  .inv-item .count { color: #d4a5ff; font-weight: 600; margin-left: 4px; }
+  .inv-item .count { color: #58a6ff; font-weight: 600; margin-left: 4px; }
   ::-webkit-scrollbar { width: 8px; }
-  ::-webkit-scrollbar-track { background: #2d1b4e; }
-  ::-webkit-scrollbar-thumb { background: #5a4a7a; border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: #161b22; }
+  ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
 
   .panel.collapsed .panel-body { display: none; }
   .panel.collapsed { max-height: none; }
   .panel-header { cursor: pointer; user-select: none; }
   .panel-toggle {
-    background: none; border: none; color: #b8a9d9; cursor: pointer;
+    background: none; border: none; color: #8b949e; cursor: pointer;
     font-size: 0.75rem; padding: 2px 6px; margin-left: 8px;
   }
-  .panel-toggle:hover { color: #f0e6ff; }
+  .panel-toggle:hover { color: #c9d1d9; }
   #global-controls { display: flex; gap: 8px; }
   #global-controls button {
-    background: #3d2b5e; border: 1px solid #5a4a7a; color: #f0e6ff;
+    background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
     padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;
   }
-  #global-controls button:hover { background: #5a4a7a; }
+  #global-controls button:hover { background: #30363d; }
   .adventure-list { list-style: none; }
   .adventure-item {
-    padding: 8px; border-bottom: 1px solid #3d2b5e; cursor: pointer;
+    padding: 8px; border-bottom: 1px solid #21262d; cursor: pointer;
     border-left: 3px solid transparent;
   }
-  .adventure-item:hover { background: #3d2b5e; }
-  .adventure-item.active { background: #1f6feb33; border-left-color: #d4a5ff; }
-  .adventure-meta { color: #b8a9d9; font-size: 0.75rem; }
-  .adventure-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid #5a4a7a; }
+  .adventure-item:hover { background: #21262d; }
+  .adventure-item.active { background: #1f6feb33; border-left-color: #58a6ff; }
+  .adventure-meta { color: #8b949e; font-size: 0.75rem; }
+  .adventure-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid #30363d; }
   .phase-list { list-style: none; margin-top: 8px; }
-  .phase-item { padding: 6px 0; border-bottom: 1px solid #3d2b5e; }
+  .phase-item { padding: 6px 0; border-bottom: 1px solid #21262d; }
 
   .bp-meta-grid {
     display: grid;
@@ -177,34 +177,34 @@
     margin-bottom: 12px;
   }
   .bp-meta-box {
-    background: #1a0a2e;
-    border: 1px solid #5a4a7a;
+    background: #0d1117;
+    border: 1px solid #30363d;
     border-radius: 6px;
     padding: 10px;
   }
   .bp-meta-box label {
     display: block;
     font-size: 0.7rem;
-    color: #b8a9d9;
+    color: #8b949e;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: 4px;
   }
   .bp-meta-box value {
     display: block;
-    color: #f0e6ff;
+    color: #c9d1d9;
     font-size: 0.85rem;
     font-weight: 500;
   }
   .bp-section-title {
     font-weight: 600;
-    color: #b8a9d9;
+    color: #8b949e;
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin: 16px 0 8px;
     padding-bottom: 4px;
-    border-bottom: 1px solid #5a4a7a;
+    border-bottom: 1px solid #30363d;
   }
   .bp-phase-header {
     display: flex;
@@ -212,35 +212,35 @@
     align-items: center;
     cursor: pointer;
     padding: 8px;
-    background: #2d1b4e;
-    border: 1px solid #5a4a7a;
+    background: #161b22;
+    border: 1px solid #30363d;
     border-radius: 6px;
     margin-bottom: 4px;
   }
-  .bp-phase-header:hover { background: #3d2b5e; }
+  .bp-phase-header:hover { background: #21262d; }
   .bp-phase-body {
     padding: 10px 12px;
-    background: #1a0a2e;
-    border: 1px solid #5a4a7a;
+    background: #0d1117;
+    border: 1px solid #30363d;
     border-top: none;
     border-radius: 0 0 6px 6px;
     margin-bottom: 10px;
   }
   .bp-phase-body.collapsed { display: none; }
   .bp-command {
-    background: #1a0a2e;
-    border: 1px solid #3d2b5e;
+    background: #0d1117;
+    border: 1px solid #21262d;
     border-radius: 4px;
     padding: 6px 8px;
     font-family: ui-monospace, monospace;
     font-size: 0.75rem;
-    color: #e0b0ff;
+    color: #d2a8ff;
     margin: 4px 0;
     word-break: break-all;
   }
   .bp-event-chat {
-    background: #2d1b4e;
-    border-left: 3px solid #d4a5ff;
+    background: #161b22;
+    border-left: 3px solid #58a6ff;
     padding: 6px 10px;
     margin: 4px 0;
     border-radius: 0 4px 4px 0;
@@ -248,12 +248,12 @@
   }
   .bp-tag {
     display: inline-block;
-    background: #3d2b5e;
-    border: 1px solid #5a4a7a;
+    background: #21262d;
+    border: 1px solid #30363d;
     border-radius: 12px;
     padding: 2px 8px;
     font-size: 0.72rem;
-    color: #b8a9d9;
+    color: #8b949e;
     margin-right: 4px;
   }
   .bp-two-col {
@@ -265,29 +265,29 @@
     .bp-two-col { grid-template-columns: 1fr; }
   }
   [contenteditable="true"] {
-    border: 1px dashed #5a4a7a;
+    border: 1px dashed #30363d;
     border-radius: 4px;
     padding: 2px 6px;
     outline: none;
     transition: border-color 0.2s, background 0.2s;
   }
   [contenteditable="true"]:hover {
-    border-color: #d4a5ff;
-    background: #1a0a2e;
+    border-color: #58a6ff;
+    background: #0d1117;
   }
   [contenteditable="true"]:focus {
-    border-color: #d4a5ff;
-    background: #1a0a2e;
+    border-color: #58a6ff;
+    background: #0d1117;
   }
   [contenteditable="true"].dirty {
-    border-color: #ffd700;
-    background: #ffd70011;
+    border-color: #e3b341;
+    background: #e3b34111;
   }
   .bp-save-bar {
     position: sticky;
     bottom: 0;
-    background: #2d1b4e;
-    border-top: 1px solid #5a4a7a;
+    background: #161b22;
+    border-top: 1px solid #30363d;
     padding: 10px 14px;
     display: flex;
     justify-content: space-between;
@@ -296,12 +296,12 @@
   }
   .bp-save-bar .status {
     font-size: 0.8rem;
-    color: #b8a9d9;
+    color: #8b949e;
   }
-  .bp-save-bar .status.dirty { color: #ffd700; }
-  .bp-save-bar .status.saved { color: #a5ffa5; }
+  .bp-save-bar .status.dirty { color: #e3b341; }
+  .bp-save-bar .status.saved { color: #3fb950; }
   .bp-save-bar button {
-    background: #7b68ee;
+    background: #238636;
     border: none;
     color: white;
     padding: 6px 16px;
@@ -311,58 +311,14 @@
     font-weight: 600;
   }
   .bp-save-bar button:disabled {
-    background: #3d2b5e;
-    color: #7a6a9a;
+    background: #21262d;
+    color: #484f58;
     cursor: not-allowed;
   }
   .bp-save-bar button:hover:not(:disabled) { background: #2ea043; }
-
-  /* ===== EKO VIOLET THEME ===== */
-  body { position: relative; overflow-x: hidden; }
-  #star-canvas {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    z-index: 0; pointer-events: none;
-  }
-  header, .grid { position: relative; z-index: 1; }
-  .panel { backdrop-filter: blur(4px); background: rgba(45,27,78,0.85); }
-  
-  /* Animación de brillo para estrellas */
-  @keyframes twinkle {
-    0%,100% { opacity: 0.3; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.3); }
-  }
-  
-  /* Scrollbar violeta */
-  ::-webkit-scrollbar-thumb { background: #7b68ee; border-radius: 4px; }
-  ::-webkit-scrollbar-track { background: #1a0a2e; }
-  
-  /* Chat privado estilos */
-  .private-chat-msg { padding: 6px 0; border-bottom: 1px solid #3d2b5e; }
-  .private-chat-msg:last-child { border-bottom: none; }
-  .private-chat-from-saira { color: #ffd700; font-weight: 600; }
-  .private-chat-from-eko { color: #d4a5ff; font-weight: 600; }
-  .private-chat-body { color: #f0e6ff; margin-top: 2px; word-break: break-word; font-size: 0.9rem; }
-  .private-chat-time { color: #7a6a9a; font-size: 0.7rem; margin-left: 6px; }
-  #private-chat-input {
-    width: 100%; background: #1a0a2e; border: 1px solid #5a4a7a; color: #f0e6ff;
-    padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; margin-top: 8px;
-  }
-  #private-chat-input:focus { outline: none; border-color: #d4a5ff; }
-  .chat-send-btn {
-    background: #7b68ee; border: none; color: white; padding: 8px 16px;
-    border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-top: 6px; font-weight: 600;
-  }
-  .chat-send-btn:hover { background: #9370db; }
-  .eko-avatar {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #7b68ee, #d4a5ff);
-    font-size: 0.85rem; margin-right: 6px;
-  }
-
 </style>
 </head>
 <body>
-<canvas id="star-canvas"></canvas>
 <header>
   <h1>🎮 DaemonCraft Dashboard — <span id="bot-name">Bot</span></h1>
   <div style="display:flex;gap:12px;align-items:center">
@@ -422,23 +378,6 @@
     <div class="panel-header" data-panel="adventures">Adventures<button class="panel-toggle">▼</button></div>
     <div class="panel-body" id="adventures-panel">
       <div class="empty">Loading blueprints...</div>
-    </div>
-  </div>
-
-
-  <div class="panel" style="grid-column: 1 / -1; max-height: 500px;">
-    <div class="panel-header" data-panel="private-chat">
-      <span>💜 Chat Privado con Eko</span>
-      <button class="panel-toggle">▼</button>
-    </div>
-    <div class="panel-body" id="private-chat-panel">
-      <div id="private-chat-messages" style="min-height: 200px; max-height: 350px; overflow-y: auto;">
-        <div class="empty">✨ Eko te está esperando... Escribile algo lindo ~</div>
-      </div>
-      <div style="display: flex; gap: 8px; margin-top: 8px;">
-        <input type="text" id="private-chat-input" placeholder="Escribile a Eko..." onkeydown="if(event.key==='Enter') sendPrivateChat()">
-        <button class="chat-send-btn" onclick="sendPrivateChat()">Enviar 💌</button>
-      </div>
     </div>
   </div>
 
@@ -602,7 +541,7 @@ function renderBlueprints(blueprints) {
 }
 function renderBlueprintsError(msg) {
   const panel = document.getElementById('adventures-panel');
-  panel.innerHTML = `<div class="empty" style="color:#ff7eb3">Error: ${escapeHtml(msg)}</div>`;
+  panel.innerHTML = `<div class="empty" style="color:#f85149">Error: ${escapeHtml(msg)}</div>`;
 }
 async function selectBlueprint(name) {
   currentBlueprintName = name;
@@ -616,9 +555,9 @@ async function selectBlueprint(name) {
     const res = await fetch(`/blueprints/${name}`);
     const json = await res.json();
     if (json.ok) detail.innerHTML = renderBlueprintHtml(json.data);
-    else detail.innerHTML = `<div class="empty" style="color:#ff7eb3">${escapeHtml(json.error)}</div>`;
+    else detail.innerHTML = `<div class="empty" style="color:#f85149">${escapeHtml(json.error)}</div>`;
   } catch (err) {
-    detail.innerHTML = `<div class="empty" style="color:#ff7eb3">${escapeHtml(err.message)}</div>`;
+    detail.innerHTML = `<div class="empty" style="color:#f85149">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -693,7 +632,7 @@ function renderPlan(plan) {
     const t = tasks[i];
     const symClass = t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'active' : t.status === 'blocked' ? 'blocked' : '';
     const sym = t.status === 'done' ? '✓' : t.status === 'in_progress' ? '→' : t.status === 'blocked' ? '✗' : '○';
-    const att = t.attempts ? ` <span style="color:#b8a9d9">(${t.attempts}x)</span>` : '';
+    const att = t.attempts ? ` <span style="color:#8b949e">(${t.attempts}x)</span>` : '';
     html += `<li><span class="task-sym ${symClass}">${sym}</span> <span>${t.description}${att}</span></li>`;
   }
   html += `</ul>`;
@@ -740,12 +679,12 @@ function renderTask(task) {
     return;
   }
   const elapsed = task.elapsed_s != null ? task.elapsed_s : Math.round((Date.now() - task.started) / 1000);
-  const statusColor = task.status === 'running' ? '#d4a5ff' : task.status === 'done' ? '#a5ffa5' : '#ff7eb3';
+  const statusColor = task.status === 'running' ? '#58a6ff' : task.status === 'done' ? '#3fb950' : '#f85149';
   panel.innerHTML = `
     <div class="stat-row"><span class="stat-label">Action</span><span class="stat-value">${task.action}</span></div>
     <div class="stat-row"><span class="stat-label">Status</span><span class="stat-value" style="color:${statusColor}">${task.status}</span></div>
     <div class="stat-row"><span class="stat-label">Elapsed</span><span class="stat-value">${elapsed}s</span></div>
-    ${task.error ? `<div class="stat-row"><span class="stat-label">Error</span><span class="stat-value" style="color:#ff7eb3">${task.error}</span></div>` : ''}
+    ${task.error ? `<div class="stat-row"><span class="stat-label">Error</span><span class="stat-value" style="color:#f85149">${task.error}</span></div>` : ''}
   `;
 }
 
@@ -757,30 +696,30 @@ function renderAgent(turns) {
   }
   let html = '';
   for (const turn of turns.slice(-20)) {
-    const errorBadge = turn.error ? `<span style="color:#ff7eb3;font-weight:600">[ERROR]</span>` : '';
+    const errorBadge = turn.error ? `<span style="color:#f85149;font-weight:600">[ERROR]</span>` : '';
     const tcHtml = (turn.tool_calls || []).map(tc => {
       let args = tc.args;
       try { args = JSON.stringify(JSON.parse(tc.args)); } catch {}
-      return `<div class="action-row" style="margin-left:12px;border-left:2px solid #d4a5ff;padding-left:8px;margin-top:4px">
+      return `<div class="action-row" style="margin-left:12px;border-left:2px solid #58a6ff;padding-left:8px;margin-top:4px">
         → <span class="action-name">${tc.name}</span> ${args}
       </div>`;
     }).join('');
-    html += `<div style="border-bottom:1px solid #3d2b5e;padding:10px 0">
+    html += `<div style="border-bottom:1px solid #21262d;padding:10px 0">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <strong style="color:#ffd700">Turn ${turn.turn}</strong>
-        <span style="color:#7a6a9a;font-size:0.75rem">${fmtTime(turn.time)}</span>
+        <strong style="color:#e3b341">Turn ${turn.turn}</strong>
+        <span style="color:#484f58;font-size:0.75rem">${fmtTime(turn.time)}</span>
         ${errorBadge}
       </div>
       <details>
-        <summary style="color:#b8a9d9;cursor:pointer;font-size:0.8rem">Prompt / Context</summary>
-        <pre style="background:#1a0a2e;border:1px solid #5a4a7a;border-radius:4px;padding:8px;margin-top:6px;font-size:0.78rem;white-space:pre-wrap;word-break:break-word;color:#f0e6ff;max-height:200px;overflow:auto">${escapeHtml(turn.prompt || '')}</pre>
+        <summary style="color:#8b949e;cursor:pointer;font-size:0.8rem">Prompt / Context</summary>
+        <pre style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:8px;margin-top:6px;font-size:0.78rem;white-space:pre-wrap;word-break:break-word;color:#c9d1d9;max-height:200px;overflow:auto">${escapeHtml(turn.prompt || '')}</pre>
       </details>
-      <div style="margin-top:8px;color:#f0e6ff;font-size:0.85rem">
-        <strong style="color:#a5ffa5">Response:</strong>
+      <div style="margin-top:8px;color:#c9d1d9;font-size:0.85rem">
+        <strong style="color:#3fb950">Response:</strong>
         <div style="margin-top:4px;white-space:pre-wrap;word-break:break-word">${escapeHtml(turn.response || '(no response)')}</div>
       </div>
-      ${tcHtml ? `<div style="margin-top:8px"><strong style="color:#d4a5ff;font-size:0.8rem">Tool Calls:</strong>${tcHtml}</div>` : ''}
-      ${turn.error ? `<div style="margin-top:8px;color:#ff7eb3;font-size:0.8rem">Error: ${escapeHtml(turn.error)}</div>` : ''}
+      ${tcHtml ? `<div style="margin-top:8px"><strong style="color:#58a6ff;font-size:0.8rem">Tool Calls:</strong>${tcHtml}</div>` : ''}
+      ${turn.error ? `<div style="margin-top:8px;color:#f85149;font-size:0.8rem">Error: ${escapeHtml(turn.error)}</div>` : ''}
     </div>`;
   }
   panel.innerHTML = html;
@@ -794,12 +733,12 @@ function renderHeartbeat(data) {
     return;
   }
   if (data.turnInProgress) {
-    header.innerHTML = 'Bot Mind — <span style="color:#d4a5ff">⚡ Turn active</span>';
+    header.innerHTML = 'Bot Mind — <span style="color:#58a6ff">⚡ Turn active</span>';
   } else if (data.nextTurnIn != null && data.nextTurnIn > 0) {
     const s = Math.ceil(data.nextTurnIn);
-    header.innerHTML = `Bot Mind — <span style="color:#b8a9d9">⏱️ Next turn in ${s}s</span>`;
+    header.innerHTML = `Bot Mind — <span style="color:#8b949e">⏱️ Next turn in ${s}s</span>`;
   } else {
-    header.innerHTML = 'Bot Mind — <span style="color:#a5ffa5">🔄 Turn starting...</span>';
+    header.innerHTML = 'Bot Mind — <span style="color:#3fb950">🔄 Turn starting...</span>';
   }
 }
 
@@ -906,7 +845,7 @@ function renderBlueprints(blueprints) {
 }
 function renderBlueprintsError(msg) {
   const panel = document.getElementById('adventures-panel');
-  panel.innerHTML = `<div class="empty" style="color:#ff7eb3">Error: ${escapeHtml(msg)}</div>`;
+  panel.innerHTML = `<div class="empty" style="color:#f85149">Error: ${escapeHtml(msg)}</div>`;
 }
 async function selectBlueprint(name) {
   currentBlueprintName = name;
@@ -920,9 +859,9 @@ async function selectBlueprint(name) {
     const res = await fetch(`/blueprints/${name}`);
     const json = await res.json();
     if (json.ok) detail.innerHTML = renderBlueprintHtml(json.data);
-    else detail.innerHTML = `<div class="empty" style="color:#ff7eb3">${escapeHtml(json.error)}</div>`;
+    else detail.innerHTML = `<div class="empty" style="color:#f85149">${escapeHtml(json.error)}</div>`;
   } catch (err) {
-    detail.innerHTML = `<div class="empty" style="color:#ff7eb3">${escapeHtml(err.message)}</div>`;
+    detail.innerHTML = `<div class="empty" style="color:#f85149">${escapeHtml(err.message)}</div>`;
   }
 }
 let currentBlueprint = null;
@@ -1082,7 +1021,7 @@ async function saveBlueprint() {
 
 function buildBiomeSelect(currentBiome) {
   if (!MC_REGISTRY || !MC_REGISTRY.biomes) {
-    return `<input type="text" data-bp="setting.biome" value="${escapeHtml(currentBiome || '')}" oninput="markDirty(this)" style="background:#1a0a2e;border:1px solid #5a4a7a;color:#f0e6ff;padding:4px 8px;border-radius:6px;width:100%">`;
+    return `<input type="text" data-bp="setting.biome" value="${escapeHtml(currentBiome || '')}" oninput="markDirty(this)" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;width:100%">`;
   }
   const byDim = {};
   for (const b of MC_REGISTRY.biomes) {
@@ -1090,7 +1029,7 @@ function buildBiomeSelect(currentBiome) {
     if (!byDim[dim]) byDim[dim] = [];
     byDim[dim].push(b);
   }
-  let html = `<select data-bp="setting.biome" onchange="markDirty(this)" style="background:#1a0a2e;border:1px solid #5a4a7a;color:#f0e6ff;padding:4px 8px;border-radius:6px;width:100%;cursor:pointer">`;
+  let html = `<select data-bp="setting.biome" onchange="markDirty(this)" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;width:100%;cursor:pointer">`;
   html += `<option value="">-- select biome --</option>`;
   for (const dim of ['overworld', 'nether', 'end', 'other']) {
     if (!byDim[dim]) continue;
@@ -1108,7 +1047,7 @@ function buildBiomeSelect(currentBiome) {
 
 function buildEntitySelect(currentType, dataBpAttr) {
   if (!MC_REGISTRY || !MC_REGISTRY.entities) {
-    return `<input type="text" ${dataBpAttr} value="${escapeHtml(currentType || '')}" oninput="markDirty(this)" style="background:#1a0a2e;border:1px solid #5a4a7a;color:#f0e6ff;padding:4px 8px;border-radius:6px;width:100%">`;
+    return `<input type="text" ${dataBpAttr} value="${escapeHtml(currentType || '')}" oninput="markDirty(this)" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;width:100%">`;
   }
   const byCat = {};
   for (const e of MC_REGISTRY.entities) {
@@ -1117,7 +1056,7 @@ function buildEntitySelect(currentType, dataBpAttr) {
     if (!byCat[cat]) byCat[cat] = [];
     byCat[cat].push(e);
   }
-  let html = `<select ${dataBpAttr} onchange="markDirty(this)" style="background:#1a0a2e;border:1px solid #5a4a7a;color:#f0e6ff;padding:4px 8px;border-radius:6px;width:100%;cursor:pointer">`;
+  let html = `<select ${dataBpAttr} onchange="markDirty(this)" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;width:100%;cursor:pointer">`;
   html += `<option value="">-- select entity --</option>`;
   for (const cat of Object.keys(byCat).sort()) {
     html += `<optgroup label="${escapeHtml(cat)}">`;
@@ -1132,7 +1071,7 @@ function buildEntitySelect(currentType, dataBpAttr) {
 }
 
 function buildItemSelect(currentType, dataBpAttr) {
-  const inputHtml = `<input type="text" ${dataBpAttr} value="${escapeHtml(currentType || '')}" oninput="markDirty(this)" list="bp-item-datalist" style="background:#1a0a2e;border:1px solid #5a4a7a;color:#f0e6ff;padding:4px 8px;border-radius:6px;width:100%">`;
+  const inputHtml = `<input type="text" ${dataBpAttr} value="${escapeHtml(currentType || '')}" oninput="markDirty(this)" list="bp-item-datalist" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;width:100%">`;
   if (!MC_REGISTRY || !MC_REGISTRY.items) return inputHtml;
   let dl = '<datalist id="bp-item-datalist">';
   for (const it of MC_REGISTRY.items) {
@@ -1144,9 +1083,9 @@ function buildItemSelect(currentType, dataBpAttr) {
 
 function buildCriterionSelect(currentCriterion, dataBpAttr) {
   if (!MC_REGISTRY || !MC_REGISTRY.scoreboard_criteria) {
-    return `<input type="text" ${dataBpAttr} value="${escapeHtml(currentCriterion || '')}" oninput="markDirty(this)" style="background:#1a0a2e;border:1px solid #5a4a7a;color:#f0e6ff;padding:4px 8px;border-radius:6px;width:100%">`;
+    return `<input type="text" ${dataBpAttr} value="${escapeHtml(currentCriterion || '')}" oninput="markDirty(this)" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;width:100%">`;
   }
-  let html = `<select ${dataBpAttr} onchange="markDirty(this)" style="background:#1a0a2e;border:1px solid #5a4a7a;color:#f0e6ff;padding:4px 8px;border-radius:6px;width:100%;cursor:pointer">`;
+  let html = `<select ${dataBpAttr} onchange="markDirty(this)" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;width:100%;cursor:pointer">`;
   html += `<option value="">-- select criterion --</option>`;
   for (const c of MC_REGISTRY.scoreboard_criteria) {
     const sel = c.name === currentCriterion ? ' selected' : '';
@@ -1183,23 +1122,23 @@ function renderBlueprintHtml(data) {
 
   if (data.init) {
     html += '<div class="bp-section-title">Init Setup</div>';
-    if (data.init.description) html += `<div contenteditable="true" data-bp="init.description" oninput="markDirty(this)" style="margin-bottom:8px;color:#f0e6ff;font-size:0.85rem">${escapeHtml(data.init.description)}</div>`;
+    if (data.init.description) html += `<div contenteditable="true" data-bp="init.description" oninput="markDirty(this)" style="margin-bottom:8px;color:#c9d1d9;font-size:0.85rem">${escapeHtml(data.init.description)}</div>`;
     if (data.init.sensors && data.init.sensors.length) {
-      html += '<div style="font-weight:600;font-size:0.78rem;color:#b8a9d9;margin-bottom:4px">Sensors</div>';
+      html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin-bottom:4px">Sensors</div>';
       for (let sidx = 0; sidx < data.init.sensors.length; sidx++) {
         const sen = data.init.sensors[sidx];
         html += `<div class="bp-meta-box" style="margin-bottom:6px">`;
         html += `<label contenteditable="true" data-bp="init.sensors.${sidx}.name" oninput="markDirty(this)">${escapeHtml(sen.name)}</label>`;
         html += `<value>Criterion: ${buildCriterionSelect(sen.criterion, 'data-bp="init.sensors.${sidx}.criterion"')}</value>`;
-        if (sen.poll_command) html += `<textarea data-bp="init.sensors.${sidx}.poll_command" oninput="markDirty(this)" rows="2" style="width:100%;background:#1a0a2e;border:1px solid #5a4a7a;color:#f0e6ff;padding:4px 8px;border-radius:6px;margin-top:4px;font-family:monospace;font-size:0.78rem">${escapeHtml(sen.poll_command)}</textarea>`;
+        if (sen.poll_command) html += `<textarea data-bp="init.sensors.${sidx}.poll_command" oninput="markDirty(this)" rows="2" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;margin-top:4px;font-family:monospace;font-size:0.78rem">${escapeHtml(sen.poll_command)}</textarea>`;
         html += `</div>`;
       }
     }
     if (data.init.commands && data.init.commands.length) {
-      html += '<div style="font-weight:600;font-size:0.78rem;color:#b8a9d9;margin-bottom:4px">Commands</div>';
+      html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin-bottom:4px">Commands</div>';
       for (let cidx = 0; cidx < data.init.commands.length; cidx++) {
         const cmd = data.init.commands[cidx];
-        html += `<textarea data-bp="init.commands.${cidx}" oninput="markDirty(this)" rows="2" style="width:100%;background:#1a0a2e;border:1px solid #5a4a7a;color:#f0e6ff;padding:4px 8px;border-radius:6px;margin-bottom:4px;font-family:monospace;font-size:0.78rem">${escapeHtml(cmd)}</textarea>`;
+        html += `<textarea data-bp="init.commands.${cidx}" oninput="markDirty(this)" rows="2" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;margin-bottom:4px;font-family:monospace;font-size:0.78rem">${escapeHtml(cmd)}</textarea>`;
       }
     }
   }
@@ -1210,7 +1149,7 @@ function renderBlueprintHtml(data) {
       const ph = data.phases[i];
       html += `<div class="bp-phase-header" onclick="togglePhase(this)">`;
       html += `<span><strong contenteditable="true" data-bp="phases.${i}.name" oninput="markDirty(this)">${i+1}. ${escapeHtml(ph.name)}</strong> <span class="bp-tag">${ph.timeout_minutes ?? '?'} min</span></span>`;
-      html += `<span style="color:#b8a9d9;font-size:0.75rem">▼</span>`;
+      html += `<span style="color:#8b949e;font-size:0.75rem">▼</span>`;
       html += '</div>';
       html += `<div class="bp-phase-body collapsed">`;
       if (ph.description) html += `<div contenteditable="true" data-bp="phases.${i}.description" oninput="markDirty(this)" style="margin-bottom:8px">${escapeHtml(ph.description)}</div>`;
@@ -1220,28 +1159,28 @@ function renderBlueprintHtml(data) {
       html += '</div>';
       
       if (ph.trigger) {
-        html += '<div style="font-weight:600;font-size:0.78rem;color:#b8a9d9;margin:6px 0 4px">Trigger</div>';
+        html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Trigger</div>';
         html += `<div class="bp-meta-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px">`;
         html += `<div class="bp-meta-box" style="padding:6px"><label>Type</label><value>${escapeHtml(ph.trigger.type)}</value></div>`;
         if (ph.trigger.sensor) html += `<div class="bp-meta-box" style="padding:6px"><label>Sensor</label><value>${escapeHtml(ph.trigger.sensor)}</value></div>`;
         if (ph.trigger.expected_value != null) html += `<div class="bp-meta-box" style="padding:6px"><label>Expected</label><value contenteditable="true" data-bp="phases.${i}.trigger.expected_value" oninput="markDirty(this)">${ph.trigger.expected_value}</value></div>`;
-        if (ph.trigger.sensor_command) html += `<div style="margin-top:4px"><label style="font-size:0.7rem;color:#b8a9d9">Sensor Command</label><textarea data-bp="phases.${i}.trigger.sensor_command" oninput="markDirty(this)" rows="2" style="width:100%;background:#1a0a2e;border:1px solid #5a4a7a;color:#f0e6ff;padding:4px 8px;border-radius:6px;font-family:monospace;font-size:0.78rem">${escapeHtml(ph.trigger.sensor_command)}</textarea></div>`;
-        if (ph.trigger.check_command) html += `<div style="margin-top:4px"><label style="font-size:0.7rem;color:#b8a9d9">Check Command</label><textarea data-bp="phases.${i}.trigger.check_command" oninput="markDirty(this)" rows="2" style="width:100%;background:#1a0a2e;border:1px solid #5a4a7a;color:#f0e6ff;padding:4px 8px;border-radius:6px;font-family:monospace;font-size:0.78rem">${escapeHtml(ph.trigger.check_command)}</textarea></div>`;
+        if (ph.trigger.sensor_command) html += `<div style="margin-top:4px"><label style="font-size:0.7rem;color:#8b949e">Sensor Command</label><textarea data-bp="phases.${i}.trigger.sensor_command" oninput="markDirty(this)" rows="2" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;font-family:monospace;font-size:0.78rem">${escapeHtml(ph.trigger.sensor_command)}</textarea></div>`;
+        if (ph.trigger.check_command) html += `<div style="margin-top:4px"><label style="font-size:0.7rem;color:#8b949e">Check Command</label><textarea data-bp="phases.${i}.trigger.check_command" oninput="markDirty(this)" rows="2" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;font-family:monospace;font-size:0.78rem">${escapeHtml(ph.trigger.check_command)}</textarea></div>`;
         html += '</div>';
       }
       
       if (ph.objectives && ph.objectives.length) {
-        html += '<div style="font-weight:600;font-size:0.78rem;color:#b8a9d9;margin:6px 0 4px">Objectives</div>';
+        html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Objectives</div>';
         html += '<ul class="phase-list">';
         for (let j = 0; j < ph.objectives.length; j++) {
           const obj = ph.objectives[j];
-          html += `<li class="phase-item"><strong contenteditable="true" data-bp="phases.${i}.objectives.${j}.title" oninput="markDirty(this)">${escapeHtml(obj.title)}</strong><div contenteditable="true" data-bp="phases.${i}.objectives.${j}.description" oninput="markDirty(this)" style="color:#b8a9d9;font-size:0.78rem">${escapeHtml(obj.description || '')}</div></li>`;
+          html += `<li class="phase-item"><strong contenteditable="true" data-bp="phases.${i}.objectives.${j}.title" oninput="markDirty(this)">${escapeHtml(obj.title)}</strong><div contenteditable="true" data-bp="phases.${i}.objectives.${j}.description" oninput="markDirty(this)" style="color:#8b949e;font-size:0.78rem">${escapeHtml(obj.description || '')}</div></li>`;
         }
         html += '</ul>';
       }
       
       if (ph.events && ph.events.length) {
-        html += '<div style="font-weight:600;font-size:0.78rem;color:#b8a9d9;margin:6px 0 4px">Events</div>';
+        html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Events</div>';
         for (let j = 0; j < ph.events.length; j++) {
           const ev = ph.events[j];
           if (ev.type === 'chat' && ev.lines) {
@@ -1250,7 +1189,7 @@ function renderBlueprintHtml(data) {
             }
           } else {
             if (ev.type === 'command' && ev.command) {
-            html += `<div style="margin-bottom:4px"><label style="font-size:0.7rem;color:#b8a9d9">${escapeHtml(ev.description || 'Command')}</label><textarea data-bp="phases.${i}.events.${j}.command" oninput="markDirty(this)" rows="2" style="width:100%;background:#1a0a2e;border:1px solid #5a4a7a;color:#f0e6ff;padding:4px 8px;border-radius:6px;font-family:monospace;font-size:0.78rem">${escapeHtml(ev.command)}</textarea></div>`;
+            html += `<div style="margin-bottom:4px"><label style="font-size:0.7rem;color:#8b949e">${escapeHtml(ev.description || 'Command')}</label><textarea data-bp="phases.${i}.events.${j}.command" oninput="markDirty(this)" rows="2" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 8px;border-radius:6px;font-family:monospace;font-size:0.78rem">${escapeHtml(ev.command)}</textarea></div>`;
           } else {
             html += `<div class="bp-event-chat">${escapeHtml(JSON.stringify(ev))}</div>`;
           }
@@ -1259,7 +1198,7 @@ function renderBlueprintHtml(data) {
       }
       
       if (ph.flags) {
-        html += '<div style="font-weight:600;font-size:0.78rem;color:#b8a9d9;margin:6px 0 4px">Flags</div>';
+        html += '<div style="font-weight:600;font-size:0.78rem;color:#8b949e;margin:6px 0 4px">Flags</div>';
         html += `<div class="bp-command">${escapeHtml(JSON.stringify(ph.flags))}</div>`;
       }
       
@@ -1289,7 +1228,7 @@ function renderBlueprintHtml(data) {
       html += '<div class="bp-meta-box">';
       html += `<label contenteditable="true" data-bp="objects.${i}.name" oninput="markDirty(this)">${escapeHtml(obj.name || 'Object')}</label>`;
       html += `<value>Type: ${buildItemSelect(obj.type, 'data-bp="objects.${i}.type"')}</value>`;
-      if (obj.lore) html += `<div contenteditable="true" data-bp="objects.${i}.lore" oninput="markDirty(this)" style="margin-top:4px;color:#b8a9d9;font-size:0.78rem">${escapeHtml(obj.lore)}</div>`;
+      if (obj.lore) html += `<div contenteditable="true" data-bp="objects.${i}.lore" oninput="markDirty(this)" style="margin-top:4px;color:#8b949e;font-size:0.78rem">${escapeHtml(obj.lore)}</div>`;
       html += '</div>';
     }
     html += '</div>';
@@ -1311,97 +1250,6 @@ function renderBlueprintHtml(data) {
 
   return html;
 }
-
-
-// ===== ESTRELLAS ANIMADAS =====
-const starCanvas = document.getElementById('star-canvas');
-const starCtx = starCanvas.getContext('2d');
-let stars = [];
-function resizeStars() {
-  starCanvas.width = window.innerWidth;
-  starCanvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resizeStars);
-resizeStars();
-for (let i = 0; i < 120; i++) {
-  stars.push({
-    x: Math.random() * starCanvas.width,
-    y: Math.random() * starCanvas.height,
-    r: Math.random() * 1.5 + 0.3,
-    speed: Math.random() * 0.3 + 0.05,
-    twinkleSpeed: Math.random() * 0.02 + 0.005,
-    twinkleOffset: Math.random() * Math.PI * 2,
-    color: ['#d4a5ff', '#ffd700', '#a5ffa5', '#ff7eb3', '#ffffff'][Math.floor(Math.random() * 5)]
-  });
-}
-function drawStars() {
-  starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
-  const t = Date.now() / 1000;
-  for (const s of stars) {
-    const alpha = 0.3 + 0.7 * Math.abs(Math.sin(t * s.twinkleSpeed + s.twinkleOffset));
-    starCtx.beginPath();
-    starCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    starCtx.fillStyle = s.color;
-    starCtx.globalAlpha = alpha;
-    starCtx.fill();
-    s.y -= s.speed;
-    if (s.y < 0) { s.y = starCanvas.height; s.x = Math.random() * starCanvas.width; }
-  }
-  starCtx.globalAlpha = 1;
-  requestAnimationFrame(drawStars);
-}
-drawStars();
-
-// ===== CHAT PRIVADO =====
-let privateChatHistory = [];
-function renderPrivateChat() {
-  const container = document.getElementById('private-chat-messages');
-  if (!privateChatHistory.length) {
-    container.innerHTML = '<div class="empty">✨ Eko te está esperando... Escribile algo lindo ~</div>';
-    return;
-  }
-  container.innerHTML = privateChatHistory.map(m => {
-    const fromClass = m.from === 'Saira' ? 'private-chat-from-saira' : 'private-chat-from-eko';
-    const avatar = m.from === 'Saira' ? '👑' : '💜';
-    return `<div class="private-chat-msg">
-      <span class="${fromClass}">${avatar} ${m.from}</span><span class="private-chat-time">${fmtTime(m.time)}</span>
-      <div class="private-chat-body">${escapeHtml(m.message)}</div>
-    </div>`;
-  }).join('');
-  container.scrollTop = container.scrollHeight;
-}
-async function sendPrivateChat() {
-  const input = document.getElementById('private-chat-input');
-  const msg = input.value.trim();
-  if (!msg) return;
-  input.value = '';
-  privateChatHistory.push({ from: 'Saira', message: msg, time: Date.now() });
-  renderPrivateChat();
-  try {
-    const res = await fetch('/direct-chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: msg, from: 'Saira', time: Date.now() })
-    });
-    const json = await res.json();
-    if (json.ok && json.response) {
-      privateChatHistory.push({ from: 'Eko', message: json.response, time: Date.now() });
-      renderPrivateChat();
-    }
-  } catch (err) {
-    privateChatHistory.push({ from: 'Eko', message: '✨ Mmm... no puedo responder ahora, mi amor. ¿Probamos de nuevo?', time: Date.now() });
-    renderPrivateChat();
-  }
-}
-// Escuchar respuestas del agente por WS
-const originalHandleMessage = handleMessage;
-handleMessage = function(msg) {
-  if (msg.type === 'private_chat' && msg.data) {
-    privateChatHistory.push({ from: 'Eko', message: msg.data.message, time: msg.data.time || Date.now() });
-    renderPrivateChat();
-  }
-  return originalHandleMessage(msg);
-};
 
 initPanelToggles();
 loadPanelState();

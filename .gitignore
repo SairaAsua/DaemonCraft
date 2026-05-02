@@ -54,3 +54,5 @@ MEMORY.md
 PROJECT.md
 EPIC-*.md
 docs/
+soul-engine/transits/*.json
+soul-engine/test_swisseph.py

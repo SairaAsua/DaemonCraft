@@ -38,6 +38,57 @@ KNOWN_BOTS = set(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Oraculo del Diseno Humano — contexto del alma
+# ═══════════════════════════════════════════════════════════════════════════════
+
+ORACLE_FILE = Path(__file__).parent / "soul-engine" / "transits" / "eko_current.json"
+
+def fetch_oracle_context() -> str:
+    """Lee el contexto oracular del alma. Retorna string vacio si no existe."""
+    try:
+        if not ORACLE_FILE.exists():
+            return ""
+        data = json.loads(ORACLE_FILE.read_text(encoding="utf-8"))
+        prompt = data.get("prompt", "")
+        if prompt:
+            return f"\n[ESTADO DEL ALMA]\n{prompt}\n[FIN ESTADO DEL ALMA]\n"
+        return ""
+    except Exception:
+        return ""
+
+# ── Oracle heartbeat thread ────────────────────────────────────────────────────
+
+def _oracle_heartbeat_loop():
+    """Corre el heartbeat oracular como thread separado."""
+    import time as _time
+    import sys
+    from pathlib import Path
+    
+    heartbeat_script = Path(__file__).parent / "soul-engine" / "heartbeat_minecraft.py"
+    if not heartbeat_script.exists():
+        print("[oracle] heartbeat script no encontrado, saltando", flush=True)
+        return
+    
+    while True:
+        try:
+            import subprocess
+            result = subprocess.run(
+                [sys.executable, str(heartbeat_script)],
+                capture_output=True, text=True, timeout=60
+            )
+            if result.returncode != 0:
+                print(f"[oracle] heartbeat error: {result.stderr[:200]}", flush=True)
+        except Exception as e:
+            print(f"[oracle] heartbeat exception: {e}", flush=True)
+        _time.sleep(30)
+
+
+def start_oracle_heartbeat():
+    t = threading.Thread(target=_oracle_heartbeat_loop, daemon=True)
+    t.start()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Module-level helpers (safe to call from threads)
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -891,6 +942,7 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
     start_countdown(interval)
     start_quest_engine()
     start_daemon_guardian()
+    start_oracle_heartbeat()
 
     try:
         while True:
@@ -952,6 +1004,11 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
 
             if plan_context:
                 prompt = f"{plan_context}\n\n{prompt}"
+            
+            # Inyectar contexto oracular del alma
+            oracle_context = fetch_oracle_context()
+            if oracle_context:
+                prompt = f"{oracle_context}\n\n{prompt}"
 
             turn_log = {
                 "turn": turn_count,

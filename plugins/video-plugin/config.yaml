@@ -1,41 +1,34 @@
 # DaemonCraft Video Plugin - Configuracion
 
-video:
-  videoDir: "./recordings"
-  maxDurationSec: 7200        # 2 horas max
-  defaultOutputMinutes: 10    # Duracion por defecto del video editado
-  defaultResolution: "1366x768"
-  defaultFPS: 24
+videoDir: ./recordings
+maxDurationSec: 7200
+defaultOutputMinutes: 10
+defaultResolution: 1366x768
+defaultFPS: 24
 
-screen:
-  display: ":0"
-  audioSource: "default"
+display: ":0"
+audioSource: default
 
-obs:
-  enabled: false
-  port: 4455
-  password: ""
-  virtualCameraName: "OBS Virtual Camera"
+obsEnabled: false
+obsPort: 4455
+obsPassword: ""
+obsVirtualCameraName: "OBS Virtual Camera"
 
-ollama:
-  url: "http://10.10.20.1:11434"
-  model: "gemma4:e4b-it-q8_0"
-  analyzeFrames: true
-  framesToAnalyze: 5
+ollamaUrl: http://10.10.20.1:11434
+ollamaModel: gemma4:e4b-it-q8_0
+ollamaAnalyzeFrames: true
+ollamaFramesToAnalyze: 5
 
-telegram:
-  botToken: "8697743278:AAEoKtEzpAekJAgNm-dTiEvFe9ZI1NBMxMY"
-  chatId: "2083458641"
-  notifyOnStart: true
-  notifyOnComplete: true
-  autoSendVideo: true
-  maxVideoDuration: 30
+telegramBotToken: "8697743278:AAEoKtEzpAekJAgNm-dTiEvFe9ZI1NBMxMY"
+telegramChatId: "2083458641"
+telegramNotifyOnStart: true
+telegramNotifyOnComplete: true
+telegramAutoSendVideo: true
+telegramMaxVideoDuration: 30
 
-bot:
-  apiPort: 3010
-  botWebSocketPort: 3002
+botApiPort: 3010
+botWebSocketPort: 3002
 
-features:
-  autoEdit: true
-  sendToTelegram: true
-  saveLocalCopy: true
+autoEdit: true
+sendToTelegram: true
+saveLocalCopy: true

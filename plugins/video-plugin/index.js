@@ -20,6 +20,7 @@ import fs from 'fs';
 import path from 'path';
 import http from 'http';
 import { URL } from 'url';
+import { spawn } from 'child_process';
 import { WebSocket } from 'ws';
 import { VideoRecorder } from './video-recorder.js';
 import { EventLogger } from './event-logger.js';
@@ -424,6 +425,116 @@ async function editSession(sessionId, targetMinutes = CONFIG.defaultOutputMinute
   }
 }
 
+// ── AI Narrative Editor ───────────────────────────────────────────
+
+function runAIEdit(videoPath, targetMinutes, outputPath, narrativeJsonPath) {
+  return new Promise((resolve, reject) => {
+    const wrapperPath = path.join(process.cwd(), 'ai_editor', 'ai_edit_wrapper.py');
+    const args = [
+      wrapperPath,
+      '--video', videoPath,
+      '--duration', String(targetMinutes),
+      '--output', outputPath,
+      '--narrative-json', narrativeJsonPath,
+    ];
+
+    log(`Running AI editor: python3 ${args.join(' ')}`);
+    const proc = spawn('python3', args, {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        OLLAMA_HOST: CONFIG.ollamaUrl,
+        OLLAMA_MODEL: CONFIG.ollamaModel,
+        TELEGRAM_BOT_TOKEN: CONFIG.telegramBotToken,
+        TELEGRAM_CHAT_ID: CONFIG.telegramChatId,
+      },
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+      const lines = data.toString().split('\n').filter((l) => l.trim());
+      lines.forEach((line) => {
+        if (line.includes('[VideoAI]')) log(`[AI] ${line.trim()}`);
+      });
+    });
+
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    proc.on('close', (code) => {
+      if (code !== 0) {
+        return reject(new Error(`AI editor exited with code ${code}. stderr: ${stderr.slice(0, 500)}`));
+      }
+      try {
+        const result = JSON.parse(stdout.trim().split('\n').pop());
+        resolve(result);
+      } catch (e) {
+        reject(new Error(`Failed to parse AI editor output: ${e.message}. stdout: ${stdout.slice(0, 500)}`));
+      }
+    });
+
+    proc.on('error', (err) => reject(err));
+  });
+}
+
+async function aiEditSession(sessionId, targetMinutes = CONFIG.defaultOutputMinutes, options = {}) {
+  const sessionDir = path.join(CONFIG.videoDir, sessionId);
+  if (!fs.existsSync(sessionDir)) {
+    return { ok: false, error: 'Session not found' };
+  }
+
+  const metaPath = path.join(sessionDir, 'meta.json');
+  if (!fs.existsSync(metaPath)) {
+    return { ok: false, error: 'Session metadata missing' };
+  }
+
+  const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+  const videoFile = path.join(sessionDir, meta.videoFile);
+
+  if (!fs.existsSync(videoFile)) {
+    return { ok: false, error: 'Video file missing' };
+  }
+
+  const outputFile = path.join(OUTPUTS_DIR, `${sessionId}_ai_edit_${targetMinutes}min.mp4`);
+  const narrativeJson = path.join(sessionDir, 'narrative.json');
+
+  log(`AI narrative edit: session=${sessionId} target=${targetMinutes}min`);
+  broadcastPlugin({ type: 'edit_status', status: 'ai_analyzing', sessionId });
+
+  try {
+    const result = await runAIEdit(videoFile, targetMinutes, outputFile, narrativeJson);
+    if (!result.ok) {
+      throw new Error(result.error || 'AI editor failed');
+    }
+
+    log(`AI edit complete: ${result.outputFile}`);
+    broadcastPlugin({ type: 'edit_status', status: 'done', sessionId, outputFile: result.outputFile });
+
+    let narrativeInfo = {};
+    if (fs.existsSync(narrativeJson)) {
+      narrativeInfo = JSON.parse(fs.readFileSync(narrativeJson, 'utf8'));
+    }
+
+    return {
+      ok: true,
+      outputFile: result.outputFile,
+      title: result.title,
+      summary: result.summary,
+      description: result.description,
+      durationSeconds: result.durationSeconds,
+      narrativeInfo,
+    };
+  } catch (err) {
+    log(`AI edit failed: ${err.message}`);
+    broadcastPlugin({ type: 'edit_status', status: 'error', error: err.message });
+    return { ok: false, error: err.message };
+  }
+}
+
 async function sendToTelegram(outputFile, caption = '') {
   if (!CONFIG.telegramBotToken || !CONFIG.telegramChatId) {
     return { ok: false, error: 'Telegram not configured — set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID' };
@@ -611,6 +722,41 @@ const httpServer = http.createServer(async (req, res) => {
           analyze: analyzeResult,
           edit: editResult,
         });
+      }
+
+      if (pathname === '/edit/ai') {
+        const { sessionId, targetMinutes, sendToTelegram: sendTelegram } = body;
+        if (!sessionId) return respond(res, 400, { ok: false, error: 'sessionId required' });
+
+        const result = await aiEditSession(
+          sessionId,
+          targetMinutes || CONFIG.defaultOutputMinutes,
+          body.options || {}
+        );
+        if (!result.ok) return respond(res, 400, result);
+
+        if (sendTelegram) {
+          const narrativeInfo = result.narrativeInfo || {};
+          const caption = `
+🎬 <b>${narrativeInfo.title || 'Video de Minecraft'}</b>
+
+📜 ${narrativeInfo.summary || ''}
+
+💬 ${narrativeInfo.description || ''}
+
+⏱️ Duración: ${(result.durationSeconds / 60).toFixed(1)} min
+
+🎨 Editado por <b>Eko AI</b> ♡
+          `.trim();
+          const sendResult = await sendToTelegram(result.outputFile, caption);
+          return respond(res, sendResult.ok ? 200 : 400, {
+            ok: sendResult.ok,
+            aiEdit: result,
+            telegram: sendResult,
+          });
+        }
+
+        return respond(res, 200, { ok: true, ...result });
       }
 
       if (pathname === '/telegram/send') {

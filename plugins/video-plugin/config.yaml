@@ -1,0 +1,41 @@
+# DaemonCraft Video Plugin - Configuracion
+
+video:
+  videoDir: "./recordings"
+  maxDurationSec: 7200        # 2 horas max
+  defaultOutputMinutes: 10    # Duracion por defecto del video editado
+  defaultResolution: "1366x768"
+  defaultFPS: 24
+
+screen:
+  display: ":0"
+  audioSource: "default"
+
+obs:
+  enabled: false
+  port: 4455
+  password: ""
+  virtualCameraName: "OBS Virtual Camera"
+
+ollama:
+  url: "http://10.10.20.1:11434"
+  model: "gemma4:e4b-it-q8_0"
+  analyzeFrames: true
+  framesToAnalyze: 5
+
+telegram:
+  botToken: "8697743278:AAEoKtEzpAekJAgNm-dTiEvFe9ZI1NBMxMY"
+  chatId: "2083458641"
+  notifyOnStart: true
+  notifyOnComplete: true
+  autoSendVideo: true
+  maxVideoDuration: 30
+
+bot:
+  apiPort: 3010
+  botWebSocketPort: 3002
+
+features:
+  autoEdit: true
+  sendToTelegram: true
+  saveLocalCopy: true

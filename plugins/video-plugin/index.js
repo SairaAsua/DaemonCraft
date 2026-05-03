@@ -28,28 +28,52 @@ import { VideoEditor } from './video-editor.js';
 import { TelegramSender } from './telegram-sender.js';
 import { OBSConnector } from './obs-connector.js';
 
+import { TelegramBot } from './telegram-bot.js';
+
 // ═══════════════════════════════════════════════════════════════════
-// Configuration
+// Configuration (env overrides config.yaml)
 // ═══════════════════════════════════════════════════════════════════
+
+function loadConfig() {
+  const configPath = path.join(process.cwd(), 'config.yaml');
+  let fileConfig = {};
+  if (fs.existsSync(configPath)) {
+    try {
+      const yaml = fs.readFileSync(configPath, 'utf8');
+      // Simple YAML parser for flat keys
+      yaml.split('\n').forEach((line) => {
+        const m = line.match(/^(\w+):\s*(.*)$/);
+        if (m) {
+          const key = m[1];
+          const val = m[2].replace(/^"|"$/g, '').replace(/^'|'$/g, '');
+          fileConfig[key] = val;
+        }
+      });
+    } catch (e) {
+      console.error('Config load error:', e.message);
+    }
+  }
+  return fileConfig;
+}
+
+const FILE_CONFIG = loadConfig();
 
 const CONFIG = {
   botWsUrl: process.env.BOT_WS_URL || 'ws://localhost:3002/ws',
-  apiPort: parseInt(process.env.VIDEO_API_PORT || '3010'),
+  apiPort: parseInt(process.env.VIDEO_API_PORT || FILE_CONFIG.apiPort || '3010'),
   videoDir: process.env.VIDEO_DIR || path.join(process.cwd(), 'recordings'),
-  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
-  telegramChatId: process.env.TELEGRAM_CHAT_ID || '',
-  ollamaUrl: process.env.OLLAMA_URL || 'http://10.10.20.1:11434',
-  ollamaModel: process.env.OLLAMA_MODEL || 'gemma4:e4b-it-q8_0',
-  // Recording settings
-  defaultDuration: 3600, // 1 hour max default
-  fps: 30,
-  resolution: '1920x1080',
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || FILE_CONFIG.telegram?.botToken || '',
+  telegramChatId: process.env.TELEGRAM_CHAT_ID || FILE_CONFIG.telegram?.chatId || '',
+  ollamaUrl: process.env.OLLAMA_URL || FILE_CONFIG.ollamaUrl || 'http://10.10.20.1:11434',
+  ollamaModel: process.env.OLLAMA_MODEL || FILE_CONFIG.ollamaModel || 'gemma4:e4b-it-q8_0',
+  defaultDuration: 3600,
+  fps: 24,
+  resolution: FILE_CONFIG.defaultResolution || '1366x768',
   videoBitrate: '8000k',
   audioBitrate: '192k',
-  // Analysis settings
-  framesPerMinute: 6, // extract N frames per minute for analysis
+  framesPerMinute: 6,
   maxHighlights: 20,
-  defaultOutputMinutes: 5,
+  defaultOutputMinutes: parseInt(FILE_CONFIG.defaultOutputMinutes || '5'),
 };
 
 // Ensure directories exist
@@ -68,6 +92,7 @@ let logger = null;
 let analyzer = null;
 let editor = null;
 let telegram = null;
+let telegramBot = null;
 let obs = null;
 
 let botWs = null;
@@ -245,11 +270,15 @@ async function startRecording(options = {}) {
     isRecording = true;
     log(`Recording started: ${sessionId}`);
     broadcastPlugin({ type: 'recording_status', status: 'recording', sessionId, startedAt: currentSession.startedAt });
+    if (telegramBot) {
+      telegramBot.sendMessage(`🔴 <b>Grabación iniciada</b>\n⏰ Duración: ${(options.duration || CONFIG.defaultDuration) / 60} minutos\n📹 Resolución: ${options.resolution || CONFIG.resolution}\n📁 Sesion: <code>${sessionId}</code>`);
+    }
     return { ok: true, sessionId };
   } catch (err) {
     isRecording = false;
     logger.stop();
     log(`Failed to start recording: ${err.message}`);
+    if (telegramBot) telegramBot.sendMessage(`❌ Error iniciando grabación: ${err.message}`);
     return { ok: false, error: err.message };
   }
 }
@@ -291,10 +320,15 @@ async function stopRecording() {
       sessionDir: currentSession.sessionDir,
     });
 
+    if (telegramBot) {
+      telegramBot.sendMessage(`🔵 <b>Grabación finalizada</b>\n⏱ Duración: ${currentSession.durationSec}s\n📁 Sesion: <code>${currentSession.id}</code>\n\nEscribí <b>/edit N</b> para editar (ej: /edit 2 para 2 minutos) o /clips para ver clips.`);
+    }
+
     return { ok: true, session: currentSession };
   } catch (err) {
     log(`Error stopping recording: ${err.message}`);
     isRecording = false;
+    if (telegramBot) telegramBot.sendMessage(`❌ Error deteniendo grabación: ${err.message}`);
     return { ok: false, error: err.message };
   }
 }
@@ -664,20 +698,141 @@ function broadcastPlugin(msg) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Telegram Bot Commands
+// ═══════════════════════════════════════════════════════════════════
+
+function setupTelegramBot() {
+  telegramBot = new TelegramBot(CONFIG);
+
+  telegramBot.on('/start', async ({ chatId }) => {
+    await telegramBot.sendMessage(
+      `🎮 <b>DaemonCraft Video Bot</b>\n\n` +
+      `Comandos disponibles:\n` +
+      `• <b>/record</b> - Iniciar grabación de pantalla\n` +
+      `• <b>/stop</b> - Detener y guardar\n` +
+      `• <b>/status</b> - Estado actual\n` +
+      `• <b>/clips</b> - Ver sesiones grabadas\n` +
+      `• <b>/edit N</b> - Editar última sesión a N minutos\n\n` +
+      `Ejemplo: <code>/edit 2</code> para un video de 2 minutos`
+    );
+  });
+
+  telegramBot.on('/record', async ({ chatId, args }) => {
+    if (isRecording) {
+      await telegramBot.sendMessage('⚠️ Ya estoy grabando. Usá /stop primero.');
+      return;
+    }
+    const duration = parseInt(args[0]) || 30; // minutos
+    await telegramBot.sendMessage(`🔴 Iniciando grabación de ${duration} minutos...`);
+    const result = await startRecording({
+      source: 'screen',
+      duration: duration * 60,
+      resolution: CONFIG.resolution,
+      fps: CONFIG.fps,
+    });
+    if (!result.ok) {
+      await telegramBot.sendMessage(`❌ Error: ${result.error}`);
+    }
+  });
+
+  telegramBot.on('/stop', async ({ chatId }) => {
+    if (!isRecording) {
+      await telegramBot.sendMessage('⚠️ No estoy grabando actualmente.');
+      return;
+    }
+    await telegramBot.sendMessage('🔵 Deteniendo grabación...');
+    const result = await stopRecording();
+    if (!result.ok) {
+      await telegramBot.sendMessage(`❌ Error: ${result.error}`);
+    }
+  });
+
+  telegramBot.on('/status', async ({ chatId }) => {
+    if (isRecording && currentSession) {
+      const elapsed = Math.round((Date.now() - currentSession.startedAt) / 1000);
+      const mins = Math.floor(elapsed / 60);
+      const secs = elapsed % 60;
+      await telegramBot.sendMessage(
+        `🔴 <b>Grabando...</b>\n` +
+        `⏱ Transcurrido: ${mins}m ${secs}s\n` +
+        `📁 Sesion: <code>${currentSession.id}</code>\n` +
+        `📹 ${CONFIG.resolution} @ ${CONFIG.fps}fps`
+      );
+    } else {
+      await telegramBot.sendMessage('🔘 Listo para grabar. Usá /record para empezar.');
+    }
+  });
+
+  telegramBot.on('/clips', async ({ chatId }) => {
+    const sessions = fs.readdirSync(CONFIG.videoDir)
+      .filter((d) => d.startsWith('session_'))
+      .map((d) => {
+        const metaPath = path.join(CONFIG.videoDir, d, 'meta.json');
+        if (fs.existsSync(metaPath)) {
+          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+          const durMin = Math.round(meta.durationSec / 60);
+          return `${meta.id} | ${durMin}min | ${new Date(meta.startedAt).toLocaleString()}`;
+        }
+        return d;
+      })
+      .slice(-10)
+      .join('\n');
+    await telegramBot.sendMessage(`📁 <b>Últimas sesiones:</b>\n\n${sessions || 'No hay sesiones'}`);
+  });
+
+  telegramBot.on('/edit', async ({ chatId, args }) => {
+    if (!currentSession) {
+      await telegramBot.sendMessage('⚠️ No hay sesión para editar. Grabá primero con /record.');
+      return;
+    }
+    const targetMin = parseInt(args[0]) || CONFIG.defaultOutputMinutes;
+    await telegramBot.sendMessage(`✅ Editando a ${targetMin} minutos... Esto puede tardar.`);
+    try {
+      const analyzeResult = await analyzeSession(currentSession.id, targetMin);
+      if (!analyzeResult.ok) {
+        await telegramBot.sendMessage(`❌ Error en análisis: ${analyzeResult.error}`);
+        return;
+      }
+      const editResult = await editSession(currentSession.id, targetMin, { addTransitions: false });
+      if (!editResult.ok) {
+        await telegramBot.sendMessage(`❌ Error en edición: ${editResult.error}`);
+        return;
+      }
+      const outFile = editResult.outputFile;
+      const sizeMB = (fs.statSync(outFile).size / (1024 * 1024)).toFixed(1);
+      const hlCount = analyzeResult.highlights?.length || 0;
+      await telegramBot.sendMessage(
+        `🎬 <b>Video editado</b>\n` +
+        `⏱ Duración: ${targetMin} minutos\n` +
+        `🎥 Highlights: ${hlCount}\n` +
+        `💾 Tamaño: ${sizeMB} MB\n\n` +
+        `Enviando video...`
+      );
+      await telegramBot.sendVideo(outFile, `🎮 DaemonCraft - ${targetMin} min highlights`);
+    } catch (e) {
+      await telegramBot.sendMessage(`❌ Error: ${e.message}`);
+    }
+  });
+
+  telegramBot.start();
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Startup
 // ═══════════════════════════════════════════════════════════════════
 
 httpServer.listen(CONFIG.apiPort, () => {
-  log('╔══════════════════════════════════════════════════════╗');
+  log('╔══════════════════════════════════════════════════════════════════╗');
   log('║     DaemonCraft Video Plugin v1.0                    ║');
-  log('╠══════════════════════════════════════════════════════╣');
+  log('╠══════════════════════════════════════════════════════════════════╣');
   log(`║  API:    http://localhost:${CONFIG.apiPort}                    ║`);
   log(`║  WS:     ws://localhost:${CONFIG.apiPort}/ws                 ║`);
   log(`║  Video:  ${CONFIG.videoDir.padEnd(40)}║`);
   log(`║  Ollama: ${CONFIG.ollamaModel.padEnd(40)}║`);
-  log('╚══════════════════════════════════════════════════════╝');
+  log('╚══════════════════════════════════════════════════════════════════╝');
 
   connectBot();
+  setupTelegramBot();
 });
 
 // Auto-cleanup on exit
@@ -685,5 +840,6 @@ process.on('SIGINT', async () => {
   log('Shutting down...');
   if (isRecording) await stopRecording();
   if (botWs) try { botWs.close(); } catch {}
+  if (telegramBot) telegramBot.stop();
   process.exit(0);
 });

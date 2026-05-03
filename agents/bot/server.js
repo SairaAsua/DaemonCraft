@@ -638,7 +638,7 @@ function posObj(pos) {
 
 function itemStr(item) {
   if (!item) return null;
-  return { name: item.name, count: item.count };
+  return item.count > 1 ? `${item.name} x${item.count}` : item.name;
 }
 
 function ensureBot() {

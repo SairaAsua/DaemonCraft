@@ -423,6 +423,8 @@ def start_agent(
         "MC_KNOWN_BOTS": _get_all_known_bots(),
         # Enable send_message tool by telling Hermes we're on a messaging platform.
         "HERMES_SESSION_PLATFORM": "telegram",
+        # Ollama local endpoint needs a dummy OpenAI API key
+        "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", "ollama"),
     }
     if always_chat:
         env["MC_ALWAYS_CHAT"] = "1"
@@ -430,6 +432,11 @@ def start_agent(
         env["MC_MAX_CHAT_CHARS"] = str(max_chat_chars)
     if chat_format:
         env["MC_CHAT_FORMAT"] = chat_format
+
+    # Add DaemonCraft agents directory to PYTHONPATH so hermescraft.minecraft_tools loads
+    pythonpath = env.get("PYTHONPATH", "")
+    if str(SCRIPT_DIR) not in pythonpath:
+        env["PYTHONPATH"] = f"{SCRIPT_DIR}{os.pathsep}{pythonpath}" if pythonpath else str(SCRIPT_DIR)
 
     log(f"Starting persistent agent for {agent_name}...", cast_name)
     proc = subprocess.Popen(

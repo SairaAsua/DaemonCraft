@@ -10,8 +10,8 @@ agents:
   - name: Eko
     template: landfolk/eko
     port: 3002
-    model: MiniMax-M2.7
-    provider: minimax
-    base_url: https://api.minimax.chat/v1
+    model: gemma4:e4b-it-q8_0
+    provider: custom
+    base_url: http://10.10.20.1:11434/v1
     always_chat: true
     chat_format: say_lines

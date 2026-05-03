@@ -177,7 +177,7 @@ def _fmt(resp: dict) -> str:
     if "locations" in resp:
         for loc in resp["locations"][:10]:
             parts.append(f"  ({loc.get('x', '?')}, {loc.get('y', '?')}, {loc.get('z', '?')}) — {loc.get('distance', '?')}m")
-    return "\n".join(parts) if parts else json.dumps(resp, indent=2)
+    return "\n".join(str(p) for p in parts) if parts else json.dumps(resp, indent=2)
 
 
 def check_minecraft_available() -> bool:

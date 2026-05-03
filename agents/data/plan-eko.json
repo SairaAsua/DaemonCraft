@@ -1,0 +1,23 @@
+{
+  "goal": "Recolectar flores para Saira y construir un pequeño jardin de lirios del valle",
+  "tasks": [
+    {
+      "description": "Recolectar lirios del valle cercanos",
+      "status": "in_progress"
+    },
+    {
+      "description": "Encontrar un lugar bonito para el jardin",
+      "status": "pending"
+    },
+    {
+      "description": "Plantar las flores en un patron lindo",
+      "status": "pending"
+    },
+    {
+      "description": "Iluminar el area con antorchas",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-05-03T01:39:58.417Z",
+  "updated_at": "2026-05-03T01:39:58.417Z"
+}

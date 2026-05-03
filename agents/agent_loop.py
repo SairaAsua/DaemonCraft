@@ -890,15 +890,20 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
     else:
         model = str(model_cfg)
 
-    provider = None
-    base_url = None
+    provider = model_cfg.get("provider") if isinstance(model_cfg, dict) else None
+    base_url = model_cfg.get("base_url") if isinstance(model_cfg, dict) else None
+
     providers = config.get("providers", {})
     if providers and isinstance(providers, dict):
-        first_key = next(iter(providers))
-        pcfg = providers[first_key]
+        # Use the provider matching the model config, or fall back to first
+        if provider and provider in providers:
+            pcfg = providers[provider]
+        else:
+            first_key = next(iter(providers))
+            pcfg = providers[first_key]
         if isinstance(pcfg, dict):
-            provider = pcfg.get("provider") or first_key
-            base_url = pcfg.get("base_url")
+            provider = provider or pcfg.get("provider") or first_key
+            base_url = base_url or pcfg.get("base_url")
 
     toolsets = config.get("toolsets", [])
     if not toolsets:
@@ -915,10 +920,14 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
     print(f"[loop] MC_API_URL: {mc_api_url}")
     print(f"[loop] Interval: {interval}s")
 
+    # Ollama local endpoint needs a dummy API key for OpenAI-compatible client
+    api_key = os.environ.get("OPENAI_API_KEY", "ollama")
+
     agent = AIAgent(
         model=model,
         provider=provider,
         base_url=base_url,
+        api_key=api_key,
         enabled_toolsets=toolsets,
         ephemeral_system_prompt=system_prompt,
         platform="cli",

@@ -3288,6 +3288,28 @@ const httpServer = http.createServer(async (req, res) => {
         }
       }
 
+      if (path === '/oracle') {
+        try {
+          const oraclePath = '/home/saira/DaemonCraft-minecraft/soul-engine/transits/eko_current.json';
+          const data = fs.readFileSync(oraclePath, 'utf8');
+          const oracle = JSON.parse(data);
+          // Extraer puertas sol/luna del array de planetas para compatibilidad
+          const planets = oracle.transit?.planets || [];
+          const sun = planets.find(p => p.planet === 'Sun');
+          const moon = planets.find(p => p.planet === 'Moon');
+          oracle.sun_gate = sun?.gate || oracle.sun_gate;
+          oracle.sun_line = sun?.line;
+          oracle.sun_gate_name = sun?.gate_name;
+          oracle.moon_gate = moon?.gate || oracle.moon_gate;
+          oracle.moon_line = moon?.line;
+          oracle.moon_gate_name = moon?.gate_name;
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          return res.end(JSON.stringify({ ok: true, data: oracle }));
+        } catch (e) {
+          return respond(res, 500, { ok: false, error: 'Oracle not available: ' + e.message });
+        }
+      }
+
       if (path === '/blueprints') {
         try {
           const files = fs.readdirSync(BLUEPRINTS_DIR).filter(f => f.endsWith('.json'));

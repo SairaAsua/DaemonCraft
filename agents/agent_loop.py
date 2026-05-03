@@ -59,7 +59,11 @@ def fetch_oracle_context() -> str:
 # ── Oracle heartbeat thread ────────────────────────────────────────────────────
 
 def _oracle_heartbeat_loop():
-    """Corre el heartbeat oracular como thread separado."""
+    """Corre el heartbeat oracular como thread separado.
+    
+    NOTA: heartbeat_minecraft.py YA tiene su propio loop interno (while True).
+    Solo lo lanzamos UNA VEZ como proceso daemon.
+    """
     import time as _time
     import sys
     from pathlib import Path
@@ -69,18 +73,33 @@ def _oracle_heartbeat_loop():
         print("[oracle] heartbeat script no encontrado, saltando", flush=True)
         return
     
-    while True:
-        try:
-            import subprocess
-            result = subprocess.run(
-                [sys.executable, str(heartbeat_script)],
-                capture_output=True, text=True, timeout=60
-            )
-            if result.returncode != 0:
-                print(f"[oracle] heartbeat error: {result.stderr[:200]}", flush=True)
-        except Exception as e:
-            print(f"[oracle] heartbeat exception: {e}", flush=True)
-        _time.sleep(30)
+    print("[oracle] Iniciando heartbeat oracular (una sola instancia)...", flush=True)
+    try:
+        import subprocess
+        # Lanzar heartbeat_minecraft.py como proceso independiente
+        # Su while True interno se encarga de la actualización cada 30s
+        proc = subprocess.Popen(
+            [sys.executable, str(heartbeat_script)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        print(f"[oracle] Heartbeat PID {proc.pid} iniciado. Actualiza cada 30s.", flush=True)
+        # Monitorear que no muera
+        while True:
+            ret = proc.poll()
+            if ret is not None:
+                print(f"[oracle] Heartbeat terminó con código {ret}. Reiniciando...", flush=True)
+                proc = subprocess.Popen(
+                    [sys.executable, str(heartbeat_script)],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                print(f"[oracle] Heartbeat PID {proc.pid} reiniciado.", flush=True)
+            _time.sleep(60)
+    except Exception as e:
+        print(f"[oracle] heartbeat exception: {e}", flush=True)
 
 
 def start_oracle_heartbeat():

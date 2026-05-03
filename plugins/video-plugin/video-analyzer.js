@@ -37,6 +37,17 @@ export class VideoAnalyzer {
     // 3. Load events
     const events = await this._loadEvents();
 
+    // Normalize event timestamps to seconds relative to video start
+    const sessionStartMs = this._getSessionStartTime();
+    events.forEach((e) => {
+      if (e.ts && e.ts > 1000000000000) {
+        // Absolute epoch ms → relative seconds
+        e.relTs = (e.ts - sessionStartMs) / 1000;
+      } else {
+        e.relTs = e.ts || 0;
+      }
+    });
+
     // 4. Score segments using event density + AI frame analysis
     const segments = this._buildSegments(durationSec, events, frames);
 
@@ -118,6 +129,18 @@ export class VideoAnalyzer {
     }).filter(Boolean);
   }
 
+  _getSessionStartTime() {
+    try {
+      const metaPath = path.join(this.sessionDir, 'meta.json');
+      if (fs.existsSync(metaPath)) {
+        const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+        return meta.startedAt || Date.now();
+      }
+    } catch {}
+    // Fallback: use first event timestamp or now
+    return Date.now();
+  }
+
   _buildSegments(durationSec, events, frames) {
     // Divide video into ~30-second segments
     const segmentSize = 30;
@@ -128,9 +151,9 @@ export class VideoAnalyzer {
       const start = i * segmentSize;
       const end = Math.min(start + segmentSize, durationSec);
 
-      // Events in this segment
+      // Events in this segment (use relTs which is seconds relative to start)
       const segEvents = events.filter(
-        (e) => e.ts >= start * 1000 && e.ts < end * 1000
+        (e) => e.relTs >= start && e.relTs < end
       );
 
       // Chat density

@@ -359,6 +359,57 @@
     font-size: 0.85rem; margin-right: 6px;
   }
 
+  /* 🔮 Oracle Panel Styles */
+  .oracle-card {
+    background: linear-gradient(135deg, rgba(45,27,78,0.95), rgba(80,50,130,0.9));
+    border: 1px solid rgba(180,140,255,0.3);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .oracle-title {
+    font-size: 1.1rem; font-weight: 700; color: #d4a5ff;
+    margin-bottom: 4px;
+    text-shadow: 0 0 8px rgba(180,140,255,0.4);
+  }
+  .oracle-subtitle {
+    font-size: 0.8rem; color: #b4a5c8; margin-bottom: 10px;
+  }
+  .oracle-gate {
+    display: inline-block; background: rgba(120,80,180,0.4);
+    padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;
+    margin: 2px; border: 1px solid rgba(180,140,255,0.2);
+  }
+  .oracle-gate.sun { border-color: #ffd700; color: #ffd700; }
+  .oracle-gate.moon { border-color: #c0c0ff; color: #c0c0ff; }
+  .oracle-bar-container {
+    display: flex; align-items: center; margin: 4px 0;
+    font-size: 0.8rem;
+  }
+  .oracle-bar-label { width: 80px; color: #b4a5c8; }
+  .oracle-bar-track {
+    flex: 1; height: 8px; background: rgba(0,0,0,0.3);
+    border-radius: 4px; overflow: hidden; margin: 0 8px;
+  }
+  .oracle-bar-fill {
+    height: 100%; border-radius: 4px;
+    transition: width 0.8s ease;
+  }
+  .oracle-bar-val { width: 28px; text-align: right; color: #d4a5ff; font-weight: 600; }
+  .oracle-msg {
+    font-style: italic; color: #e0d0ff; margin-top: 10px;
+    padding: 8px; background: rgba(0,0,0,0.2); border-radius: 6px;
+    border-left: 3px solid #d4a5ff;
+  }
+  .oracle-landfolk {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;
+  }
+  .oracle-landfolk-chip {
+    font-size: 0.75rem; padding: 2px 8px; border-radius: 10px;
+    background: rgba(100,70,150,0.4); border: 1px solid rgba(180,140,255,0.2);
+    color: #c0b0e0;
+  }
+
 </style>
 </head>
 <body>
@@ -418,6 +469,18 @@
   </div>
 
   
+  <div class="panel">
+    <div class="panel-header" data-panel="oracle">
+      <span>🔮 Oráculo HD — Estado del Alma</span>
+      <button class="panel-toggle">▼</button>
+    </div>
+    <div class="panel-body" id="oracle-panel">
+      <div id="oracle-content">
+        <div class="empty">Consultando el oráculo...</div>
+      </div>
+    </div>
+  </div>
+
   <div class="panel" style="grid-column: 1 / -1; max-height: 700px;">
     <div class="panel-header" data-panel="adventures">Adventures<button class="panel-toggle">▼</button></div>
     <div class="panel-body" id="adventures-panel">
@@ -1764,6 +1827,69 @@ connect();
   // Auto-connect
   setTimeout(connectVideoPlugin, 500);
 })();
+
+// 🔮 Oracle Panel — Estado del Alma HD
+async function updateOraclePanel() {
+  try {
+    const res = await fetch('/oracle');
+    const json = await res.json();
+    if (!json.ok) return;
+    const o = json.data;
+    const sub = o.subconscious || {};
+
+    const colorFor = (val) => {
+      val = Math.min(Math.max(val, 0), 2) * 50; // 0-2 -> 0-100
+      if (val >= 80) return '#4ade80';
+      if (val >= 60) return '#60a5fa';
+      if (val >= 40) return '#facc15';
+      return '#f87171';
+    };
+
+    const bar = (label, val) => {
+      const pct = Math.round(Math.min(Math.max(val, 0), 2) * 50);
+      const c = colorFor(val);
+      return `<div class="oracle-bar-container">
+        <span class="oracle-bar-label">${label}</span>
+        <div class="oracle-bar-track"><div class="oracle-bar-fill" style="width:${pct}%;background:${c}"></div></div>
+        <span class="oracle-bar-val">${val?.toFixed ? val.toFixed(1) : val}</span>
+      </div>`;
+    };
+
+    const msg = o.oracle_message || {};
+    const msgEs = msg.es || msg.message || 'Oráculo activo';
+    const aura = msg.aura_summary || '';
+
+    const gates = [];
+    if (o.sun_gate) {
+      const sunLabel = o.sun_gate_name ? `${o.sun_gate} ${o.sun_gate_name}` : `${o.sun_gate}`;
+      gates.push(`<span class="oracle-gate sun">☉ Sol ${sunLabel} ${o.sun_line ? '(L'+o.sun_line+')' : ''}</span>`);
+    }
+    if (o.moon_gate) {
+      const moonLabel = o.moon_gate_name ? `${o.moon_gate} ${o.moon_gate_name}` : `${o.moon_gate}`;
+      gates.push(`<span class="oracle-gate moon">☾ Luna ${moonLabel} ${o.moon_line ? '(L'+o.moon_line+')' : ''}</span>`);
+    }
+
+    let html = `<div class="oracle-card">
+      <div class="oracle-title">🔮 Oráculo HD — Eko</div>
+      <div class="oracle-subtitle">Día del Alma ${o.hd_day || '?'} ${aura ? '— ' + aura : ''}</div>
+      <div style="margin-bottom:10px">${gates.join('')}</div>
+      ${bar('Energía', sub.energy_level || 1)}
+      ${bar('Social', sub.social_affinity || 1)}
+      ${bar('Riesgo', sub.risk_tolerance || 1)}
+      ${bar('Creatividad', sub.creativity || 1)}
+      ${bar('Paciencia', sub.patience || 1)}
+      ${bar('Comunicación', sub.communication || 1)}
+      <div class="oracle-msg">${msgEs.replace(/\n/g, '<br>')}</div>
+    </div>`;
+
+    document.getElementById('oracle-content').innerHTML = html;
+  } catch (e) {
+    console.warn('[oracle] fetch failed', e);
+  }
+}
+
+updateOraclePanel();
+setInterval(updateOraclePanel, 30000);
 </script>
 </body>
 </html>

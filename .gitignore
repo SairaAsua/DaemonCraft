@@ -56,3 +56,4 @@ EPIC-*.md
 docs/
 soul-engine/transits/*.json
 soul-engine/test_swisseph.py
+plugins/*/node_modules/

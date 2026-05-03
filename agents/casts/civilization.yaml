@@ -10,28 +10,42 @@ agents:
   - name: Marcus
     template: marcus
     port: 3006
-    model: MiniMax-M2.7
+    model: gemma4:e4b-it-q8_0
+    provider: custom
+    base_url: http://10.10.20.1:11434/v1
   - name: Sarah
     template: sarah
     port: 3007
-    model: MiniMax-M2.7
+    model: gemma4:e4b-it-q8_0
+    provider: custom
+    base_url: http://10.10.20.1:11434/v1
   - name: Jin
     template: jin
     port: 3008
-    model: MiniMax-M2.7
+    model: gemma4:e4b-it-q8_0
+    provider: custom
+    base_url: http://10.10.20.1:11434/v1
   - name: Dave
     template: dave
     port: 3009
-    model: MiniMax-M2.7
+    model: gemma4:e4b-it-q8_0
+    provider: custom
+    base_url: http://10.10.20.1:11434/v1
   - name: Lisa
     template: lisa
     port: 3010
-    model: MiniMax-M2.7
+    model: gemma4:e4b-it-q8_0
+    provider: custom
+    base_url: http://10.10.20.1:11434/v1
   - name: Tommy
     template: tommy
     port: 3011
-    model: MiniMax-M2.7
+    model: gemma4:e4b-it-q8_0
+    provider: custom
+    base_url: http://10.10.20.1:11434/v1
   - name: Elena
     template: elena
     port: 3012
-    model: MiniMax-M2.7
+    model: gemma4:e4b-it-q8_0
+    provider: custom
+    base_url: http://10.10.20.1:11434/v1

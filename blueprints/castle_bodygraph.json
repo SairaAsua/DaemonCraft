@@ -1,0 +1,187 @@
+{
+  "name": "El Bodygraph de Ra",
+  "description": "Casa-castillo basada en Diseño Humano, proporción áurea (φ=1.618) y HIT",
+  "reference": "Ra Uru Hu — Ibiza 1987",
+  "origin": [0, 64, 0],
+  "phi": 1.618033988749,
+  "fibonacci": [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89],
+  "rooms": [
+    {
+      "id": "throne_of_voice",
+      "name": "Sala del Voz (Ra)",
+      "center_hd": "Throat",
+      "dimensions": [34, 8, 21],
+      "ratio": "34:21 = φ",
+      "position": [0, 64, 0],
+      "materials": {
+        "floor": "smooth_stone",
+        "walls": "bricks",
+        "ceiling": "dark_oak_planks",
+        "accent": "gold_block"
+      },
+      "features": ["throne", "64_windows_fascade", "bell_tower"],
+      "gates": [12, 16, 20, 23, 31, 33, 35, 45, 56, 62]
+    },
+    {
+      "id": "library_head",
+      "name": "Biblioteca HD (Cabeza)",
+      "center_hd": "Head",
+      "dimensions": [21, 6, 13],
+      "ratio": "21:13 = φ",
+      "position": [-25, 64, 5],
+      "materials": {
+        "floor": "oak_planks",
+        "walls": "bookshelf",
+        "ceiling": "spruce_planks"
+      },
+      "features": ["bookshelves", "lectern", "maps"],
+      "gates": [63, 64, 61, 54, 47, 4]
+    },
+    {
+      "id": "oracle_tower",
+      "name": "Torre del Oráculo (Corona)",
+      "center_hd": "Crown",
+      "dimensions": [13, 21, 13],
+      "ratio": "13:21 = 1:φ",
+      "position": [20, 64, -10],
+      "materials": {
+        "floor": "purpur_block",
+        "walls": "amethyst_block",
+        "ceiling": "glass",
+        "accent": "end_rod"
+      },
+      "features": ["crystal_ball", "stargazing_dome", "transit_calendar"],
+      "gates": [72, 61, 54, 63]
+    },
+    {
+      "id": "sacrarium",
+      "name": "Sala del Sacro",
+      "center_hd": "Sacral",
+      "dimensions": [21, 5, 13],
+      "ratio": "21:13 = φ",
+      "position": [5, 64, 25],
+      "materials": {
+        "floor": "terracotta",
+        "walls": "oak_log",
+        "ceiling": "jungle_planks"
+      },
+      "features": ["furnaces", "crafting_tables", "anvils", "brewing_stands"],
+      "gates": [5, 14, 29, 34, 27, 59, 42, 3, 9]
+    },
+    {
+      "id": "heart_chamber",
+      "name": "Cuarto del Amor (Corazón)",
+      "center_hd": "Heart",
+      "dimensions": [13, 4, 21],
+      "ratio": "13:21 = 1:φ",
+      "position": [-15, 64, 30],
+      "materials": {
+        "floor": "crimson_planks",
+        "walls": "red_nether_bricks",
+        "ceiling": "warped_planks"
+      },
+      "features": ["beds", "flower_pots", "jukebox"],
+      "gates": [21, 40, 26, 44, 51]
+    },
+    {
+      "id": "ego_hall",
+      "name": "Sala del Coraje (Ego)",
+      "center_hd": "Ego",
+      "dimensions": [13, 5, 13],
+      "ratio": "1:1 (cuadrado φ⁰)",
+      "position": [30, 64, 15],
+      "materials": {
+        "floor": "gold_block",
+        "walls": "yellow_terracotta",
+        "ceiling": "glowstone"
+      },
+      "features": ["trophy_wall", "armor_stands", "banner_patterns"],
+      "gates": [21, 40, 26, 44, 51]
+    },
+    {
+      "id": "ajna_maps",
+      "name": "Sala de las Puertas (Ajna)",
+      "center_hd": "Ajna",
+      "dimensions": [13, 5, 8],
+      "ratio": "13:8 ≈ φ",
+      "position": [-30, 64, -10],
+      "materials": {
+        "floor": "light_blue_concrete",
+        "walls": "cyan_concrete",
+        "ceiling": "white_concrete"
+      },
+      "features": ["giant_map_wall", "cartography_tables", "compass rose"],
+      "gates": [24, 4, 11, 43, 17, 47]
+    },
+    {
+      "id": "spleen_storage",
+      "name": "Bodega (Bazo)",
+      "center_hd": "Spleen",
+      "dimensions": [21, 4, 13],
+      "ratio": "21:13 = φ",
+      "position": [0, 59, 0],
+      "materials": {
+        "floor": "stone_bricks",
+        "walls": "cobblestone",
+        "ceiling": "andesite"
+      },
+      "features": ["chests", "barrels", "item_frames"],
+      "gates": [48, 57, 44, 50, 32, 28, 18, 10]
+    },
+    {
+      "id": "root_crypt",
+      "name": "Cripta de la Memoria (Raíz)",
+      "center_hd": "Root",
+      "dimensions": [21, 3, 13],
+      "ratio": "21:13 = φ",
+      "position": [0, 56, 0],
+      "materials": {
+        "floor": "obsidian",
+        "walls": "blackstone",
+        "ceiling": "deepslate"
+      },
+      "features": ["archives", "ender_chests", "enchanting_table"],
+      "gates": [58, 38, 54, 19, 39, 41, 60, 52, 53, 61]
+    },
+    {
+      "id": "solar_garden",
+      "name": "Jardín Emocional",
+      "center_hd": "Solar Plexus",
+      "dimensions": [34, 1, 21],
+      "ratio": "34:21 = φ (espiral áurea)",
+      "position": [0, 64, 45],
+      "materials": {
+        "floor": "grass_block",
+        "paths": "dirt_path",
+        "water": "water"
+      },
+      "features": ["fibonacci_spiral", "8_biome_sectors", "fountain_center"],
+      "gates": [55, 30, 22, 36, 37, 6, 49]
+    }
+  ],
+  "corridors": [
+    {"from": "throne_of_voice", "to": "library_head", "width": 3, "height": 3},
+    {"from": "throne_of_voice", "to": "oracle_tower", "width": 3, "height": 3},
+    {"from": "throne_of_voice", "to": "sacrarium", "width": 5, "height": 4},
+    {"from": "throne_of_voice", "to": "heart_chamber", "width": 3, "height": 3},
+    {"from": "throne_of_voice", "to": "ego_hall", "width": 3, "height": 3},
+    {"from": "throne_of_voice", "to": "ajna_maps", "width": 2, "height": 3},
+    {"from": "spleen_storage", "to": "root_crypt", "width": 3, "height": 3}
+  ],
+  "biomes": {
+    "north": {"name": "Montañas nevadas", "distance": 89, "center": "Crown"},
+    "northeast": {"name": "Taiga oscura", "distance": 144, "center": "Head"},
+    "east": {"name": "Pradera de flores", "distance": 233, "center": "Ajna"},
+    "southeast": {"name": "Jungla de bambú", "distance": 377, "center": "Throat"},
+    "south": {"name": "Desierto mesa", "distance": 610, "center": "Ego"},
+    "southwest": {"name": "Savanna acacia", "distance": 987, "center": "Heart"},
+    "west": {"name": "Océano profundo", "distance": 1597, "center": "Sacral"},
+    "northwest": {"name": "Pantano micelio", "distance": 2584, "center": "Spleen"}
+  },
+  "gates_windows": {
+    "description": "64 ventanas en la fachada principal, una por cada puerta del I Ching",
+    "layout": "8 filas × 8 columnas",
+    "illuminated": "gates_definidas_de_los_5_landfolk",
+    "changing": "transitos_oraculares_diarios"
+  }
+}

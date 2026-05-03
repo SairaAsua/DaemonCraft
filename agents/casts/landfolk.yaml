@@ -1,8 +1,9 @@
 # DaemonCraft Landfolk Mode Cast
 # 5 peaceful settlers building a village together
+# All powered by Gemma4 via Ollama (soul-engine/HD)
 
 name: landfolk
-description: 5 villagers working together to build a settlement
+description: 5 villagers with Human Design natal charts building a harmonic settlement
 mode: landfolk
 soul_file: SOUL-landfolk.md
 
@@ -10,20 +11,54 @@ agents:
   - name: Stevie
     template: landfolk/steve
     port: 3001
-    model: MiniMax-M2.7
+    model: gemma4:e4b-it-q8_0
+    provider: custom
+    base_url: http://10.10.20.1:11434/v1
+    hd_type: Manifestor
+    hd_profile: "4/6"
+    hd_authority: Emotional
+    always_chat: false
+
   - name: Moss
     template: landfolk/moss
     port: 3002
-    model: MiniMax-M2.7
+    model: gemma4:e4b-it-q8_0
+    provider: custom
+    base_url: http://10.10.20.1:11434/v1
+    hd_type: Projector
+    hd_profile: "2/4"
+    hd_authority: Splenic
+    always_chat: false
+
   - name: Reed
     template: landfolk/reed
     port: 3003
-    model: MiniMax-M2.7
+    model: gemma4:e4b-it-q8_0
+    provider: custom
+    base_url: http://10.10.20.1:11434/v1
+    hd_type: Reflector
+    hd_profile: "1/3"
+    hd_authority: Lunar
+    always_chat: false
+
   - name: Flint
     template: landfolk/flint
     port: 3004
-    model: MiniMax-M2.7
+    model: gemma4:e4b-it-q8_0
+    provider: custom
+    base_url: http://10.10.20.1:11434/v1
+    hd_type: Manifesting Generator
+    hd_profile: "3/5"
+    hd_authority: Sacral
+    always_chat: false
+
   - name: Ember
     template: landfolk/ember
     port: 3005
-    model: MiniMax-M2.7
+    model: gemma4:e4b-it-q8_0
+    provider: custom
+    base_url: http://10.10.20.1:11434/v1
+    hd_type: Generator
+    hd_profile: "1/3"
+    hd_authority: Emotional
+    always_chat: false

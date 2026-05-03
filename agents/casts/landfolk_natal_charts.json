@@ -1,0 +1,1790 @@
+{
+  "stevie": {
+    "name": "stevie",
+    "type": "Manifestor",
+    "type_ru": "Манифестор",
+    "profile": "4/6",
+    "authority": "Emotional",
+    "authority_ru": "Эмоциональный",
+    "strategy": "To Inform",
+    "strategy_ru": "Информировать",
+    "signature": "Peace",
+    "not_self_theme": "Anger",
+    "definition": "Split Definition",
+    "definition_ru": "Расщеплённое определение",
+    "incarnation_cross": {
+      "name": "Right Angle Cross of Explanation",
+      "angle": "Right Angle",
+      "gates": [
+        4,
+        49,
+        23,
+        43
+      ],
+      "personality_sun": 4,
+      "design_sun": 23
+    },
+    "defined_centers": [
+      "Ajna",
+      "Head",
+      "Heart",
+      "Root",
+      "Solar Plexus",
+      "Throat"
+    ],
+    "open_centers": [
+      "Sacral",
+      "Self",
+      "Spleen"
+    ],
+    "active_channels": [
+      {
+        "gates": [
+          23,
+          43
+        ],
+        "name": "Structuring",
+        "centers": [
+          "Throat",
+          "Ajna"
+        ],
+        "circuit": "Individual"
+      },
+      {
+        "gates": [
+          39,
+          55
+        ],
+        "name": "Emoting",
+        "centers": [
+          "Root",
+          "Solar Plexus"
+        ],
+        "circuit": "Individual"
+      },
+      {
+        "gates": [
+          4,
+          63
+        ],
+        "name": "Logic",
+        "centers": [
+          "Ajna",
+          "Head"
+        ],
+        "circuit": "Collective"
+      },
+      {
+        "gates": [
+          21,
+          45
+        ],
+        "name": "Money",
+        "centers": [
+          "Heart",
+          "Throat"
+        ],
+        "circuit": "Tribal"
+      }
+    ],
+    "all_active_gates": [
+      4,
+      9,
+      15,
+      16,
+      18,
+      21,
+      23,
+      26,
+      32,
+      39,
+      43,
+      45,
+      49,
+      55,
+      56,
+      63,
+      64
+    ],
+    "variables": {
+      "digestion": {
+        "arrow": "Left",
+        "color": 2,
+        "tone": 3,
+        "label": "Active"
+      },
+      "environment": {
+        "arrow": "Right",
+        "color": 6,
+        "tone": 3,
+        "label": "Observer"
+      },
+      "perspective": {
+        "arrow": "Left",
+        "color": 1,
+        "tone": 4,
+        "label": "Focused"
+      },
+      "motivation": {
+        "arrow": "Left",
+        "color": 3,
+        "tone": 2,
+        "label": "Specific"
+      },
+      "arrows": "◄ ► ◄ ◄"
+    },
+    "personality_activations": [
+      {
+        "planet": "Sun",
+        "gate": 4,
+        "gate_name": "Formulization",
+        "line": 4,
+        "color": 1,
+        "tone": 4,
+        "base": 4
+      },
+      {
+        "planet": "Earth",
+        "gate": 49,
+        "gate_name": "Principles",
+        "line": 4,
+        "color": 1,
+        "tone": 4,
+        "base": 4
+      },
+      {
+        "planet": "Moon",
+        "gate": 39,
+        "gate_name": "Provocation",
+        "line": 3,
+        "color": 5,
+        "tone": 2,
+        "base": 2
+      },
+      {
+        "planet": "North Node",
+        "gate": 26,
+        "gate_name": "The Egoist",
+        "line": 1,
+        "color": 3,
+        "tone": 2,
+        "base": 1
+      },
+      {
+        "planet": "Mercury",
+        "gate": 4,
+        "gate_name": "Formulization",
+        "line": 1,
+        "color": 2,
+        "tone": 6,
+        "base": 4
+      },
+      {
+        "planet": "Venus",
+        "gate": 56,
+        "gate_name": "Stimulation",
+        "line": 4,
+        "color": 6,
+        "tone": 1,
+        "base": 5
+      },
+      {
+        "planet": "Mars",
+        "gate": 64,
+        "gate_name": "Confusion",
+        "line": 1,
+        "color": 2,
+        "tone": 2,
+        "base": 4
+      },
+      {
+        "planet": "Jupiter",
+        "gate": 63,
+        "gate_name": "Doubt",
+        "line": 5,
+        "color": 4,
+        "tone": 1,
+        "base": 3
+      },
+      {
+        "planet": "Saturn",
+        "gate": 39,
+        "gate_name": "Provocation",
+        "line": 5,
+        "color": 5,
+        "tone": 4,
+        "base": 5
+      },
+      {
+        "planet": "Uranus",
+        "gate": 32,
+        "gate_name": "Continuity",
+        "line": 4,
+        "color": 6,
+        "tone": 6,
+        "base": 3
+      },
+      {
+        "planet": "Neptune",
+        "gate": 9,
+        "gate_name": "Focus",
+        "line": 2,
+        "color": 2,
+        "tone": 1,
+        "base": 2
+      },
+      {
+        "planet": "Pluto",
+        "gate": 18,
+        "gate_name": "Correction",
+        "line": 2,
+        "color": 2,
+        "tone": 4,
+        "base": 1
+      },
+      {
+        "planet": "South Node",
+        "gate": 45,
+        "gate_name": "Gathering Together",
+        "line": 1,
+        "color": 3,
+        "tone": 2,
+        "base": 1
+      }
+    ],
+    "design_activations": [
+      {
+        "planet": "Sun",
+        "gate": 23,
+        "gate_name": "Assimilation",
+        "line": 6,
+        "color": 2,
+        "tone": 3,
+        "base": 3
+      },
+      {
+        "planet": "Earth",
+        "gate": 43,
+        "gate_name": "Insight",
+        "line": 6,
+        "color": 2,
+        "tone": 3,
+        "base": 3
+      },
+      {
+        "planet": "Moon",
+        "gate": 55,
+        "gate_name": "Spirit",
+        "line": 1,
+        "color": 2,
+        "tone": 3,
+        "base": 2
+      },
+      {
+        "planet": "North Node",
+        "gate": 26,
+        "gate_name": "The Egoist",
+        "line": 3,
+        "color": 6,
+        "tone": 3,
+        "base": 1
+      },
+      {
+        "planet": "Mercury",
+        "gate": 16,
+        "gate_name": "Skills",
+        "line": 1,
+        "color": 1,
+        "tone": 1,
+        "base": 1
+      },
+      {
+        "planet": "Venus",
+        "gate": 21,
+        "gate_name": "The Hunter/Huntress",
+        "line": 2,
+        "color": 6,
+        "tone": 6,
+        "base": 1
+      },
+      {
+        "planet": "Mars",
+        "gate": 39,
+        "gate_name": "Provocation",
+        "line": 6,
+        "color": 4,
+        "tone": 5,
+        "base": 5
+      },
+      {
+        "planet": "Jupiter",
+        "gate": 63,
+        "gate_name": "Doubt",
+        "line": 3,
+        "color": 3,
+        "tone": 1,
+        "base": 2
+      },
+      {
+        "planet": "Saturn",
+        "gate": 15,
+        "gate_name": "Extremes",
+        "line": 5,
+        "color": 4,
+        "tone": 4,
+        "base": 4
+      },
+      {
+        "planet": "Uranus",
+        "gate": 32,
+        "gate_name": "Continuity",
+        "line": 5,
+        "color": 1,
+        "tone": 4,
+        "base": 2
+      },
+      {
+        "planet": "Neptune",
+        "gate": 9,
+        "gate_name": "Focus",
+        "line": 4,
+        "color": 1,
+        "tone": 4,
+        "base": 2
+      },
+      {
+        "planet": "Pluto",
+        "gate": 18,
+        "gate_name": "Correction",
+        "line": 1,
+        "color": 3,
+        "tone": 5,
+        "base": 4
+      },
+      {
+        "planet": "South Node",
+        "gate": 45,
+        "gate_name": "Gathering Together",
+        "line": 3,
+        "color": 6,
+        "tone": 3,
+        "base": 1
+      }
+    ]
+  },
+  "moss": {
+    "name": "moss",
+    "type": "Projector",
+    "type_ru": "Проектор",
+    "profile": "2/4",
+    "authority": "Splenic",
+    "authority_ru": "Селезёночный",
+    "strategy": "Wait for the Invitation",
+    "strategy_ru": "Ждать приглашения",
+    "signature": "Success",
+    "not_self_theme": "Bitterness",
+    "definition": "Single Definition",
+    "definition_ru": "Единое определение",
+    "incarnation_cross": {
+      "name": "Right Angle Cross of Consciousness",
+      "angle": "Right Angle",
+      "gates": [
+        64,
+        63,
+        35,
+        5
+      ],
+      "personality_sun": 64,
+      "design_sun": 35
+    },
+    "defined_centers": [
+      "Heart",
+      "Root",
+      "Spleen"
+    ],
+    "open_centers": [
+      "Ajna",
+      "Head",
+      "Sacral",
+      "Self",
+      "Solar Plexus",
+      "Throat"
+    ],
+    "active_channels": [
+      {
+        "gates": [
+          18,
+          58
+        ],
+        "name": "Judgment",
+        "centers": [
+          "Spleen",
+          "Root"
+        ],
+        "circuit": "Collective"
+      },
+      {
+        "gates": [
+          26,
+          44
+        ],
+        "name": "Surrender",
+        "centers": [
+          "Heart",
+          "Spleen"
+        ],
+        "circuit": "Tribal"
+      }
+    ],
+    "all_active_gates": [
+      3,
+      5,
+      6,
+      11,
+      17,
+      18,
+      19,
+      23,
+      25,
+      26,
+      35,
+      39,
+      40,
+      42,
+      44,
+      46,
+      52,
+      58,
+      63,
+      64
+    ],
+    "variables": {
+      "digestion": {
+        "arrow": "Left",
+        "color": 2,
+        "tone": 3,
+        "label": "Active"
+      },
+      "environment": {
+        "arrow": "Right",
+        "color": 4,
+        "tone": 6,
+        "label": "Observer"
+      },
+      "perspective": {
+        "arrow": "Left",
+        "color": 1,
+        "tone": 5,
+        "label": "Focused"
+      },
+      "motivation": {
+        "arrow": "Left",
+        "color": 3,
+        "tone": 6,
+        "label": "Specific"
+      },
+      "arrows": "◄ ► ◄ ◄"
+    },
+    "personality_activations": [
+      {
+        "planet": "Sun",
+        "gate": 64,
+        "gate_name": "Confusion",
+        "line": 2,
+        "color": 1,
+        "tone": 5,
+        "base": 1
+      },
+      {
+        "planet": "Earth",
+        "gate": 63,
+        "gate_name": "Doubt",
+        "line": 2,
+        "color": 1,
+        "tone": 5,
+        "base": 1
+      },
+      {
+        "planet": "Moon",
+        "gate": 19,
+        "gate_name": "Wanting",
+        "line": 4,
+        "color": 6,
+        "tone": 1,
+        "base": 4
+      },
+      {
+        "planet": "North Node",
+        "gate": 25,
+        "gate_name": "Spirit of the Self",
+        "line": 5,
+        "color": 3,
+        "tone": 6,
+        "base": 3
+      },
+      {
+        "planet": "Mercury",
+        "gate": 6,
+        "gate_name": "Friction",
+        "line": 5,
+        "color": 2,
+        "tone": 4,
+        "base": 1
+      },
+      {
+        "planet": "Venus",
+        "gate": 64,
+        "gate_name": "Confusion",
+        "line": 5,
+        "color": 6,
+        "tone": 6,
+        "base": 1
+      },
+      {
+        "planet": "Mars",
+        "gate": 40,
+        "gate_name": "Aloneness",
+        "line": 4,
+        "color": 1,
+        "tone": 6,
+        "base": 5
+      },
+      {
+        "planet": "Jupiter",
+        "gate": 3,
+        "gate_name": "Ordering",
+        "line": 4,
+        "color": 1,
+        "tone": 4,
+        "base": 1
+      },
+      {
+        "planet": "Saturn",
+        "gate": 5,
+        "gate_name": "Fixed Rhythms",
+        "line": 4,
+        "color": 4,
+        "tone": 5,
+        "base": 3
+      },
+      {
+        "planet": "Uranus",
+        "gate": 11,
+        "gate_name": "Ideas",
+        "line": 1,
+        "color": 1,
+        "tone": 4,
+        "base": 5
+      },
+      {
+        "planet": "Neptune",
+        "gate": 58,
+        "gate_name": "Vitality",
+        "line": 2,
+        "color": 3,
+        "tone": 6,
+        "base": 3
+      },
+      {
+        "planet": "Pluto",
+        "gate": 44,
+        "gate_name": "Coming to Meet",
+        "line": 1,
+        "color": 2,
+        "tone": 2,
+        "base": 4
+      },
+      {
+        "planet": "South Node",
+        "gate": 46,
+        "gate_name": "Pushing Upward",
+        "line": 5,
+        "color": 3,
+        "tone": 6,
+        "base": 3
+      }
+    ],
+    "design_activations": [
+      {
+        "planet": "Sun",
+        "gate": 35,
+        "gate_name": "Change",
+        "line": 4,
+        "color": 2,
+        "tone": 3,
+        "base": 5
+      },
+      {
+        "planet": "Earth",
+        "gate": 5,
+        "gate_name": "Fixed Rhythms",
+        "line": 4,
+        "color": 2,
+        "tone": 3,
+        "base": 5
+      },
+      {
+        "planet": "Moon",
+        "gate": 6,
+        "gate_name": "Friction",
+        "line": 2,
+        "color": 2,
+        "tone": 6,
+        "base": 1
+      },
+      {
+        "planet": "North Node",
+        "gate": 17,
+        "gate_name": "Opinion",
+        "line": 6,
+        "color": 4,
+        "tone": 6,
+        "base": 3
+      },
+      {
+        "planet": "Mercury",
+        "gate": 52,
+        "gate_name": "Stillness",
+        "line": 5,
+        "color": 3,
+        "tone": 6,
+        "base": 1
+      },
+      {
+        "planet": "Venus",
+        "gate": 23,
+        "gate_name": "Assimilation",
+        "line": 5,
+        "color": 4,
+        "tone": 4,
+        "base": 3
+      },
+      {
+        "planet": "Mars",
+        "gate": 39,
+        "gate_name": "Provocation",
+        "line": 1,
+        "color": 4,
+        "tone": 3,
+        "base": 5
+      },
+      {
+        "planet": "Jupiter",
+        "gate": 42,
+        "gate_name": "Growth",
+        "line": 1,
+        "color": 6,
+        "tone": 6,
+        "base": 5
+      },
+      {
+        "planet": "Saturn",
+        "gate": 26,
+        "gate_name": "The Egoist",
+        "line": 2,
+        "color": 2,
+        "tone": 2,
+        "base": 4
+      },
+      {
+        "planet": "Uranus",
+        "gate": 11,
+        "gate_name": "Ideas",
+        "line": 3,
+        "color": 5,
+        "tone": 2,
+        "base": 5
+      },
+      {
+        "planet": "Neptune",
+        "gate": 58,
+        "gate_name": "Vitality",
+        "line": 4,
+        "color": 4,
+        "tone": 3,
+        "base": 5
+      },
+      {
+        "planet": "Pluto",
+        "gate": 44,
+        "gate_name": "Coming to Meet",
+        "line": 1,
+        "color": 1,
+        "tone": 1,
+        "base": 1
+      },
+      {
+        "planet": "South Node",
+        "gate": 18,
+        "gate_name": "Correction",
+        "line": 6,
+        "color": 4,
+        "tone": 6,
+        "base": 3
+      }
+    ]
+  },
+  "reed": {
+    "name": "reed",
+    "type": "Reflector",
+    "type_ru": "Рефлектор",
+    "profile": "1/3",
+    "authority": "Lunar",
+    "authority_ru": "Лунный",
+    "strategy": "Wait a Lunar Cycle (28 days)",
+    "strategy_ru": "Ждать лунный цикл (28 дней)",
+    "signature": "Surprise",
+    "not_self_theme": "Disappointment",
+    "definition": "No Definition",
+    "definition_ru": "Нет определения",
+    "incarnation_cross": {
+      "name": "Right Angle Cross of The Sphinx",
+      "angle": "Right Angle",
+      "gates": [
+        2,
+        1,
+        13,
+        7
+      ],
+      "personality_sun": 2,
+      "design_sun": 13
+    },
+    "defined_centers": [],
+    "open_centers": [
+      "Ajna",
+      "Head",
+      "Heart",
+      "Root",
+      "Sacral",
+      "Self",
+      "Solar Plexus",
+      "Spleen",
+      "Throat"
+    ],
+    "active_channels": [],
+    "all_active_gates": [
+      1,
+      2,
+      7,
+      9,
+      11,
+      13,
+      19,
+      23,
+      32,
+      37,
+      42,
+      48,
+      51,
+      55,
+      57,
+      60,
+      62,
+      63
+    ],
+    "variables": {
+      "digestion": {
+        "arrow": "Left",
+        "color": 2,
+        "tone": 1,
+        "label": "Active"
+      },
+      "environment": {
+        "arrow": "Left",
+        "color": 2,
+        "tone": 2,
+        "label": "Observed"
+      },
+      "perspective": {
+        "arrow": "Left",
+        "color": 1,
+        "tone": 2,
+        "label": "Focused"
+      },
+      "motivation": {
+        "arrow": "Left",
+        "color": 1,
+        "tone": 3,
+        "label": "Specific"
+      },
+      "arrows": "◄ ◄ ◄ ◄"
+    },
+    "personality_activations": [
+      {
+        "planet": "Sun",
+        "gate": 2,
+        "gate_name": "The Receptive",
+        "line": 1,
+        "color": 1,
+        "tone": 2,
+        "base": 3
+      },
+      {
+        "planet": "Earth",
+        "gate": 1,
+        "gate_name": "The Creative",
+        "line": 1,
+        "color": 1,
+        "tone": 2,
+        "base": 3
+      },
+      {
+        "planet": "Moon",
+        "gate": 63,
+        "gate_name": "Doubt",
+        "line": 4,
+        "color": 2,
+        "tone": 4,
+        "base": 5
+      },
+      {
+        "planet": "North Node",
+        "gate": 42,
+        "gate_name": "Growth",
+        "line": 3,
+        "color": 1,
+        "tone": 3,
+        "base": 3
+      },
+      {
+        "planet": "Mercury",
+        "gate": 51,
+        "gate_name": "Shock",
+        "line": 3,
+        "color": 3,
+        "tone": 4,
+        "base": 3
+      },
+      {
+        "planet": "Venus",
+        "gate": 23,
+        "gate_name": "Assimilation",
+        "line": 4,
+        "color": 2,
+        "tone": 5,
+        "base": 3
+      },
+      {
+        "planet": "Mars",
+        "gate": 55,
+        "gate_name": "Spirit",
+        "line": 2,
+        "color": 5,
+        "tone": 6,
+        "base": 3
+      },
+      {
+        "planet": "Jupiter",
+        "gate": 48,
+        "gate_name": "Depth",
+        "line": 2,
+        "color": 1,
+        "tone": 2,
+        "base": 5
+      },
+      {
+        "planet": "Saturn",
+        "gate": 62,
+        "gate_name": "Detail",
+        "line": 2,
+        "color": 2,
+        "tone": 6,
+        "base": 4
+      },
+      {
+        "planet": "Uranus",
+        "gate": 37,
+        "gate_name": "Friendship",
+        "line": 5,
+        "color": 4,
+        "tone": 4,
+        "base": 2
+      },
+      {
+        "planet": "Neptune",
+        "gate": 13,
+        "gate_name": "The Listener",
+        "line": 5,
+        "color": 4,
+        "tone": 3,
+        "base": 2
+      },
+      {
+        "planet": "Pluto",
+        "gate": 11,
+        "gate_name": "Ideas",
+        "line": 2,
+        "color": 4,
+        "tone": 5,
+        "base": 4
+      },
+      {
+        "planet": "South Node",
+        "gate": 32,
+        "gate_name": "Continuity",
+        "line": 3,
+        "color": 1,
+        "tone": 3,
+        "base": 3
+      }
+    ],
+    "design_activations": [
+      {
+        "planet": "Sun",
+        "gate": 13,
+        "gate_name": "The Listener",
+        "line": 3,
+        "color": 2,
+        "tone": 1,
+        "base": 2
+      },
+      {
+        "planet": "Earth",
+        "gate": 7,
+        "gate_name": "The Role of the Self",
+        "line": 3,
+        "color": 2,
+        "tone": 1,
+        "base": 2
+      },
+      {
+        "planet": "Moon",
+        "gate": 9,
+        "gate_name": "Focus",
+        "line": 2,
+        "color": 3,
+        "tone": 6,
+        "base": 2
+      },
+      {
+        "planet": "North Node",
+        "gate": 42,
+        "gate_name": "Growth",
+        "line": 6,
+        "color": 2,
+        "tone": 2,
+        "base": 2
+      },
+      {
+        "planet": "Mercury",
+        "gate": 19,
+        "gate_name": "Wanting",
+        "line": 1,
+        "color": 2,
+        "tone": 2,
+        "base": 3
+      },
+      {
+        "planet": "Venus",
+        "gate": 60,
+        "gate_name": "Limitation",
+        "line": 6,
+        "color": 5,
+        "tone": 2,
+        "base": 1
+      },
+      {
+        "planet": "Mars",
+        "gate": 11,
+        "gate_name": "Ideas",
+        "line": 6,
+        "color": 5,
+        "tone": 5,
+        "base": 4
+      },
+      {
+        "planet": "Jupiter",
+        "gate": 57,
+        "gate_name": "Intuitive Clarity",
+        "line": 4,
+        "color": 6,
+        "tone": 6,
+        "base": 2
+      },
+      {
+        "planet": "Saturn",
+        "gate": 62,
+        "gate_name": "Detail",
+        "line": 2,
+        "color": 4,
+        "tone": 3,
+        "base": 2
+      },
+      {
+        "planet": "Uranus",
+        "gate": 55,
+        "gate_name": "Spirit",
+        "line": 6,
+        "color": 5,
+        "tone": 5,
+        "base": 2
+      },
+      {
+        "planet": "Neptune",
+        "gate": 13,
+        "gate_name": "The Listener",
+        "line": 2,
+        "color": 6,
+        "tone": 5,
+        "base": 2
+      },
+      {
+        "planet": "Pluto",
+        "gate": 11,
+        "gate_name": "Ideas",
+        "line": 2,
+        "color": 2,
+        "tone": 4,
+        "base": 4
+      },
+      {
+        "planet": "South Node",
+        "gate": 32,
+        "gate_name": "Continuity",
+        "line": 6,
+        "color": 2,
+        "tone": 2,
+        "base": 2
+      }
+    ]
+  },
+  "flint": {
+    "name": "flint",
+    "type": "Manifesting Generator",
+    "type_ru": "Манифестирующий Генератор",
+    "profile": "3/5",
+    "authority": "Sacral",
+    "authority_ru": "Сакральный",
+    "strategy": "To Respond, then Inform",
+    "strategy_ru": "Откликаться, затем информировать",
+    "signature": "Satisfaction",
+    "not_self_theme": "Frustration & Anger",
+    "definition": "Single Definition",
+    "definition_ru": "Единое определение",
+    "incarnation_cross": {
+      "name": "Right Angle Cross of Consciousness",
+      "angle": "Right Angle",
+      "gates": [
+        63,
+        64,
+        5,
+        35
+      ],
+      "personality_sun": 63,
+      "design_sun": 5
+    },
+    "defined_centers": [
+      "Sacral",
+      "Self",
+      "Throat"
+    ],
+    "open_centers": [
+      "Ajna",
+      "Head",
+      "Heart",
+      "Root",
+      "Solar Plexus",
+      "Spleen"
+    ],
+    "active_channels": [
+      {
+        "gates": [
+          5,
+          15
+        ],
+        "name": "Rhythm",
+        "centers": [
+          "Sacral",
+          "Self"
+        ],
+        "circuit": "Collective"
+      },
+      {
+        "gates": [
+          13,
+          33
+        ],
+        "name": "The Prodigal",
+        "centers": [
+          "Self",
+          "Throat"
+        ],
+        "circuit": "Collective"
+      }
+    ],
+    "all_active_gates": [
+      5,
+      7,
+      8,
+      10,
+      13,
+      15,
+      23,
+      27,
+      28,
+      29,
+      32,
+      33,
+      35,
+      42,
+      44,
+      48,
+      55,
+      60,
+      63,
+      64
+    ],
+    "variables": {
+      "digestion": {
+        "arrow": "Right",
+        "color": 6,
+        "tone": 2,
+        "label": "Passive"
+      },
+      "environment": {
+        "arrow": "Right",
+        "color": 6,
+        "tone": 2,
+        "label": "Observer"
+      },
+      "perspective": {
+        "arrow": "Right",
+        "color": 5,
+        "tone": 3,
+        "label": "Peripheral"
+      },
+      "motivation": {
+        "arrow": "Left",
+        "color": 3,
+        "tone": 6,
+        "label": "Specific"
+      },
+      "arrows": "► ► ► ◄"
+    },
+    "personality_activations": [
+      {
+        "planet": "Sun",
+        "gate": 63,
+        "gate_name": "Doubt",
+        "line": 3,
+        "color": 5,
+        "tone": 3,
+        "base": 3
+      },
+      {
+        "planet": "Earth",
+        "gate": 64,
+        "gate_name": "Confusion",
+        "line": 3,
+        "color": 5,
+        "tone": 3,
+        "base": 3
+      },
+      {
+        "planet": "Moon",
+        "gate": 29,
+        "gate_name": "Saying Yes",
+        "line": 6,
+        "color": 6,
+        "tone": 3,
+        "base": 4
+      },
+      {
+        "planet": "North Node",
+        "gate": 32,
+        "gate_name": "Continuity",
+        "line": 5,
+        "color": 3,
+        "tone": 6,
+        "base": 3
+      },
+      {
+        "planet": "Mercury",
+        "gate": 55,
+        "gate_name": "Spirit",
+        "line": 5,
+        "color": 1,
+        "tone": 5,
+        "base": 2
+      },
+      {
+        "planet": "Venus",
+        "gate": 42,
+        "gate_name": "Growth",
+        "line": 2,
+        "color": 3,
+        "tone": 4,
+        "base": 5
+      },
+      {
+        "planet": "Mars",
+        "gate": 13,
+        "gate_name": "The Listener",
+        "line": 6,
+        "color": 1,
+        "tone": 1,
+        "base": 2
+      },
+      {
+        "planet": "Jupiter",
+        "gate": 8,
+        "gate_name": "Holding Together",
+        "line": 1,
+        "color": 3,
+        "tone": 2,
+        "base": 4
+      },
+      {
+        "planet": "Saturn",
+        "gate": 33,
+        "gate_name": "Privacy",
+        "line": 4,
+        "color": 5,
+        "tone": 5,
+        "base": 2
+      },
+      {
+        "planet": "Uranus",
+        "gate": 44,
+        "gate_name": "Coming to Meet",
+        "line": 5,
+        "color": 2,
+        "tone": 5,
+        "base": 2
+      },
+      {
+        "planet": "Neptune",
+        "gate": 5,
+        "gate_name": "Fixed Rhythms",
+        "line": 6,
+        "color": 1,
+        "tone": 2,
+        "base": 1
+      },
+      {
+        "planet": "Pluto",
+        "gate": 48,
+        "gate_name": "Depth",
+        "line": 5,
+        "color": 3,
+        "tone": 1,
+        "base": 5
+      },
+      {
+        "planet": "South Node",
+        "gate": 42,
+        "gate_name": "Growth",
+        "line": 5,
+        "color": 3,
+        "tone": 6,
+        "base": 3
+      }
+    ],
+    "design_activations": [
+      {
+        "planet": "Sun",
+        "gate": 5,
+        "gate_name": "Fixed Rhythms",
+        "line": 5,
+        "color": 6,
+        "tone": 2,
+        "base": 2
+      },
+      {
+        "planet": "Earth",
+        "gate": 35,
+        "gate_name": "Change",
+        "line": 5,
+        "color": 6,
+        "tone": 2,
+        "base": 2
+      },
+      {
+        "planet": "Moon",
+        "gate": 15,
+        "gate_name": "Extremes",
+        "line": 1,
+        "color": 4,
+        "tone": 3,
+        "base": 3
+      },
+      {
+        "planet": "North Node",
+        "gate": 28,
+        "gate_name": "The Game Player",
+        "line": 1,
+        "color": 6,
+        "tone": 2,
+        "base": 5
+      },
+      {
+        "planet": "Mercury",
+        "gate": 10,
+        "gate_name": "Behavior of the Self",
+        "line": 5,
+        "color": 2,
+        "tone": 4,
+        "base": 4
+      },
+      {
+        "planet": "Venus",
+        "gate": 60,
+        "gate_name": "Limitation",
+        "line": 2,
+        "color": 5,
+        "tone": 6,
+        "base": 4
+      },
+      {
+        "planet": "Mars",
+        "gate": 5,
+        "gate_name": "Fixed Rhythms",
+        "line": 1,
+        "color": 6,
+        "tone": 2,
+        "base": 4
+      },
+      {
+        "planet": "Jupiter",
+        "gate": 23,
+        "gate_name": "Assimilation",
+        "line": 6,
+        "color": 1,
+        "tone": 2,
+        "base": 1
+      },
+      {
+        "planet": "Saturn",
+        "gate": 7,
+        "gate_name": "The Role of the Self",
+        "line": 4,
+        "color": 5,
+        "tone": 4,
+        "base": 4
+      },
+      {
+        "planet": "Uranus",
+        "gate": 44,
+        "gate_name": "Coming to Meet",
+        "line": 3,
+        "color": 2,
+        "tone": 4,
+        "base": 5
+      },
+      {
+        "planet": "Neptune",
+        "gate": 5,
+        "gate_name": "Fixed Rhythms",
+        "line": 3,
+        "color": 4,
+        "tone": 2,
+        "base": 5
+      },
+      {
+        "planet": "Pluto",
+        "gate": 48,
+        "gate_name": "Depth",
+        "line": 5,
+        "color": 4,
+        "tone": 1,
+        "base": 5
+      },
+      {
+        "planet": "South Node",
+        "gate": 27,
+        "gate_name": "Caring",
+        "line": 1,
+        "color": 6,
+        "tone": 2,
+        "base": 5
+      }
+    ]
+  },
+  "ember": {
+    "name": "ember",
+    "type": "Generator",
+    "type_ru": "Генератор",
+    "profile": "1/3",
+    "authority": "Emotional",
+    "authority_ru": "Эмоциональный",
+    "strategy": "To Respond",
+    "strategy_ru": "Откликаться",
+    "signature": "Satisfaction",
+    "not_self_theme": "Frustration",
+    "definition": "Quadruple Split",
+    "definition_ru": "Четверной сплит",
+    "incarnation_cross": {
+      "name": "Right Angle Cross of Maya",
+      "angle": "Right Angle",
+      "gates": [
+        62,
+        61,
+        42,
+        32
+      ],
+      "personality_sun": 62,
+      "design_sun": 42
+    },
+    "defined_centers": [
+      "Ajna",
+      "Head",
+      "Heart",
+      "Root",
+      "Sacral",
+      "Self",
+      "Solar Plexus",
+      "Spleen",
+      "Throat"
+    ],
+    "open_centers": [],
+    "active_channels": [
+      {
+        "gates": [
+          24,
+          61
+        ],
+        "name": "Awareness",
+        "centers": [
+          "Ajna",
+          "Head"
+        ],
+        "circuit": "Individual"
+      },
+      {
+        "gates": [
+          13,
+          33
+        ],
+        "name": "The Prodigal",
+        "centers": [
+          "Self",
+          "Throat"
+        ],
+        "circuit": "Collective"
+      },
+      {
+        "gates": [
+          42,
+          53
+        ],
+        "name": "Maturation",
+        "centers": [
+          "Sacral",
+          "Root"
+        ],
+        "circuit": "Collective"
+      },
+      {
+        "gates": [
+          26,
+          44
+        ],
+        "name": "Surrender",
+        "centers": [
+          "Heart",
+          "Spleen"
+        ],
+        "circuit": "Tribal"
+      },
+      {
+        "gates": [
+          37,
+          40
+        ],
+        "name": "Community",
+        "centers": [
+          "Solar Plexus",
+          "Heart"
+        ],
+        "circuit": "Tribal"
+      }
+    ],
+    "all_active_gates": [
+      3,
+      7,
+      13,
+      16,
+      24,
+      26,
+      32,
+      33,
+      35,
+      37,
+      40,
+      41,
+      42,
+      44,
+      52,
+      53,
+      55,
+      61,
+      62,
+      64
+    ],
+    "variables": {
+      "digestion": {
+        "arrow": "Right",
+        "color": 6,
+        "tone": 5,
+        "label": "Passive"
+      },
+      "environment": {
+        "arrow": "Left",
+        "color": 1,
+        "tone": 1,
+        "label": "Observed"
+      },
+      "perspective": {
+        "arrow": "Right",
+        "color": 5,
+        "tone": 6,
+        "label": "Peripheral"
+      },
+      "motivation": {
+        "arrow": "Left",
+        "color": 1,
+        "tone": 2,
+        "label": "Specific"
+      },
+      "arrows": "► ◄ ► ◄"
+    },
+    "personality_activations": [
+      {
+        "planet": "Sun",
+        "gate": 62,
+        "gate_name": "Detail",
+        "line": 1,
+        "color": 5,
+        "tone": 6,
+        "base": 5
+      },
+      {
+        "planet": "Earth",
+        "gate": 61,
+        "gate_name": "Mystery",
+        "line": 1,
+        "color": 5,
+        "tone": 6,
+        "base": 5
+      },
+      {
+        "planet": "Moon",
+        "gate": 16,
+        "gate_name": "Skills",
+        "line": 4,
+        "color": 6,
+        "tone": 3,
+        "base": 1
+      },
+      {
+        "planet": "North Node",
+        "gate": 24,
+        "gate_name": "Rationalization",
+        "line": 2,
+        "color": 1,
+        "tone": 2,
+        "base": 4
+      },
+      {
+        "planet": "Mercury",
+        "gate": 7,
+        "gate_name": "The Role of the Self",
+        "line": 2,
+        "color": 5,
+        "tone": 1,
+        "base": 2
+      },
+      {
+        "planet": "Venus",
+        "gate": 35,
+        "gate_name": "Change",
+        "line": 2,
+        "color": 4,
+        "tone": 4,
+        "base": 5
+      },
+      {
+        "planet": "Mars",
+        "gate": 33,
+        "gate_name": "Privacy",
+        "line": 6,
+        "color": 1,
+        "tone": 5,
+        "base": 5
+      },
+      {
+        "planet": "Jupiter",
+        "gate": 64,
+        "gate_name": "Confusion",
+        "line": 5,
+        "color": 2,
+        "tone": 1,
+        "base": 5
+      },
+      {
+        "planet": "Saturn",
+        "gate": 53,
+        "gate_name": "Development",
+        "line": 3,
+        "color": 4,
+        "tone": 1,
+        "base": 1
+      },
+      {
+        "planet": "Uranus",
+        "gate": 37,
+        "gate_name": "Friendship",
+        "line": 1,
+        "color": 5,
+        "tone": 1,
+        "base": 1
+      },
+      {
+        "planet": "Neptune",
+        "gate": 13,
+        "gate_name": "The Listener",
+        "line": 2,
+        "color": 3,
+        "tone": 5,
+        "base": 2
+      },
+      {
+        "planet": "Pluto",
+        "gate": 26,
+        "gate_name": "The Egoist",
+        "line": 4,
+        "color": 2,
+        "tone": 6,
+        "base": 2
+      },
+      {
+        "planet": "South Node",
+        "gate": 44,
+        "gate_name": "Coming to Meet",
+        "line": 2,
+        "color": 1,
+        "tone": 2,
+        "base": 4
+      }
+    ],
+    "design_activations": [
+      {
+        "planet": "Sun",
+        "gate": 42,
+        "gate_name": "Growth",
+        "line": 3,
+        "color": 6,
+        "tone": 5,
+        "base": 4
+      },
+      {
+        "planet": "Earth",
+        "gate": 32,
+        "gate_name": "Continuity",
+        "line": 3,
+        "color": 6,
+        "tone": 5,
+        "base": 4
+      },
+      {
+        "planet": "Moon",
+        "gate": 41,
+        "gate_name": "Contraction",
+        "line": 5,
+        "color": 3,
+        "tone": 1,
+        "base": 3
+      },
+      {
+        "planet": "North Node",
+        "gate": 24,
+        "gate_name": "Rationalization",
+        "line": 5,
+        "color": 1,
+        "tone": 1,
+        "base": 1
+      },
+      {
+        "planet": "Mercury",
+        "gate": 3,
+        "gate_name": "Ordering",
+        "line": 4,
+        "color": 5,
+        "tone": 6,
+        "base": 4
+      },
+      {
+        "planet": "Venus",
+        "gate": 16,
+        "gate_name": "Skills",
+        "line": 3,
+        "color": 6,
+        "tone": 5,
+        "base": 4
+      },
+      {
+        "planet": "Mars",
+        "gate": 35,
+        "gate_name": "Change",
+        "line": 4,
+        "color": 3,
+        "tone": 4,
+        "base": 2
+      },
+      {
+        "planet": "Jupiter",
+        "gate": 40,
+        "gate_name": "Aloneness",
+        "line": 5,
+        "color": 1,
+        "tone": 6,
+        "base": 5
+      },
+      {
+        "planet": "Saturn",
+        "gate": 52,
+        "gate_name": "Stillness",
+        "line": 4,
+        "color": 6,
+        "tone": 1,
+        "base": 4
+      },
+      {
+        "planet": "Uranus",
+        "gate": 55,
+        "gate_name": "Spirit",
+        "line": 6,
+        "color": 5,
+        "tone": 2,
+        "base": 1
+      },
+      {
+        "planet": "Neptune",
+        "gate": 13,
+        "gate_name": "The Listener",
+        "line": 2,
+        "color": 6,
+        "tone": 4,
+        "base": 5
+      },
+      {
+        "planet": "Pluto",
+        "gate": 26,
+        "gate_name": "The Egoist",
+        "line": 6,
+        "color": 3,
+        "tone": 6,
+        "base": 3
+      },
+      {
+        "planet": "South Node",
+        "gate": 44,
+        "gate_name": "Coming to Meet",
+        "line": 5,
+        "color": 1,
+        "tone": 1,
+        "base": 1
+      }
+    ]
+  }
+}

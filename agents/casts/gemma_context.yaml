@@ -1,0 +1,162 @@
+# Gemma4 Context Optimization Configuration
+# All bots use gemma4:e4b-it-q8_0 via Ollama (8K context window)
+# Targets: keep total prompt under 7000 tokens to leave headroom
+
+model:
+  name: gemma4:e4b-it-q8_0
+  context_window: 8192
+  reserved_tokens: 1024  # buffer for tool calls + response generation
+  quantization: q8_0
+  vram_estimate_mb: 4096
+
+compression:
+  enabled: true
+  cache_dir: "agents/casts/.soul_cache"
+  auto_compress_history: true
+  summarize_threshold_msgs: 8
+  max_tool_result_lines: 30
+
+global:
+  max_iterations: 6
+  reasoning_enabled: false
+  quiet_mode: true
+
+bots:
+  # --- Companion ---
+  eko:
+    tier: CORE
+    max_history_msgs: 10
+    max_response_tokens: 256
+    max_chat_chars: 240
+    chat_format: say_lines
+    system_prompt_estimate_tokens: 2500
+    compress_inventory: true
+    compress_nearby: true
+    compress_scene: true
+
+  # --- Landfolk ---
+  stevie:
+    tier: MINI
+    max_history_msgs: 8
+    max_response_tokens: 128
+    max_chat_chars: 240
+    chat_format: say_lines
+    system_prompt_estimate_tokens: 500
+    compress_inventory: true
+    compress_nearby: true
+    compress_scene: false
+
+  moss:
+    tier: CORE
+    max_history_msgs: 10
+    max_response_tokens: 192
+    max_chat_chars: 240
+    chat_format: say_lines
+    system_prompt_estimate_tokens: 1200
+    compress_inventory: true
+    compress_nearby: true
+    compress_scene: true
+
+  reed:
+    tier: MINI
+    max_history_msgs: 6
+    max_response_tokens: 128
+    max_chat_chars: 240
+    chat_format: say_lines
+    system_prompt_estimate_tokens: 400
+    compress_inventory: true
+    compress_nearby: false
+    compress_scene: false
+
+  flint:
+    tier: MINI
+    max_history_msgs: 8
+    max_response_tokens: 128
+    max_chat_chars: 240
+    chat_format: say_lines
+    system_prompt_estimate_tokens: 500
+    compress_inventory: true
+    compress_nearby: true
+    compress_scene: false
+
+  ember:
+    tier: CORE
+    max_history_msgs: 10
+    max_response_tokens: 192
+    max_chat_chars: 240
+    chat_format: say_lines
+    system_prompt_estimate_tokens: 1200
+    compress_inventory: true
+    compress_nearby: true
+    compress_scene: true
+
+  # --- Civilization ---
+  marcus:
+    tier: MINI
+    max_history_msgs: 8
+    max_response_tokens: 128
+    compress_inventory: true
+    compress_nearby: true
+    compress_scene: false
+
+  sarah:
+    tier: MINI
+    max_history_msgs: 8
+    max_response_tokens: 128
+    compress_inventory: true
+    compress_nearby: true
+    compress_scene: false
+
+  jin:
+    tier: MINI
+    max_history_msgs: 8
+    max_response_tokens: 128
+    compress_inventory: true
+    compress_nearby: true
+    compress_scene: false
+
+  dave:
+    tier: MINI
+    max_history_msgs: 8
+    max_response_tokens: 128
+    compress_inventory: true
+    compress_nearby: true
+    compress_scene: false
+
+  lisa:
+    tier: MINI
+    max_history_msgs: 8
+    max_response_tokens: 128
+    compress_inventory: true
+    compress_nearby: true
+    compress_scene: false
+
+  tommy:
+    tier: MINI
+    max_history_msgs: 8
+    max_response_tokens: 128
+    compress_inventory: true
+    compress_nearby: true
+    compress_scene: false
+
+  elena:
+    tier: MINI
+    max_history_msgs: 8
+    max_response_tokens: 128
+    compress_inventory: true
+    compress_nearby: true
+    compress_scene: false
+
+  # --- Rolemaster ---
+  pamplinas:
+    tier: FULL
+    max_history_msgs: 12
+    max_response_tokens: 480
+    max_chat_chars: 480
+    chat_format: say_lines
+    system_prompt_estimate_tokens: 5000
+    compress_inventory: false
+    compress_nearby: true
+    compress_scene: false
+    extra_toolsets:
+      - vision

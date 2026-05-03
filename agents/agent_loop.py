@@ -217,6 +217,74 @@ def _safe_trim_history(messages: list, max_msgs: int = 20) -> list:
     return messages[keep_from:]
 
 
+def load_gemma_context() -> dict:
+    """Load Gemma optimization config per bot."""
+    ctx_path = Path(__file__).parent / "casts" / "gemma_context.yaml"
+    if not ctx_path.exists():
+        return {}
+    try:
+        import yaml
+        return yaml.safe_load(ctx_path.read_text()) or {}
+    except Exception:
+        return {}
+
+
+def get_bot_config(profile_name: str, gemma_ctx: dict) -> dict:
+    """Get bot-specific context config. Falls back to global defaults."""
+    bots = gemma_ctx.get("bots", {})
+    # Try exact match, then lowercase
+    bot_cfg = bots.get(profile_name, bots.get(profile_name.lower(), {}))
+    global_cfg = gemma_ctx.get("global", {})
+    return {**global_cfg, **bot_cfg}
+
+
+def compress_history(messages: list, bot_config: dict) -> list:
+    """Compress conversation history based on bot config.
+
+    Strategy:
+      1. Trim to max_history_msgs (respecting tool_call chains)
+      2. If still too long, summarize older messages into a system note.
+    """
+    max_msgs = bot_config.get("max_history_msgs", 20)
+    if len(messages) <= max_msgs:
+        return messages
+
+    # Phase 1: safe trim respecting tool_call chains
+    keep_from = len(messages) - max_msgs
+    tool_ids_in_window = set()
+    for msg in messages[keep_from:]:
+        if msg.get("role") == "tool" and msg.get("tool_call_id"):
+            tool_ids_in_window.add(msg["tool_call_id"])
+    for i, msg in enumerate(messages):
+        if msg.get("role") == "assistant" and msg.get("tool_calls"):
+            for tc in msg["tool_calls"]:
+                tc_id = tc.get("id")
+                if tc_id and tc_id in tool_ids_in_window:
+                    keep_from = min(keep_from, i)
+
+    trimmed = messages[keep_from:]
+    if len(trimmed) <= max_msgs:
+        return trimmed
+
+    # Phase 2: if still over limit (due to tool chain deps), compress middle into summary
+    system_msgs = [m for m in trimmed if m.get("role") == "system"]
+    non_system = [m for m in trimmed if m.get("role") != "system"]
+
+    # Keep first 2 and last (max_msgs - 3) non-system messages
+    keep_first = 2
+    keep_last = max(0, max_msgs - 3 - len(system_msgs))
+    if len(non_system) > keep_first + keep_last:
+        middle = non_system[keep_first:-keep_last] if keep_last > 0 else non_system[keep_first:]
+        summary = f"[Earlier: {len(middle)} message(s) condensed]"
+        compressed = system_msgs + non_system[:keep_first]
+        compressed.append({"role": "system", "content": summary})
+        if keep_last > 0:
+            compressed.extend(non_system[-keep_last:])
+        return compressed
+
+    return trimmed
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Plan helpers
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -884,6 +952,10 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
     """Run an AIAgent in a persistent event-driven loop."""
     config, profile_dir = load_profile_config(profile_name)
 
+    # Load Gemma optimization context
+    gemma_ctx = load_gemma_context()
+    bot_config = get_bot_config(profile_name, gemma_ctx)
+
     model_cfg = config.get("model", {})
     if isinstance(model_cfg, dict):
         model = model_cfg.get("default", "")
@@ -895,7 +967,6 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
 
     providers = config.get("providers", {})
     if providers and isinstance(providers, dict):
-        # Use the provider matching the model config, or fall back to first
         if provider and provider in providers:
             pcfg = providers[provider]
         else:
@@ -909,8 +980,22 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
     if not toolsets:
         toolsets = config.get("platform_toolsets", {}).get("cli", [])
 
+    # Add extra toolsets from bot config (e.g. vision for Pamplinas)
+    extra_ts = bot_config.get("extra_toolsets", [])
+    for ts in extra_ts:
+        if ts not in toolsets:
+            toolsets.append(ts)
+
     system_prompt = build_system_prompt(profile_dir)
     mc_api_url = os.getenv("MC_API_URL", "")
+
+    # Apply bot-specific chat format settings
+    chat_format = bot_config.get("chat_format", "")
+    if chat_format:
+        os.environ["MC_CHAT_FORMAT"] = chat_format
+    max_chat_chars = bot_config.get("max_chat_chars", 240)
+    if max_chat_chars:
+        os.environ["MC_MAX_CHAT_CHARS"] = str(max_chat_chars)
 
     print(f"[loop] Starting persistent agent: {profile_name}")
     print(f"[loop] Model: {model}")
@@ -919,8 +1004,9 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
     print(f"[loop] Toolsets: {toolsets}")
     print(f"[loop] MC_API_URL: {mc_api_url}")
     print(f"[loop] Interval: {interval}s")
+    print(f"[loop] Gemma context: max_history={bot_config.get('max_history_msgs', 20)}, "
+          f"max_iter={bot_config.get('max_iterations', 8)}, tier={bot_config.get('tier', 'FULL')}")
 
-    # Ollama local endpoint needs a dummy API key for OpenAI-compatible client
     api_key = os.environ.get("OPENAI_API_KEY", "ollama")
 
     agent = AIAgent(
@@ -934,8 +1020,8 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
         quiet_mode=True,
         skip_context_files=True,
         skip_memory=False,
-        reasoning_config={"enabled": False},
-        max_iterations=8,
+        reasoning_config={"enabled": bot_config.get("reasoning_enabled", False)},
+        max_iterations=bot_config.get("max_iterations", 8),
     )
 
     global current_agent
@@ -1039,7 +1125,7 @@ def run_agent_loop(profile_name: str, initial_prompt: str, interval: int = 30):
                 )
 
                 conversation_history = result.get("messages", [])
-                conversation_history = _safe_trim_history(conversation_history, max_msgs=20)
+                conversation_history = compress_history(conversation_history, bot_config)
 
                 response = result.get("final_response", "")
                 turn_log["response"] = response

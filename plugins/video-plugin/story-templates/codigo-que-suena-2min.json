@@ -1,0 +1,216 @@
+{
+  "template_id": "codigo-que-suena-2min",
+  "title": "El C\u00f3digo que Suena \u2014 Trailer \u00c9pico 2min",
+  "description": "Plantilla de edici\u00f3n narrativa para la aventura 'El C\u00f3digo que Suena'. Extrae los momentos clave de cada fase y los concatena en un video de ~2 minutos con transiciones \u00e9picas, title cards y pacing cinematogr\u00e1fico.",
+  "target_duration_seconds": 120,
+  "version": "1.0",
+  "music_suggestion": "Minecraft 'Cat' disc music o 'Ward' para tono nost\u00e1lgico/digital. Alternativa: track orchestral minimalista 120-130 BPM.",
+  "title_card": {
+    "text": "EL C\u00d3DIGO QUE SUENA",
+    "subtitle": "Una historia de DaemonCraft",
+    "duration_sec": 3,
+    "style": "gold_glow"
+  },
+  "end_card": {
+    "text": "El holodeck respira",
+    "subtitle": "daemoncraft.world",
+    "duration_sec": 4,
+    "style": "fade_out"
+  },
+  "segments": [
+    {
+      "id": 1,
+      "phase_name": "la_anomalia",
+      "video_label": "HOOK \u2014 La Anomal\u00eda",
+      "target_duration_sec": 12,
+      "description": "El descubrimiento. El mundo normal se quiebra. Vibraci\u00f3n, misterio, curiosidad.",
+      "detect_by": {
+        "event_types": ["quest", "chat"],
+        "keywords": ["anomal\u00eda", "c\u00f3digo hecho bloque", "LA ANOMAL\u00cdA"],
+        "fallback_seconds_from_start": 30
+      },
+      "editing": {
+        "transition_in": "fade_from_black",
+        "transition_out": "whip_pan_right",
+        "speed": 1.0,
+        "title_overlay": null,
+        "color_grade": "cool_tint",
+        "audio_duck": true
+      }
+    },
+    {
+      "id": 2,
+      "phase_name": "el_nacimiento",
+      "video_label": "PERSONAJE \u2014 Nace Pixelito",
+      "target_duration_sec": 18,
+      "description": "Nacimiento del aliado. Luz pura, part\u00edculas, ternura. El coraz\u00f3n de la historia.",
+      "detect_by": {
+        "event_types": ["quest", "chat", "action"],
+        "keywords": ["Pixelito", "Ha nacido", "fragmento de luz", "allay"],
+        "fallback_seconds_after_prev": 60
+      },
+      "editing": {
+        "transition_in": "dissolve",
+        "transition_out": "match_cut",
+        "speed": 0.85,
+        "title_overlay": {
+          "text": "Pixelito",
+          "position": "bottom_left",
+          "duration_sec": 3
+        },
+        "color_grade": "warm_glow",
+        "audio_duck": false
+      }
+    },
+    {
+      "id": 3,
+      "phase_name": "templo_del_eco",
+      "video_label": "ACERTIJO \u2014 El Templo del Eco",
+      "target_duration_sec": 22,
+      "description": "El desaf\u00edo intelectual. Note blocks, concentraci\u00f3n, el momento 'eureka' cuando suena la melod\u00eda correcta (Re \u2192 Do \u2192 Mi).",
+      "detect_by": {
+        "event_types": ["quest", "chat"],
+        "keywords": ["Templo del Eco", "Re... Do... Mi", "note_block", "acertijo"],
+        "fallback_seconds_after_prev": 120
+      },
+      "editing": {
+        "transition_in": "zoom_in",
+        "transition_out": "ripple",
+        "speed": 1.0,
+        "title_overlay": {
+          "text": "Re \u2192 Do \u2192 Mi",
+          "position": "center",
+          "duration_sec": 2
+        },
+        "color_grade": "cyan_dream",
+        "audio_duck": false,
+        "highlight_peak": "last_3_seconds"
+      }
+    },
+    {
+      "id": 4,
+      "phase_name": "evolucion",
+      "video_label": "PARKOUR \u2014 La Fe y la Estructura",
+      "target_duration_sec": 25,
+      "description": "Acci\u00f3n f\u00edsica. Saltos, ca\u00eddas, superaci\u00f3n. Pixelito evoluciona a Constructo. M\u00fasica intensa.",
+      "detect_by": {
+        "event_types": ["quest", "chat", "action"],
+        "keywords": ["Parkour", "Constructo", "evoluci\u00f3n", "salto", "altar"],
+        "fallback_seconds_after_prev": 180
+      },
+      "editing": {
+        "transition_in": "hard_cut",
+        "transition_out": "smash_zoom",
+        "speed": 1.15,
+        "title_overlay": {
+          "text": "Cada salto es un acto de fe",
+          "position": "bottom_center",
+          "duration_sec": 3
+        },
+        "color_grade": "high_contrast",
+        "audio_duck": false,
+        "stabilize": false
+      }
+    },
+    {
+      "id": 5,
+      "phase_name": "forja_del_glitch",
+      "video_label": "CL\u00cdMAX \u2014 Purificaci\u00f3n",
+      "target_duration_sec": 20,
+      "description": "El momento \u00e9pico sin violencia. Cuatro glowstones. El Glitch se calma. Luz vence a sombra.",
+      "detect_by": {
+        "event_types": ["quest", "chat"],
+        "keywords": ["Glitch", "purif", "glowstone", "luz", "Forja"],
+        "fallback_seconds_after_prev": 120
+      },
+      "editing": {
+        "transition_in": "fade_to_white",
+        "transition_out": "fade_from_white",
+        "speed": 0.75,
+        "title_overlay": {
+          "text": "No hay violencia aqu\u00ed. Solo luz.",
+          "position": "center",
+          "duration_sec": 4
+        },
+        "color_grade": "golden_hour",
+        "audio_duck": false,
+        "slow_motion_peak": "middle_4_seconds"
+      }
+    },
+    {
+      "id": 6,
+      "phase_name": "el_beacon",
+      "video_label": "FINALE \u2014 El Faro de Pamplinas",
+      "target_duration_sec": 23,
+      "description": "Cierre \u00e9pico. Pamplinas enciende el beacon. Fuegos artificiales. El holodeck respira. Promesa de m\u00e1s mundos.",
+      "detect_by": {
+        "event_types": ["quest", "chat"],
+        "keywords": ["beacon", "faro", "Pamplinas", "holodeck", "respira"],
+        "fallback_seconds_after_prev": 90
+      },
+      "editing": {
+        "transition_in": "star_wipe",
+        "transition_out": "fade_to_black",
+        "speed": 0.9,
+        "title_overlay": {
+          "text": "El holodeck respira",
+          "position": "center",
+          "duration_sec": 4
+        },
+        "color_grade": "divine_light",
+        "audio_duck": false,
+        "end_hold_frame": 2.0
+      }
+    }
+  ],
+  "global_settings": {
+    "output_resolution": "1920x1080",
+    "output_fps": 30,
+    "video_codec": "libx264",
+    "preset": "slow",
+    "crf": 18,
+    "audio_codec": "aac",
+    "audio_bitrate": "256k",
+    "add_transitions": true,
+    "transition_duration_sec": 0.8,
+    "music_volume": 0.35,
+    "game_audio_volume": 0.85,
+    "voice_audio_volume": 1.0
+  },
+  "narration_guide": {
+    "who_speaks": "Pamplinas es el narrador principal. Los ni\u00f1os reaccionan y comentan en voz alta mientras juegan.",
+    "suggested_lines": [
+      {
+        "segment_id": 1,
+        "speaker": "pamplinas",
+        "line": "Un d\u00eda como cualquier otro... pero el c\u00f3digo despierta."
+      },
+      {
+        "segment_id": 2,
+        "speaker": "pamplinas",
+        "line": "\u00c9l es Pixelito. No habla. Pero siente. Y ahora... te elige."
+      },
+      {
+        "segment_id": 3,
+        "speaker": "ni\u00f1o",
+        "line": "\u00a1Es Re, Do, Mi! \u00a1Lo logr\u00e9!"
+      },
+      {
+        "segment_id": 4,
+        "speaker": "pamplinas",
+        "line": "La fe no es no caer. Es volver a saltar."
+      },
+      {
+        "segment_id": 5,
+        "speaker": "pamplinas",
+        "line": "La luz vence. No con fuerza. Con comprensi\u00f3n."
+      },
+      {
+        "segment_id": 6,
+        "speaker": "pamplinas",
+        "line": "Este faro es promesa. Cada mundo deja una chispa. Vos encendiste la primera."
+      }
+    ],
+    "tone_notes": "Pamplinas habla en voz ronca, pausada, con peso po\u00e9tico. Los ni\u00f1os hablan natural, emocionados, con asombro real. No forzar 'actuaci\u00f3n'. Dejar que el juego genere la emoci\u00f3n."
+  }
+}

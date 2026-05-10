@@ -1,0 +1,356 @@
+<!--
+  DaemonCraft Video Plugin — Dashboard Panel
+
+  Add this panel to your dashboard.html inside the .grid container.
+  It connects to the video plugin WebSocket (ws://localhost:3010/ws)
+  and provides controls for recording, analysis, editing, and Telegram delivery.
+-->
+
+<div class="panel" style="grid-column: 1 / -1; max-height: 600px;">
+  <div class="panel-header" data-panel="video">
+    <span>🎥 Video Studio</span>
+    <button class="panel-toggle">▼</button>
+  </div>
+  <div class="panel-body" id="video-panel">
+    <div id="video-main" style="display: flex; gap: 16px; flex-wrap: wrap;">
+      <!-- Left: Controls -->
+      <div style="flex: 1; min-width: 280px;">
+        <div id="video-recording-state" style="margin-bottom: 12px;">
+          <div class="bp-meta-grid">
+            <div class="bp-meta-box">
+              <label>Estado</label>
+              <value id="video-status-text" style="color: #a5ffa5;">Listo</value>
+            </div>
+            <div class="bp-meta-box">
+              <label>Duración</label>
+              <value id="video-duration">00:00:00</value>
+            </div>
+            <div class="bp-meta-box">
+              <label>Sesión</label>
+              <value id="video-session-id">-</value>
+            </div>
+            <div class="bp-meta-box">
+              <label>Fuente</label>
+              <value id="video-source">Pantalla</value>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+          <button id="btn-record-start" class="chat-send-btn" style="background: #2ea043;" onclick="videoStartRecording()">● Grabar</button>
+          <button id="btn-record-stop" class="chat-send-btn" style="background: #da3633; display: none;" onclick="videoStopRecording()">■ Detener</button>
+          <button class="chat-send-btn" style="background: #3d2b5e;" onclick="videoRefreshState()">🔄</button>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-size: 0.75rem; color: #b8a9d9; margin-bottom: 4px;">Fuente de video</label>
+          <select id="video-source-select" style="width: 100%; background: #1a0a2e; border: 1px solid #5a4a7a; color: #f0e6ff; padding: 6px; border-radius: 4px; font-size: 0.85rem;">
+            <option value="screen">Pantalla (X11)</option>
+            <option value="obs">OBS Virtual Camera</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-size: 0.75rem; color: #b8a9d9; margin-bottom: 4px;">Duración máxima (min)</label>
+          <input id="video-max-duration" type="number" value="60" min="5" max="180" style="width: 100%; background: #1a0a2e; border: 1px solid #5a4a7a; color: #f0e6ff; padding: 6px; border-radius: 4px; font-size: 0.85rem;">
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #5a4a7a; margin: 12px 0;">
+
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-size: 0.75rem; color: #b8a9d9; margin-bottom: 4px;">Duración del resumen (min)</label>
+          <input id="video-target-minutes" type="number" value="5" min="1" max="30" style="width: 100%; background: #1a0a2e; border: 1px solid #5a4a7a; color: #f0e6ff; padding: 6px; border-radius: 4px; font-size: 0.85rem;">
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="chat-send-btn" style="background: #7b68ee;" onclick="videoAnalyze()">🔍 Analizar</button>
+          <button class="chat-send-btn" style="background: #d4a5ff; color: #1a0a2e;" onclick="videoEdit()">✂️ Editar</button>
+          <button class="chat-send-btn" style="background: #ffd700; color: #1a0a2e;" onclick="videoPipeline()">⚡ Todo</button>
+          <button class="chat-send-btn" style="background: #2ea043;" onclick="videoSendTelegram()">✉️ Telegram</button>
+        </div>
+      </div>
+
+      <!-- Right: Log + Sessions -->
+      <div style="flex: 1; min-width: 280px;">
+        <div class="bp-section-title">📋 Log de Eventos</div>
+        <div id="video-event-log" style="background: #1a0a2e; border: 1px solid #3d2b5e; border-radius: 6px; padding: 8px; max-height: 180px; overflow-y: auto; font-size: 0.78rem; font-family: ui-monospace, monospace;">
+          <div class="empty">Esperando eventos...</div>
+        </div>
+
+        <div class="bp-section-title" style="margin-top: 12px;">🏁 Sesiones Grabadas</div>
+        <div id="video-sessions-list" style="max-height: 150px; overflow-y: auto;">
+          <div class="empty">No hay sesiones</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress area -->
+    <div id="video-progress-area" style="margin-top: 12px; display: none;">
+      <div class="bp-section-title">⏳ Procesando</div>
+      <div id="video-progress-text" style="font-size: 0.85rem; color: #d4a5ff; margin-bottom: 6px;">-</div>
+      <div class="progress-bar">
+        <div id="video-progress-fill" class="progress-fill" style="width: 0%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const VIDEO_WS_URL = `ws://${window.location.hostname}:3010/ws`;
+  let videoWs = null;
+  let videoReconnectTimer = null;
+  let recordingStartTime = null;
+  let durationInterval = null;
+  let currentSessionId = null;
+
+  function videoLog(msg) {
+    const el = document.getElementById('video-event-log');
+    if (!el) return;
+    const line = document.createElement('div');
+    line.style.cssText = 'padding: 2px 0; border-bottom: 1px solid #3d2b5e; color: #b8a9d9;';
+    const ts = new Date().toLocaleTimeString();
+    line.textContent = `[${ts}] ${msg}`;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+    // Remove old
+    while (el.children.length > 50) el.removeChild(el.firstChild);
+  }
+
+  function connectVideoPlugin() {
+    if (videoWs) try { videoWs.close(); } catch {}
+    videoWs = new WebSocket(VIDEO_WS_URL);
+
+    videoWs.onopen = () => {
+      videoLog('Conectado al plugin de video');
+      videoRefreshState();
+      loadSessions();
+    };
+
+    videoWs.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data);
+        handleVideoMessage(msg);
+      } catch {}
+    };
+
+    videoWs.onclose = () => {
+      videoLog('Desconectado — reintentando...');
+      videoReconnectTimer = setTimeout(connectVideoPlugin, 5000);
+    };
+
+    videoWs.onerror = () => {};
+  }
+
+  function handleVideoMessage(msg) {
+    switch (msg.type) {
+      case 'recording_status': {
+        const status = msg.status;
+        const statusText = document.getElementById('video-status-text');
+        const startBtn = document.getElementById('btn-record-start');
+        const stopBtn = document.getElementById('btn-record-stop');
+
+        if (status === 'recording') {
+          statusText.textContent = 'GRABANDO 🔴';
+          statusText.style.color = '#ff7eb3';
+          startBtn.style.display = 'none';
+          stopBtn.style.display = 'inline-block';
+          currentSessionId = msg.sessionId;
+          recordingStartTime = msg.startedAt;
+          document.getElementById('video-session-id').textContent = msg.sessionId?.replace('session_', '') || '-';
+          startDurationTimer();
+        } else if (status === 'finished' || status === 'finalizing') {
+          statusText.textContent = status === 'finished' ? 'Listo' : 'Finalizando...';
+          statusText.style.color = '#a5ffa5';
+          startBtn.style.display = 'inline-block';
+          stopBtn.style.display = 'none';
+          stopDurationTimer();
+          if (status === 'finished') {
+            currentSessionId = msg.sessionId;
+            loadSessions();
+          }
+        }
+        break;
+      }
+      case 'analysis_status': {
+        showProgress(msg.status === 'analyzing' ? 'Analizando video con IA...' : msg.status === 'done' ? 'Análisis completo' : 'Error en análisis');
+        break;
+      }
+      case 'edit_status': {
+        showProgress(msg.status === 'editing' ? 'Editando highlights...' : msg.status === 'done' ? 'Edición completa' : 'Error en edición');
+        break;
+      }
+      case 'telegram_status': {
+        showProgress(msg.status === 'sending' ? 'Enviando a Telegram...' : msg.status === 'sent' ? '¡Enviado!' : 'Error de envío');
+        break;
+      }
+      case 'bot_status': {
+        // ignore for now
+        break;
+      }
+      case 'state': {
+        if (msg.recording) {
+          document.getElementById('video-status-text').textContent = 'GRABANDO 🔴';
+          document.getElementById('video-status-text').style.color = '#ff7eb3';
+          document.getElementById('btn-record-start').style.display = 'none';
+          document.getElementById('btn-record-stop').style.display = 'inline-block';
+          currentSessionId = msg.session?.id;
+          recordingStartTime = msg.session?.startedAt;
+          startDurationTimer();
+        }
+        break;
+      }
+    }
+    videoLog(`${msg.type}: ${JSON.stringify(msg).slice(0, 120)}`);
+  }
+
+  function startDurationTimer() {
+    stopDurationTimer();
+    durationInterval = setInterval(() => {
+      if (!recordingStartTime) return;
+      const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+      const h = Math.floor(elapsed / 3600).toString().padStart(2, '0');
+      const m = Math.floor((elapsed % 3600) / 60).toString().padStart(2, '0');
+      const s = (elapsed % 60).toString().padStart(2, '0');
+      document.getElementById('video-duration').textContent = `${h}:${m}:${s}`;
+    }, 1000);
+  }
+
+  function stopDurationTimer() {
+    if (durationInterval) clearInterval(durationInterval);
+    durationInterval = null;
+  }
+
+  function showProgress(text) {
+    const area = document.getElementById('video-progress-area');
+    const txt = document.getElementById('video-progress-text');
+    if (area && txt) {
+      area.style.display = 'block';
+      txt.textContent = text;
+    }
+  }
+
+  async function videoApi(path, method = 'GET', body = null) {
+    const url = `http://${window.location.hostname}:3010${path}`;
+    const opts = { method, headers: {} };
+    if (body) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    const res = await fetch(url, opts);
+    return res.json();
+  }
+
+  window.videoStartRecording = async function() {
+    const source = document.getElementById('video-source-select').value;
+    const maxDur = parseInt(document.getElementById('video-max-duration').value) * 60;
+    const srcLabel = document.getElementById('video-source');
+    srcLabel.textContent = source === 'obs' ? 'OBS Virtual Cam' : 'Pantalla X11';
+
+    showProgress('Iniciando grabación...');
+    const result = await videoApi('/record/start', 'POST', {
+      source,
+      duration: maxDur,
+      resolution: '1920x1080',
+      fps: 30,
+    });
+    videoLog(result.ok ? `Grabación iniciada: ${result.sessionId}` : `Error: ${result.error}`);
+  };
+
+  window.videoStopRecording = async function() {
+    showProgress('Deteniendo grabación...');
+    const result = await videoApi('/record/stop', 'POST');
+    videoLog(result.ok ? 'Grabación detenida' : `Error: ${result.error}`);
+  };
+
+  window.videoRefreshState = async function() {
+    const result = await videoApi('/health');
+    if (result.recording && result.session) {
+      currentSessionId = result.session.id;
+      recordingStartTime = result.session.startedAt;
+      document.getElementById('video-status-text').textContent = 'GRABANDO 🔴';
+      document.getElementById('video-status-text').style.color = '#ff7eb3';
+      document.getElementById('btn-record-start').style.display = 'none';
+      document.getElementById('btn-record-stop').style.display = 'inline-block';
+      startDurationTimer();
+    }
+  };
+
+  window.videoAnalyze = async function() {
+    if (!currentSessionId) {
+      videoLog('No hay sesión activa. Primero graba algo.');
+      return;
+    }
+    const target = parseInt(document.getElementById('video-target-minutes').value);
+    showProgress('Analizando...');
+    const result = await videoApi('/analyze', 'POST', { sessionId: currentSessionId, targetMinutes: target });
+    videoLog(result.ok ? `Análisis listo: ${result.highlights?.length || 0} highlights` : `Error: ${result.error}`);
+  };
+
+  window.videoEdit = async function() {
+    if (!currentSessionId) {
+      videoLog('No hay sesión activa.');
+      return;
+    }
+    const target = parseInt(document.getElementById('video-target-minutes').value);
+    showProgress('Editando...');
+    const result = await videoApi('/edit', 'POST', { sessionId: currentSessionId, targetMinutes: target });
+    videoLog(result.ok ? `Video listo: ${result.outputFile}` : `Error: ${result.error}`);
+  };
+
+  window.videoPipeline = async function() {
+    if (!currentSessionId) {
+      videoLog('No hay sesión activa.');
+      return;
+    }
+    const target = parseInt(document.getElementById('video-target-minutes').value);
+    showProgress('Ejecutando pipeline completo...');
+    const result = await videoApi('/pipeline', 'POST', {
+      sessionId: currentSessionId,
+      targetMinutes: target,
+      sendToTelegram: true,
+      caption: `🎥 DaemonCraft Highlights — ${target}min ✨`,
+    });
+    videoLog(result.ok ? `¡Pipeline completo! ${result.edit?.outputFile || ''}` : `Error: ${result.error}`);
+  };
+
+  window.videoSendTelegram = async function() {
+    if (!currentSessionId) {
+      videoLog('No hay sesión activa.');
+      return;
+    }
+    // Guess output file
+    const target = parseInt(document.getElementById('video-target-minutes').value);
+    const file = `/recordings/outputs/${currentSessionId}_edit_${target}min.mp4`;
+    showProgress('Enviando a Telegram...');
+    const result = await videoApi('/telegram/send', 'POST', { file, caption: '🎥 DaemonCraft Highlights!' });
+    videoLog(result.ok ? '¡Enviado a Telegram!' : `Error: ${result.error}`);
+  };
+
+  async function loadSessions() {
+    try {
+      const result = await videoApi('/sessions');
+      const list = document.getElementById('video-sessions-list');
+      if (!list) return;
+      if (!result.ok || !result.sessions?.length) {
+        list.innerHTML = '<div class="empty">No hay sesiones</div>';
+        return;
+      }
+      list.innerHTML = result.sessions.slice(-10).reverse().map((s) => {
+        const dur = s.durationSec ? `${Math.floor(s.durationSec / 60)}m${s.durationSec % 60}s` : '?';
+        const date = new Date(s.startedAt).toLocaleString();
+        return `<div style="padding: 6px; border-bottom: 1px solid #3d2b5e; font-size: 0.8rem; cursor: pointer;" onclick="currentSessionId='${s.id}'">
+          <strong style="color: #d4a5ff;">${s.id.replace('session_', '')}</strong>
+          <span style="color: #7a6a9a; margin-left: 8px;">${dur}</span>
+          <div style="color: #7a6a9a; font-size: 0.72rem;">${date}</div>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      console.warn('loadSessions error', err);
+    }
+  }
+
+  // Auto-connect
+  setTimeout(connectVideoPlugin, 500);
+})();
+</script>

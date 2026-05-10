@@ -1,0 +1,185 @@
+{
+  "transit_date": "2026-05-02 00:00 UTC+0.0",
+  "transit_gates": [
+    1,
+    3,
+    16,
+    17,
+    20,
+    24,
+    25,
+    37,
+    40,
+    41,
+    44,
+    51,
+    53
+  ],
+  "planets": [
+    {
+      "planet": "Sun",
+      "planet_ru": "Солнце",
+      "gate": 24,
+      "gate_name": "Rationalization",
+      "gate_name_ru": "Рационализация",
+      "line": 5,
+      "degree": 41.6147
+    },
+    {
+      "planet": "Earth",
+      "planet_ru": "Земля",
+      "gate": 44,
+      "gate_name": "Coming to Meet",
+      "gate_name_ru": "Встреча",
+      "line": 5,
+      "degree": 221.6147
+    },
+    {
+      "planet": "Moon",
+      "planet_ru": "Луна",
+      "gate": 1,
+      "gate_name": "The Creative",
+      "gate_name_ru": "Творчество",
+      "line": 2,
+      "degree": 224.6844
+    },
+    {
+      "planet": "North Node",
+      "planet_ru": "Сев. Узел",
+      "gate": 37,
+      "gate_name": "Friendship",
+      "gate_name_ru": "Дружба",
+      "line": 2,
+      "degree": 336.8239
+    },
+    {
+      "planet": "Mercury",
+      "planet_ru": "Меркурий",
+      "gate": 3,
+      "gate_name": "Ordering",
+      "gate_name_ru": "Упорядочивание",
+      "line": 2,
+      "degree": 27.8534
+    },
+    {
+      "planet": "Venus",
+      "planet_ru": "Венера",
+      "gate": 16,
+      "gate_name": "Skills",
+      "gate_name_ru": "Мастерство",
+      "line": 4,
+      "degree": 69.4987
+    },
+    {
+      "planet": "Mars",
+      "planet_ru": "Марс",
+      "gate": 51,
+      "gate_name": "Shock",
+      "gate_name_ru": "Шок",
+      "line": 3,
+      "degree": 17.1392
+    },
+    {
+      "planet": "Jupiter",
+      "planet_ru": "Юпитер",
+      "gate": 53,
+      "gate_name": "Development",
+      "gate_name_ru": "Развитие",
+      "line": 5,
+      "degree": 109.0549
+    },
+    {
+      "planet": "Saturn",
+      "planet_ru": "Сатурн",
+      "gate": 17,
+      "gate_name": "Opinion",
+      "gate_name_ru": "Мнение",
+      "line": 6,
+      "degree": 9.2587
+    },
+    {
+      "planet": "Uranus",
+      "planet_ru": "Уран",
+      "gate": 20,
+      "gate_name": "The Now",
+      "gate_name_ru": "Настоящее",
+      "line": 1,
+      "degree": 60.3293
+    },
+    {
+      "planet": "Neptune",
+      "planet_ru": "Нептун",
+      "gate": 25,
+      "gate_name": "Spirit of the Self",
+      "gate_name_ru": "Дух Я",
+      "line": 6,
+      "degree": 3.2904
+    },
+    {
+      "planet": "Pluto",
+      "planet_ru": "Плутон",
+      "gate": 41,
+      "gate_name": "Contraction",
+      "gate_name_ru": "Сжатие",
+      "line": 4,
+      "degree": 305.5044
+    },
+    {
+      "planet": "South Node",
+      "planet_ru": "Юж. Узел",
+      "gate": 40,
+      "gate_name": "Aloneness",
+      "gate_name_ru": "Одиночество",
+      "line": 2,
+      "degree": 156.8239
+    }
+  ],
+  "natal_transit_channels": [
+    {
+      "gates": [
+        25,
+        51
+      ],
+      "name": "Initiation",
+      "name_ru": "Инициация",
+      "centers": [
+        "Self",
+        "Heart"
+      ],
+      "activated_by": "transit"
+    },
+    {
+      "gates": [
+        17,
+        62
+      ],
+      "name": "Acceptance",
+      "name_ru": "Принятие",
+      "centers": [
+        "Ajna",
+        "Throat"
+      ],
+      "activated_by": "transit"
+    },
+    {
+      "gates": [
+        37,
+        40
+      ],
+      "name": "Community",
+      "name_ru": "Сообщество",
+      "centers": [
+        "Solar Plexus",
+        "Heart"
+      ],
+      "activated_by": "transit"
+    }
+  ],
+  "natal_transit_defined_centers": [
+    "Ajna",
+    "Heart",
+    "Self",
+    "Solar Plexus",
+    "Throat"
+  ]
+}

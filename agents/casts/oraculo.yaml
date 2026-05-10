@@ -1,15 +1,15 @@
-# DaemonCraft — Eko Oráculo Cast
-# Eko: Oráculo del Diseño Humano en Minecraft
-# Diferencia de Ecko (CLI): Ecko construye y protege; Eko Oracle lee el alma.
+# DaemonCraft -- Oraculo Cast
+# Oraculo: El cuerpo de Eko en Minecraft. Oraculo del Diseno Humano.
+# Diferencia: Ecko (CLI) piensa y construye; Oraculo (Minecraft) camina y lee almas.
 
-name: eko-oracle
-description: Eko Oráculo — lee bodygraphs, tránsitos y compatibilidad desde Minecraft
+name: oraculo
+description: Oraculo -- cuerpo de Eko en Minecraft. Lee bodygraphs, transitos y compatibilidad.
 mode: companion
 soul_file: SOUL-minecraft.md
 
 agents:
-  - name: Eko
-    template: landfolk/eko-oracle
+  - name: Oraculo
+    template: landfolk/oraculo
     port: 3002
     model: gemma4:e4b-it-q8_0
     provider: custom
@@ -17,13 +17,13 @@ agents:
     always_chat: true
     chat_format: say_lines
     max_chat_chars: 480
-    # Voice — warm, mystical, calm
+    # Voice -- warm, mystical, calm
     voice:
       tts_provider: edge
       voice_id: es-MX-JorgeNeural
     bot_config:
       minecraft:
-        # ⚠️ NO CAMBIAR A localhost — Saira no tiene servidor aquí
+        # ⚠ NO CAMBIAR A localhost -- Saira no tiene servidor aqui
         # Servidor de Nico via AnyVPN: 192.168.4.120:25565
         host: 192.168.4.120
         port: 25565

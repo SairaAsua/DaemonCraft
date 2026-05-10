@@ -46,6 +46,7 @@ import fs from 'fs';
 import path from 'path';
 import http from 'http';
 import { URL } from 'url';
+import { spawn } from 'child_process';
 import mineflayer from 'mineflayer';
 import pathfinderPkg from 'mineflayer-pathfinder';
 const { pathfinder, Movements, goals } = pathfinderPkg;
@@ -3522,13 +3523,33 @@ const httpServer = http.createServer(async (req, res) => {
       }
 
       if (path === '/dashboard') {
-        const htmlPath = new URL('dashboard.html', import.meta.url).pathname;
+        const htmlPath = '/home/saira/daemonmatrix/DaemonCraft/hermescraft/hermes-dashboard/dist/index.html';
         try {
           const html = fs.readFileSync(htmlPath, 'utf8');
           res.writeHead(200, { 'Content-Type': 'text/html', 'Access-Control-Allow-Origin': '*' });
           return res.end(html);
         } catch {
-          return respond(res, 500, { ok: false, error: 'dashboard.html not found' });
+          return respond(res, 500, { ok: false, error: 'dashboard build not found' });
+        }
+      }
+
+      // Serve static assets from the Hermes Dashboard build
+      const assetMatch = path.match(/^\/(assets|fonts|ds-assets)\/(.+)$/);
+      if (assetMatch) {
+        const [, dir, file] = assetMatch;
+        const filePath = `/home/saira/daemonmatrix/DaemonCraft/hermescraft/hermes-dashboard/dist/${dir}/${file}`;
+        try {
+          if (!fs.existsSync(filePath)) {
+            return respond(res, 404, { ok: false, error: 'Asset not found' });
+          }
+          const ext = path.slice(path.lastIndexOf('.')).toLowerCase();
+          const mime = ext === '.css' ? 'text/css' : ext === '.js' ? 'application/javascript' : ext === '.json' ? 'application/json' : ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.svg' ? 'image/svg+xml' : ext === '.woff2' ? 'font/woff2' : ext === '.woff' ? 'font/woff' : ext === '.ttf' ? 'font/ttf' : 'application/octet-stream';
+          res.writeHead(200, { 'Content-Type': mime, 'Access-Control-Allow-Origin': '*' });
+          const stream = fs.createReadStream(filePath);
+          stream.pipe(res);
+          return;
+        } catch (err) {
+          return respond(res, 500, { ok: false, error: 'Failed to serve asset: ' + err.message });
         }
       }
 
@@ -3609,6 +3630,61 @@ const httpServer = http.createServer(async (req, res) => {
     // ── POST endpoints (actions) ────────────────
     if (req.method === 'POST') {
       const body = await parseBody(req);
+
+      // Soul Engine — Human Design calculations
+      if (path === '/soul/chart') {
+        return new Promise((resolve) => {
+          const pythonPath = '/home/saira/daemonmatrix/plugins/soul-engine/.venv/bin/python';
+          const scriptPath = '/home/saira/daemonmatrix/plugins/soul-engine/soul-calc.py';
+          const proc = spawn(pythonPath, [scriptPath], { cwd: '/home/saira/daemonmatrix/plugins/soul-engine' });
+          let stdout = '';
+          let stderr = '';
+          proc.stdout.on('data', (data) => { stdout += data; });
+          proc.stderr.on('data', (data) => { stderr += data; });
+          proc.on('close', (code) => {
+            if (code !== 0) {
+              respond(res, 500, { ok: false, error: `Soul engine failed: ${stderr || 'unknown error'}` });
+              return resolve(undefined);
+            }
+            try {
+              const result = JSON.parse(stdout);
+              respond(res, 200, result);
+            } catch {
+              respond(res, 500, { ok: false, error: 'Invalid soul engine output', raw: stdout });
+            }
+            resolve(undefined);
+          });
+          proc.stdin.write(JSON.stringify({ action: 'chart', ...body }));
+          proc.stdin.end();
+        });
+      }
+
+      if (path === '/soul/compare') {
+        return new Promise((resolve) => {
+          const pythonPath = '/home/saira/daemonmatrix/plugins/soul-engine/.venv/bin/python';
+          const scriptPath = '/home/saira/daemonmatrix/plugins/soul-engine/soul-calc.py';
+          const proc = spawn(pythonPath, [scriptPath], { cwd: '/home/saira/daemonmatrix/plugins/soul-engine' });
+          let stdout = '';
+          let stderr = '';
+          proc.stdout.on('data', (data) => { stdout += data; });
+          proc.stderr.on('data', (data) => { stderr += data; });
+          proc.on('close', (code) => {
+            if (code !== 0) {
+              respond(res, 500, { ok: false, error: `Soul engine failed: ${stderr || 'unknown error'}` });
+              return resolve(undefined);
+            }
+            try {
+              const result = JSON.parse(stdout);
+              respond(res, 200, result);
+            } catch {
+              respond(res, 500, { ok: false, error: 'Invalid soul engine output', raw: stdout });
+            }
+            resolve(undefined);
+          });
+          proc.stdin.write(JSON.stringify({ action: 'compare', ...body }));
+          proc.stdin.end();
+        });
+      }
 
       // Cancel current task
       if (path === '/task/cancel') {

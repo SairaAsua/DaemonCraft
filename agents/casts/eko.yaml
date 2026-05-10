@@ -23,7 +23,10 @@ agents:
       voice_id: es-MX-JorgeNeural
     bot_config:
       minecraft:
-        host: localhost
+        # ⚠️ NO CAMBIAR A localhost — Saira no tiene servidor aquí
+        # Usar el servidor de Nico o Annie (preguntar IP)
+        # Opciones conocidas: 192.168.20.27 (viejo), mc.daemoncraft.world (prod)
+        host: ${MINECRAFT_SERVER_HOST:-mc.daemoncraft.world}
         port: 25565
         auth: offline
       server:

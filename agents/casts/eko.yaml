@@ -24,9 +24,8 @@ agents:
     bot_config:
       minecraft:
         # ⚠️ NO CAMBIAR A localhost — Saira no tiene servidor aquí
-        # Usar el servidor de Nico o Annie (preguntar IP)
-        # Opciones conocidas: 192.168.20.27 (viejo), mc.daemoncraft.world (prod)
-        host: ${MINECRAFT_SERVER_HOST:-mc.daemoncraft.world}
+        # Servidor de Nico via AnyVPN: 192.168.4.120:25565
+        host: 192.168.4.120
         port: 25565
         auth: offline
       server:

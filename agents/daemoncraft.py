@@ -455,18 +455,23 @@ def start_agent(
     cast_name: str,
     agent_name: str,
     port: int,
-    interval: int = 30,
+    interval: int = 7,
     max_chat_chars: int | None = None,
     immortal: bool = False,
 ) -> int:
-    """Start the Hermes agent using the native persistent loop. Returns PID."""
+    """Start the agent loop. Returns PID.
+
+    Launches agent_loop.py (Autonomía Corporal): plan-driven execution
+    via Gemma-Andy when a plan exists, idle heartbeat injection otherwise.
+    Finite-state controller, machine-checkable verification.
+    """
     from agents.workspace import get_agent_venv_python
 
     lf = log_file(cast_name, agent_name, "agent")
     out = open(lf, "a")
 
     hermes_venv_python = get_agent_venv_python(agent_name)
-    agent_loop_script = str(SCRIPT_DIR / "agent_loop.py")
+    loop_script = str(SCRIPT_DIR / "agent_loop.py")
 
     standby_file = str(get_pid_dir(cast_name) / f"{agent_name}_standby")
 
@@ -491,9 +496,9 @@ def start_agent(
     if immortal:
         env["DAEMON_GUARDIAN"] = "1"
 
-    log(f"Starting persistent agent for {agent_name}...", cast_name)
+    log(f"Starting autonomous loop for {agent_name} (interval={interval}s)...", cast_name)
     proc = subprocess.Popen(
-        [hermes_venv_python, agent_loop_script, "--prompt", "Begin.", "--interval", str(interval)],
+        [hermes_venv_python, loop_script, "--interval", str(interval)],
         env=env,
         stdout=out,
         stderr=subprocess.STDOUT,
@@ -571,6 +576,7 @@ def cmd_start(cast_name: str, cast: dict, mc_host: str, mc_port: int):
             base_url=base_url,
             extra_toolsets=extra_toolsets,
             cast_name=cast_name,
+            known_bots=_get_all_known_bots(),
         )
         workspace_dir = str(workspace)
 
@@ -786,52 +792,58 @@ def cmd_resume(cast_name: str, cast: dict, target_name: str | None = None):
 
 
 def cmd_update(cast_name: str, cast: dict, mc_host: str, mc_port: int):
-    """Hard restart: stop all agents, sync profiles with latest code, start fresh.
+    """Hard restart: stop all agents, sync workspaces with latest code, start fresh.
 
     Use this after editing agent_loop.py, server.js, or prompts to ensure
-    changes are picked up. Unlike 'restart', this forces profile re-creation
-    even if agents appear alive.
+    changes are picked up. Unlike 'restart', this forces workspace re-creation.
     """
     log(f"Updating cast '{cast_name}' with latest code...", cast_name)
     cmd_stop(cast_name, cast)
     time.sleep(2)
-    # Force profile re-setup by removing old profile dirs
+
+    # Backup plans from per-agent workspaces before wiping
     agents = cast.get("agents", [])
-    for agent in agents:
-        name = agent["name"]
-        profile_name = name.lower().replace(" ", "-")
-        profile_dir = Path.home() / ".hermes" / "profiles" / profile_name
-        if profile_dir.exists():
-            # Persist plan and locations across update
-            workspace_dir = profile_dir / "workspace"
-            backup_dir = get_run_dir(cast_name) / "backup" / profile_name
+    backups = {}
+    for agent_item in agents:
+        name = agent_item["name"]
+        safe_name = name.lower().replace(" ", "-")
+        agent_ws = Path.home() / "agents" / safe_name
+        plan_file = agent_ws / "workspace" / "plan.json"
+        if plan_file.exists():
+            backup_dir = get_run_dir(cast_name) / "backup" / safe_name
             backup_dir.mkdir(parents=True, exist_ok=True)
-            for fname in ("plan-steve.json", "locations-steve.json"):
-                src = workspace_dir / fname
-                if src.exists():
-                    shutil.copy2(src, backup_dir / fname)
-                    log(f"Saved {fname} for {name}", cast_name)
-            log(f"Removing old profile for {name}...", cast_name)
-            shutil.rmtree(profile_dir)
+            shutil.copy2(plan_file, backup_dir / "plan.json")
+            backups[safe_name] = True
+            log(f"Saved plan.json for {name}", cast_name)
+
+        # Remove old workspace so cmd_start recreates it fresh
+        if agent_ws.exists():
+            log(f"Removing old workspace for {name}...", cast_name)
+            shutil.rmtree(agent_ws)
+
     cmd_start(cast_name, cast, mc_host, mc_port)
-    # Restore persisted files
-    for agent in agents:
-        name = agent["name"]
-        profile_name = name.lower().replace(" ", "-")
-        profile_dir = Path.home() / ".hermes" / "profiles" / profile_name
-        workspace_dir = profile_dir / "workspace"
-        backup_dir = get_run_dir(cast_name) / "backup" / profile_name
-        for fname in ("plan-steve.json", "locations-steve.json"):
-            src = backup_dir / fname
-            dst = workspace_dir / fname
-            if src.exists():
-                shutil.copy2(src, dst)
-                log(f"Restored {fname} for {name}", cast_name)
+
+    # Restore plans
+    for safe_name in backups:
+        backup_dir = get_run_dir(cast_name) / "backup" / safe_name
+        src = backup_dir / "plan.json"
+        dst = Path.home() / "agents" / safe_name / "workspace" / "plan.json"
+        if src.exists():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            log(f"Restored plan.json for {safe_name}", cast_name)
+
     log(f"Cast '{cast_name}' updated.", cast_name)
 
 
 def cmd_daemon(cast_name: str, cast: dict, mc_host: str, mc_port: int):
-    """Run a supervisor loop that keeps all agents alive."""
+    """Run a supervisor loop that keeps all agents alive.
+
+    Assumes the workspace was already bootstrapped by a prior 'start'.
+    Only restarts crashed processes — does not recreate workspaces.
+    """
+    from agents.workspace import start_agent_gateway
+
     agents = cast.get("agents", [])
     soul_file = None
     if "soul_file" in cast:
@@ -856,6 +868,8 @@ def cmd_daemon(cast_name: str, cast: dict, mc_host: str, mc_port: int):
                 break
             name = agent["name"]
             port = agent["port"]
+            safe_name = name.lower().replace(" ", "-")
+            agent_workspace = Path.home() / "agents" / safe_name
 
             bot_pid = read_pid(cast_name, name, "bot")
             agent_pid = read_pid(cast_name, name, "agent")
@@ -867,8 +881,7 @@ def cmd_daemon(cast_name: str, cast: dict, mc_host: str, mc_port: int):
                     remove_pid(cast_name, name, "bot")
                 log(f"Bot {name} down, restarting...", cast_name)
                 try:
-                    profile_dir = setup_agent_profile(cast_name, agent, soul_file)
-                    workspace_dir = str(profile_dir / "workspace")
+                    workspace_dir = str(agent_workspace / "workspace")
                     start_bot(cast_name, name, port, mc_host, mc_port, workspace_dir, agent.get("bot_config"))
                 except SystemExit:
                     pass

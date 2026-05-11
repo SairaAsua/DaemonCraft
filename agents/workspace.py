@@ -78,15 +78,15 @@ def bootstrap_agent_workspace(
             },
         },
         "fallback_providers": [],
-        "toolsets": ["embodiment", "memory", "vision"],
+        "toolsets": ["embodiment", "memory", "vision", "terminal"],
         "platform_toolsets": {
-            "daemoncraft": ["embodiment", "memory", "vision"],
+            "daemoncraft": ["embodiment", "memory", "vision", "terminal"],
         },
         "agent": {
             "max_turns": 6,
             "turn_timeout_seconds": 45,
         },
-        "terminal": {"backend": "local", "cwd": ".", "timeout": 180},
+        "terminal": {"backend": "local", "cwd": f"{workspace}", "timeout": 180},
         "compression": {
             "enabled": True,
             "threshold": 0.77,
@@ -101,6 +101,7 @@ def bootstrap_agent_workspace(
         },
         "group_sessions_per_user": False,
         "streaming": {"enabled": False},
+        "busy_input_mode": "steer",
         "plugins": {
             "enabled": ["dialogue-handoff", "hmk-memory"],
         },
@@ -156,8 +157,9 @@ def bootstrap_agent_workspace(
 
     env_content = f"""# {agent_name} — DaemonCraft Minecraft Agent
 MC_API_URL=http://localhost:{port}
+BOT_API_URL=http://localhost:{port}
 MC_USERNAME={agent_name}
-MC_KNOWN_BOTS={known_bots_csv}
+MC_KNOWN_BOTS={known_bots}
 HERMES_PLATFORM=daemoncraft
 HERMES_MAX_ITERATIONS=6
 HERMES_TURN_TIMEOUT_SECONDS=45

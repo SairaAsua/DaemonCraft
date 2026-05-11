@@ -48,6 +48,7 @@ class PlanState(Enum):
     ESCALATED = "escalated"
     REPLANNING = "replanning"
     COMPLETED = "completed"
+    CANCELLED = "cancelled"
 
 
 class DangerLevel(Enum):
@@ -225,7 +226,6 @@ class Plan:
     def done(self) -> bool:
         return self.current_step >= len(self.steps)
 
-    @property
     def timed_out(self, now: float) -> bool:
         if self.last_advance_ts == 0:
             return False

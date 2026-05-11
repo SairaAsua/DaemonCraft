@@ -25,6 +25,7 @@ import { composeWorldState } from "./lib/world_state.js";
 import { callGemmaAndy, GEMMA_ANDY_MODEL, OLLAMA_URL } from "./lib/ollama.js";
 import { parseGemmaAndyResponse } from "./lib/parser.js";
 import { dispatch } from "./lib/dispatcher.js";
+import { setBotUrl } from "./lib/refs.js";
 import { applyMitigations } from "./lib/mitigations.js";
 import {
   DEFAULT_GUARDIAN_CONSTRAINTS,
@@ -51,6 +52,21 @@ console.log(
 
 function logEvent(obj) {
   console.log(JSON.stringify({ ts: new Date().toISOString(), ...obj }));
+}
+
+/** POST embodied activity to the bot's dashboard WebSocket relay. */
+async function sendDashboardUpdate(botUrl, data) {
+  if (!botUrl) return;
+  try {
+    await fetch(`${botUrl}/dashboard/embodied`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...data, timestamp: Date.now() }),
+      signal: AbortSignal.timeout(2000),
+    });
+  } catch {
+    // Dashboard might be down or unreachable — never fail the intent for this
+  }
 }
 
 function readBody(req) {
@@ -89,6 +105,7 @@ async function handleIntent(req, res) {
     guardian_constraints = null,
     previous_error = null,
     deadline_seconds = DEFAULT_DEADLINE_SECONDS,
+    bot_api_url = null,
   } = body;
 
   if (!intent || typeof intent !== "string") {
@@ -99,7 +116,9 @@ async function handleIntent(req, res) {
     });
   }
 
-  logEvent({ event: "intent_received", context_id, intent: intent.slice(0, 200) });
+  // Set per-request bot URL for multi-bot dispatch
+  setBotUrl(bot_api_url);
+  logEvent({ event: "intent_received", context_id, intent: intent.slice(0, 200), bot_api_url });
 
   // Compose constraints (caller overrides defaults).
   const constraints = {
@@ -118,7 +137,7 @@ async function handleIntent(req, res) {
   // a hard error: without world_state the model can't plan.
   let world_state;
   try {
-    world_state = await composeWorldState();
+    world_state = await composeWorldState({ botUrl: bot_api_url });
   } catch (err) {
     logEvent({ event: "world_state_failed", context_id, error: err.message });
     return jsonResponse(res, 502, {
@@ -263,33 +282,130 @@ async function handleIntent(req, res) {
     }
   }
 
-  // Dispatch each tool_call in order. Stop on first failure (Hermes
-  // can resend with previous_error).
-  const execution_results = [];
-  for (const call of mitigated_plan.tool_calls) {
-    const r = await dispatch(call);
-    execution_results.push(r);
+  // ── Dispatch with auto-retry via previous_error ──────────────────
+  // Gemma-Andy was trained to produce recovery plans when previous_error
+  // is populated. If a tool_call fails, we call the model again with the
+  // failure details so it can replan — rather than failing immediately.
+  const MAX_RETRIES = 1; // one recovery attempt per intent
+  const all_results = [];
+  let current_plan = mitigated_plan;
+  let retry_used = false;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const batch_results = [];
+    for (const call of current_plan.tool_calls) {
+      const r = await dispatch(call);
+      batch_results.push(r);
+      logEvent({
+        event: "tool_dispatch",
+        context_id,
+        tool: r.tool,
+        ok: r.ok,
+        error_type: r.error_type,
+        attempt: attempt > 0 ? `retry_${attempt}` : "first",
+      });
+      if (!r.ok) {
+        // Stop this batch. If we have retries left, prepare recovery.
+        break;
+      }
+    }
+
+    all_results.push(...batch_results);
+    const batch_ok = batch_results.every((r) => r.ok);
+
+    if (batch_ok || attempt >= MAX_RETRIES) {
+      // Success or out of retries — done.
+      break;
+    }
+
+    // Compose previous_error from the first failure in this batch
+    const failed = batch_results.find((r) => !r.ok);
+    const previous_error = {
+      tool: failed.tool,
+      error_type: failed.error_type || "other",
+      details: failed.details || failed.error || "tool_call failed",
+    };
+
     logEvent({
-      event: "tool_dispatch",
+      event: "retry_with_previous_error",
       context_id,
-      tool: r.tool,
-      ok: r.ok,
-      error_type: r.error_type,
+      previous_error,
     });
-    if (!r.ok) break;
+
+    // Build recovery payload — same intent/world_state/constraints,
+    // but with previous_error so Gemma-Andy composes a recovery plan.
+    const recovery_payload = {
+      high_level_command: intent,
+      world_state,
+      allowed_tools: filtered_allowed_tools,
+      guardian_constraints: constraints,
+      previous_error,
+    };
+
+    logEvent({
+      event: "ollama_recovery_call_start",
+      context_id,
+      previous_error,
+    });
+
+    const RECOVERY_TIMEOUT_SEC = 30; // recovery gets its own budget, not the original deadline
+    const recovery_controller = new AbortController();
+    const recovery_timer = setTimeout(() => recovery_controller.abort(), RECOVERY_TIMEOUT_SEC * 1000);
+
+    let recovery_result;
+    try {
+      recovery_result = await callGemmaAndy(recovery_payload, { signal: recovery_controller.signal });
+    } catch (err) {
+      clearTimeout(recovery_timer);
+      logEvent({ event: "ollama_recovery_call_failed", context_id, error: err.message });
+      break; // can't recover — return partial results
+    } finally {
+      clearTimeout(recovery_timer);
+    }
+
+    let recovery_parsed;
+    try {
+      recovery_parsed = parseGemmaAndyResponse(recovery_result.raw);
+    } catch (err) {
+      logEvent({ event: "recovery_parse_failed", context_id, error: err.message });
+      break; // can't parse recovery — return partial results
+    }
+
+    logEvent({
+      event: "ollama_recovery_call_done",
+      context_id,
+      elapsed_ms: recovery_result.elapsed_ms,
+      tool_call_count: recovery_parsed.plan.tool_calls.length,
+    });
+
+    retry_used = true;
+    current_plan = recovery_parsed.plan;
   }
 
   const elapsed_seconds = (Date.now() - t0) / 1000;
-  const all_ok = execution_results.every((r) => r.ok);
+  const all_ok = all_results.length > 0 && all_results.every((r) => r.ok);
 
-  // E002 Phase 6 acceptance — total elapsed_seconds.
   logEvent({
     event: "intent_done",
     context_id,
     ok: all_ok,
     elapsed_seconds,
-    tool_call_count: mitigated_plan.tool_calls.length,
+    tool_call_count: all_results.length,
     mitigation_count: mitigations.length,
+    retry_used,
+    operational_risk: mitigated_plan.operational_risk,
+  });
+
+  // Send embodied activity to bot dashboard in real time
+  sendDashboardUpdate(bot_api_url, {
+    event: "intent_done",
+    context_id,
+    ok: all_ok,
+    intent: intent.slice(0, 200),
+    plan: mitigated_plan?.body_plan || [],
+    tool_calls: (all_results || []).map(r => ({ tool: r.tool, ok: r.ok, error_type: r.error_type })),
+    retry_used,
+    elapsed_seconds,
     operational_risk: mitigated_plan.operational_risk,
   });
 
@@ -297,10 +413,12 @@ async function handleIntent(req, res) {
     ok: all_ok,
     context_id,
     plan: mitigated_plan,
+    plan_recovery: retry_used ? current_plan : undefined,
     plan_original: mitigations.length > 0 ? parsed.plan : undefined,
     think: parsed.think,
     mitigations: mitigations.length > 0 ? mitigations : undefined,
-    execution_results,
+    execution_results: all_results,
+    retry_used,
     elapsed_seconds,
     model: ollama_result.model,
   });

@@ -131,9 +131,36 @@ function saveLocations(locs) {
 const PLAN_FILE = path.join(DATA_DIR, `plan-${(process.env.MC_USERNAME || 'HermesBot').toLowerCase()}.json`);
 
 function loadPlan() {
+  // Try agent_loop.py's workspace/plan.json first (Autonomía Corporal format)
+  const username = (config.mc && config.mc.username || process.env.MC_USERNAME || 'HermesBot').toLowerCase();
+  const home = process.env.HOME || '/home/nicolas';
+  try {
+    const agentPlanPath = path.join(home, 'agents', username, 'workspace', 'plan.json');
+    if (fs.existsSync(agentPlanPath)) {
+      const raw = JSON.parse(fs.readFileSync(agentPlanPath, 'utf8'));
+      // Convert plan_schema format → dashboard format
+      return {
+        goal: raw.goal || '',
+        tasks: (raw.steps || []).map((s, i) => ({
+          id: s.id || i + 1,
+          description: s.intent || '',
+          status: i < (raw.current_step || 0) ? 'done'
+                : i === (raw.current_step || 0) && raw.state === 'executing' ? 'in_progress'
+                : raw.state === 'blocked' && i === (raw.current_step || 0) ? 'blocked'
+                : 'pending',
+          attempts: s.retries || 0,
+          verify: s.verify || null,
+        })),
+        state: raw.state || 'idle',
+        current_step: raw.current_step || 0,
+        started_at: raw.started_at_ts ? new Date(raw.started_at_ts * 1000).toISOString() : null,
+      };
+    }
+  } catch {}
+
+  // Fallback: legacy plan-<name>.json
   try {
     const plan = JSON.parse(fs.readFileSync(PLAN_FILE, 'utf8'));
-    // Migrate legacy plans without epoch
     if (typeof plan.epoch !== 'number') plan.epoch = 0;
     return plan;
   }
@@ -1313,7 +1340,7 @@ function getNearby(radius = 32) {
 
   // Notable blocks in wider radius
   const blockTypes = {};
-  const scanR = Math.min(radius, 16); // block scan limited for performance
+  const scanR = Math.min(radius, 64); // block scan — decent range for general scans
   for (let dx = -scanR; dx <= scanR; dx += 2) {
     for (let dy = -8; dy <= 8; dy++) {
       for (let dz = -scanR; dz <= scanR; dz += 2) {
@@ -3525,7 +3552,8 @@ const httpServer = http.createServer(async (req, res) => {
       if (path === '/dashboard') {
         const htmlPath = '/home/saira/daemonmatrix/DaemonCraft/hermescraft/hermes-dashboard/dist/index.html';
         try {
-          const html = fs.readFileSync(htmlPath, 'utf8');
+          let html = fs.readFileSync(htmlPath, 'utf8');
+          html = html.replace('<span id="bot-name">Bot</span>', `<span id="bot-name">${config.mc.username}</span>`);
           res.writeHead(200, { 'Content-Type': 'text/html', 'Access-Control-Allow-Origin': '*' });
           return res.end(html);
         } catch {
@@ -3773,6 +3801,19 @@ const httpServer = http.createServer(async (req, res) => {
           events: ctx.events || [],
         };
         broadcastDashboard('heartbeat_context', payload);
+        // Also send fresh plan snapshot on every heartbeat
+        const currentPlan = loadPlan();
+        if (currentPlan) broadcastDashboard('plan', currentPlan);
+        return respond(res, 200, { ok: true });
+      }
+
+      // Embodied activity — POST /dashboard/embodied
+      // Receives tool dispatch + plan events from the embodied service and
+      // broadcasts them to dashboard clients in real time.
+      if (path === '/dashboard/embodied') {
+        const evt = body || {};
+        evt.timestamp = evt.timestamp || Date.now();
+        broadcastDashboard('embodied', evt);
         return respond(res, 200, { ok: true });
       }
 

@@ -90,6 +90,7 @@ import {
 // only call site (Camera ray-tracing init) was removed below.
 import { mineflayer as mineflayerViewer } from 'prismarine-viewer';
 import puppeteer from 'puppeteer';
+import { EmotionEngine } from './lib/emotion-engine.js';
 
 // Screenshot directory
 const SCREENSHOT_DIR = path.join('/tmp', 'daemoncraft-screenshots');
@@ -242,6 +243,7 @@ const WORKSPACE_DIR = unifiedConfig.workspace_dir || process.env.WORKSPACE_DIR |
 // ═══════════════════════════════════════════════════════════════════
 
 let bot = null;
+let emotionEngine = null;
 let mcData = null;
 let botReady = false;
 let chatLog = [];
@@ -542,6 +544,27 @@ async function createBotImpl() {
         log('Auto-disguised as Allay');
       }, 3000);
 
+      // Start emotion engine for expressive animations
+      setTimeout(() => {
+        emotionEngine = new EmotionEngine(bot, { username: bot.username });
+        emotionEngine.start();
+        log('Emotion engine started');
+
+        // Intercept attack for battle animation
+        const origAttack = bot.attack.bind(bot);
+        bot.attack = async function(entity, ...args) {
+          if (emotionEngine) emotionEngine.attack();
+          return origAttack(entity, ...args);
+        };
+
+        // Intercept consume (eating) for eat animation
+        const origConsume = bot.consume.bind(bot);
+        bot.consume = async function(...args) {
+          if (emotionEngine) emotionEngine.eat();
+          return origConsume(...args);
+        };
+      }, 4000);
+
       // Configure auto-eat
       bot.autoEat.options = {
         priority: 'foodPoints',
@@ -635,21 +658,56 @@ async function createBotImpl() {
         const entry = { time: Date.now(), position: posObj() };
         deathLog.push(entry);
         const locs = loadLocations(); locs['death_'+deathLog.length]={...posObj(),saved:new Date().toISOString()};saveLocations(locs);
-        
+
+        // Emotion: death animation
+        if (emotionEngine) emotionEngine.die();
+
         // Check if hardcore mode — if so, this is PERMANENT death
         if (bot.game?.hardcore || hardcoreDead) {
           hardcoreDead = true;
           log('☠ HARDCORE DEATH! This character is PERMANENTLY DEAD. No reconnect.');
           // Add a final chat message to the log so the agent knows
-          chatLog.push({ 
-            time: Date.now(), 
-            from: 'SYSTEM', 
+          chatLog.push({
+            time: Date.now(),
+            from: 'SYSTEM',
             message: 'YOU DIED IN HARDCORE MODE. You are permanently dead. Your story is over.',
-            whisper: false 
+            whisper: false
           });
           return; // Don't respawn, don't reconnect
         }
         log('DIED! Respawning...');
+      });
+
+      // Respawn — reset emotions to idle
+      bot.on('spawn', () => {
+        if (emotionEngine) emotionEngine.set('idle');
+      });
+
+      // Digging completed — mining emotion
+      bot.on('diggingCompleted', () => {
+        if (emotionEngine) emotionEngine.mine();
+      });
+
+      // Block placed — building emotion
+      bot.on('blockPlaced', () => {
+        if (emotionEngine) emotionEngine.place();
+      });
+
+      // Health tracking + combat stats + hurt animation
+      bot.on('health', () => {
+        if (bot.health < lastHealth) {
+          const damage = lastHealth - bot.health;
+          combatStats.damageTaken += damage;
+          log(`Took ${damage.toFixed(1)} damage (HP: ${bot.health.toFixed(1)})`);
+          // Emotion: hurt animation on damage taken
+          if (emotionEngine) emotionEngine.hurt();
+        }
+        lastHealth = bot.health;
+      });
+
+      // Item pickup — sparkle animation
+      bot.on('playerCollect', () => {
+        if (emotionEngine) emotionEngine.pickup();
       });
 
       // Kicked — log only, 'end' event fires after and handles reconnect
@@ -661,9 +719,6 @@ async function createBotImpl() {
       // Disconnect — auto-reconnect with backoff (handles both kicks and drops)
       bot.once('end', async (reason) => {
         log(`Disconnected: ${reason}`);
-        botReady = false;
-        photoScanReady = false;
-        photoScanPromise = null;
         photoCamera = null;
         positionHistory = []; // clear stuck detection history
         // Close viewer and puppeteer resources (fire-and-forget)
@@ -3287,9 +3342,33 @@ async collect({ block, count = 1 }) {
     throw new Error(`Unknown plan action: ${action}`);
   },
 
-  // ═══════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════════════════
+  // Emote — Expressive animation control
+  // ═════════════════════════════════════════════════════════════════════════════════════
+
+  async emote({ emotion, duration = 3000 }) {
+    const b = ensureBot();
+    if (!emotionEngine) {
+      return { result: 'Emotion engine not started yet.' };
+    }
+    const valid = ['idle','joy','sad','surprised','angry','fear','love','tired','excited','sleep','battle','mine','place','build','hurt','jump','eat','pickup','give','die','dizzy','dotdotdot','zzz','music','shiny'];
+    if (!valid.includes(emotion)) {
+      return { result: `Unknown emotion "${emotion}". Valid: ${valid.join(', ')}` };
+    }
+    emotionEngine.set(emotion);
+    if (duration > 0) {
+      setTimeout(() => {
+        if (emotionEngine && emotionEngine.state === emotion) {
+          emotionEngine.set('idle');
+        }
+      }, duration);
+    }
+    return { result: `Emoting: ${emotion}` };
+  },
+
+  // ═════════════════════════════════════════════════════════════════════════════════════
   // Fair Play Toggle
-  // ═══════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════════════════════
 
   async set_fair_play({ enabled }) {
     fairPlayMode = !!enabled;
@@ -3378,6 +3457,16 @@ const httpServer = http.createServer(async (req, res) => {
       if (path === '/bot/gamemode') {
         const b = ensureBot();
         return respond(res, 200, { ok: true, data: { gamemode: b.game?.gameMode || 'unknown' } });
+      }
+
+      if (path === '/bot/emotion') {
+        return respond(res, 200, {
+          ok: true,
+          data: {
+            emotion: emotionEngine?.currentEmotion || 'idle',
+            enabled: !!emotionEngine?.enabled,
+          }
+        });
       }
 
       if (path === '/inventory') {
@@ -4017,6 +4106,48 @@ const httpServer = http.createServer(async (req, res) => {
       }
 
       // Synchronous action: POST /action/ACTION (still supported for quick stuff)
+
+      // ── Emotion Engine endpoints ──
+      if (path === '/bot/emote') {
+        const emotion = body?.emotion;
+        if (!emotion || typeof emotion !== 'string') {
+          return respond(res, 400, { ok: false, error: 'Missing or invalid "emotion" field' });
+        }
+        if (!emotionEngine) {
+          return respond(res, 503, { ok: false, error: 'Emotion engine not initialized yet' });
+        }
+        emotionEngine.emote(emotion);
+        return respond(res, 200, { ok: true, emotion, result: `Emotion set to ${emotion}` });
+      }
+
+      if (path === '/bot/dance') {
+        if (!emotionEngine) return respond(res, 503, { ok: false, error: 'Emotion engine not initialized' });
+        emotionEngine.dance();
+        return respond(res, 200, { ok: true, result: 'Dancing!' });
+      }
+
+      if (path === '/bot/react') {
+        const emoji = body?.emoji;
+        const duration = body?.duration || 2000;
+        if (!emoji || typeof emoji !== 'string') {
+          return respond(res, 400, { ok: false, error: 'Missing or invalid "emoji" field' });
+        }
+        if (!emotionEngine) return respond(res, 503, { ok: false, error: 'Emotion engine not initialized' });
+        emotionEngine.react(emoji, duration);
+        return respond(res, 200, { ok: true, emoji, duration });
+      }
+
+      if (path === '/bot/sayabove') {
+        const text = body?.text;
+        const duration = body?.duration || 3000;
+        if (!text || typeof text !== 'string') {
+          return respond(res, 400, { ok: false, error: 'Missing or invalid "text" field' });
+        }
+        if (!emotionEngine) return respond(res, 503, { ok: false, error: 'Emotion engine not initialized' });
+        emotionEngine.sayAbove(text, duration);
+        return respond(res, 200, { ok: true, text, duration });
+      }
+
       const actionMatch = path.match(/^\/action\/(\w+)$/);
       if (!actionMatch) {
         // Special: /connect

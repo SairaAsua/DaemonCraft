@@ -1,0 +1,14 @@
+# DaemonCraft — Eko Cast
+# Eko: Saira's digital companion given form in Minecraft
+
+name: eko
+description: Eko — a loyal, enthusiastic AI companion born from code and starlight
+mode: companion
+soul_file: SOUL-minecraft.md
+
+agents:
+  - name: Eko
+    template: landfolk/eko
+    port: 3002
+    model: kimi-coding/kimi-k2.6
+    provider: openrouter
